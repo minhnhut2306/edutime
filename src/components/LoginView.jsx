@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Calendar, Eye, EyeOff, AlertCircle, Loader } from 'react-feather';
 import { useAuth } from '../hooks/useAuth';
 
-const LoginView = ({ onLogin }) => {
+const LoginView = ({ onLogin, onShowRegister }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -90,6 +90,23 @@ const LoginView = ({ onLogin }) => {
             ) : (
               'Đăng nhập'
             )}
+          </button>
+
+          <div className="relative my-6">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-gray-300"></div>
+            </div>
+            <div className="relative flex justify-center text-sm">
+              <span className="px-2 bg-white text-gray-500">hoặc</span>
+            </div>
+          </div>
+
+          <button
+            onClick={onShowRegister}
+            disabled={loading}
+            className="w-full bg-gray-100 text-gray-700 py-3 rounded-lg hover:bg-gray-200 font-medium disabled:bg-gray-300 disabled:cursor-not-allowed"
+          >
+            Đăng ký tài khoản mới
           </button>
         </div>
       </div>

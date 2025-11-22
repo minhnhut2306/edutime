@@ -1,22 +1,58 @@
 import React from 'react';
-import { Edit2, Download } from 'react-feather';
+import { Edit2, Download, AlertCircle } from 'react-feather';
 
+const TeacherDashboardView = ({ teacher, teachingRecords = [], classes = [], subjects = [] }) => {
+  // Kiểm tra nếu teacher chưa được liên kết
+  if (!teacher) {
+    return (
+      <div className="space-y-6">
+        <div className="bg-yellow-50 border-l-4 border-yellow-400 p-6 rounded-lg">
+          <div className="flex items-center gap-3">
+            <AlertCircle size={24} className="text-yellow-600" />
+            <div>
+              <p className="font-medium text-yellow-900">Tài khoản chưa được liên kết</p>
+              <p className="text-sm text-yellow-700 mt-1">
+                Tài khoản của bạn chưa được liên kết với giáo viên nào trong hệ thống.
+                Vui lòng liên hệ Admin để được phân quyền!
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
-const TeacherDashboardView = ({ teacher, teachingRecords, classes, subjects }) => {
-  const myRecords = teachingRecords.filter(r => r.teacherId === teacher.id);
+  const teacherId = teacher._id || teacher.id;
+  const myRecords = (teachingRecords || []).filter(r => {
+    const recordTeacherId = r.teacherId?._id || r.teacherId;
+    return recordTeacherId === teacherId || recordTeacherId?.toString() === teacherId?.toString();
+  });
   const totalPeriods = myRecords.reduce((sum, r) => sum + (r.periods || 0), 0);
 
   const today = new Date();
   const currentMonth = today.getMonth();
   const monthRecords = myRecords.filter(r => {
-    const recordDate = new Date(r.date);
+    const recordDate = new Date(r.date || r.createdAt);
     return recordDate.getMonth() === currentMonth;
   });
   const monthPeriods = monthRecords.reduce((sum, r) => sum + (r.periods || 0), 0);
 
-  const mainClass = classes.find(c => c.id === teacher.mainClassId);
+  const mainClassId = teacher.mainClassId?._id || teacher.mainClassId;
+  const mainClass = (classes || []).find(c => {
+    const classId = c._id || c.id;
+    return classId === mainClassId || classId?.toString() === mainClassId?.toString();
+  });
+
   const teacherSubjects = (teacher.subjectIds || [])
-    .map(sid => subjects.find(s => s.id === sid)?.name)
+    .map(sid => {
+      const subjectId = typeof sid === 'object' ? (sid._id || sid.id || sid.name) : sid;
+      if (typeof sid === 'object' && sid.name) return sid.name;
+      const subject = (subjects || []).find(s => {
+        const sId = s._id || s.id;
+        return sId === subjectId || sId?.toString() === subjectId?.toString();
+      });
+      return subject?.name;
+    })
     .filter(Boolean)
     .join(', ') || 'Chưa có';
 
@@ -68,8 +104,8 @@ const TeacherDashboardView = ({ teacher, teachingRecords, classes, subjects }) =
               <Download size={16} className="text-green-600" />
             </div>
             <div>
-              <p className="font-medium">Xuất báo cáo Excel</p>
-              <p className="text-sm text-gray-600">Vào mục "Báo cáo" để xuất file Excel theo mẫu</p>
+              <p className="font-medium">Xem báo cáo</p>
+              <p className="text-sm text-gray-600">Vào mục "Báo cáo" để xem thống kê tiết dạy của bạn</p>
             </div>
           </div>
         </div>

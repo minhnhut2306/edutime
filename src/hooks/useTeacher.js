@@ -27,10 +27,11 @@ export const useTeacher = () => {
       return {
         success: false,
         message: errorMessage,
-        teachers: [], // đảm bảo là array khi lỗi
+        teachers: [],
       };
     }
   };
+
   const addTeacher = async (teacherData) => {
     setLoading(true);
     setError(null);
@@ -56,6 +57,7 @@ export const useTeacher = () => {
       };
     }
   };
+
   const deleteTeacher = async (teacherId) => {
     setLoading(true);
     setError(null);
@@ -81,6 +83,7 @@ export const useTeacher = () => {
       };
     }
   };
+
   const updateTeacher = async (teacherId, teacherData) => {
     setLoading(true);
     setError(null);
@@ -106,15 +109,40 @@ export const useTeacher = () => {
       };
     }
   };
+
+  const updateTeacherUserId = async (teacherId, userId) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await teacherAPI.updateTeacherUserId(teacherId, userId);
+      if (response.code === 200) {
+        setLoading(false);
+        return {
+          success: true,
+          teacher: response.data,
+        };
+      } else {
+        throw new Error(response.msg || "Cập nhật userId thất bại");
+      }
+    } catch (error) {
+      const errorMessage =
+        error.response?.data?.msg || error.message || "Có lỗi xảy ra";
+      setError(errorMessage);
+      setLoading(false);
+      return {
+        success: false,
+        message: errorMessage,
+      };
+    }
+  };
+
   const importTeachers = async (file) => {
     setLoading(true);
     setError(null);
     try {
       const response = await teacherAPI.importTeachers(file);
-      console.log("Full API response:", response); // Log để debug
       setLoading(false);
 
-      // Response có thể là response.data trực tiếp hoặc response
       const data = response.data || response;
 
       if (response.code === 200 || response.code === 201) {
@@ -126,7 +154,6 @@ export const useTeacher = () => {
         throw new Error(response.msg || "Import giáo viên thất bại");
       }
     } catch (error) {
-      console.log("Import error:", error);
       const errorMessage =
         error.response?.data?.msg || error.message || "Có lỗi xảy ra";
       setError(errorMessage);
@@ -143,6 +170,7 @@ export const useTeacher = () => {
     addTeacher,
     deleteTeacher,
     updateTeacher,
+    updateTeacherUserId,
     importTeachers,
     loading,
     error,

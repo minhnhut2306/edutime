@@ -8,18 +8,27 @@ export const teacherAPI = {
     const token = localStorage.getItem("token");
     return await apiRequest(`teachers`, "GET", {}, token);
   },
+  
   addTeacher: async (teacherData) => {
     const token = localStorage.getItem("token");
     return await apiRequest(`teachers`, "POST", teacherData, token);
   },
+  
   deleteTeacher: async (teacherId) => {
     const token = localStorage.getItem("token");
     return await apiRequest(`teachers/${teacherId}`, "DELETE", {}, token);
   },
+  
   updateTeacher: async (teacherId, teacherData) => {
     const token = localStorage.getItem("token");
     return await apiRequest(`teachers/${teacherId}`, "PUT", teacherData, token);
   },
+  
+  updateTeacherUserId: async (teacherId, userId) => {
+    const token = localStorage.getItem("token");
+    return await apiRequest(`teachers/${teacherId}/user`, "PUT", { userId }, token);
+  },
+  
   importTeachers: async (file) => {
     const token = localStorage.getItem("token");
     const formData = new FormData();

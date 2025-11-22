@@ -37,6 +37,34 @@ export const useAuth = () => {
     }
   };
 
+  const register = async (email, password) => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      const response = await authAPI.register(email, password);
+
+      if (response.code === 201 || response.code === 200) {
+        setLoading(false);
+        return {
+          success: true,
+          user: response.data,
+        };
+      } else {
+        throw new Error(response.msg || "Đăng ký thất bại");
+      }
+    } catch (err) {
+      const errorMessage =
+        err.response?.data?.msg || err.message || "Có lỗi xảy ra";
+      setError(errorMessage);
+      setLoading(false);
+      return {
+        success: false,
+        message: errorMessage,
+      };
+    }
+  };
+
   const logout = async () => {
     setLoading(true);
     setError(null);
@@ -105,6 +133,7 @@ export const useAuth = () => {
       };
     }
   };
+
   const updateUserRole = async (userId, role) => {
     setLoading(true);
     setError(null);
@@ -149,9 +178,9 @@ export const useAuth = () => {
     }
   };
 
-  // Export thêm
   return {
     login,
+    register,
     logout,
     fetchAllUsers,
     updateUserRole,

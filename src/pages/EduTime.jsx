@@ -9,6 +9,9 @@ import SubjectsView from '../components/SubjectsView';
 import TeachingInputView from '../components/TeachingInputView';
 import UserManagementView from '../components/UserManagementView';
 import LoginView from '../components/LoginView';
+import RegisterView from '../components/RegisterView';
+import SelectTeacherView from '../components/SelectTeacherView';
+import SchoolYearSetupView from '../components/SchoolYearSetupView';
 import ReportView from '../components/ReportView';
 import WeeksView from '../components/WeeksView';
 import TeacherDashboardView from '../components/TeacherDashboardView';
@@ -24,6 +27,9 @@ const EduTime = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
   const [currentView, setCurrentView] = useState('dashboard');
+  const [showRegister, setShowRegister] = useState(false);
+  const [needsTeacherSelection, setNeedsTeacherSelection] = useState(false);
+  const [needsSchoolYearSetup, setNeedsSchoolYearSetup] = useState(false);
   // eslint-disable-next-line no-unused-vars
   const [authToken, setAuthToken] = useState(null);
   const { logout } = useAuth();
@@ -67,12 +73,66 @@ const EduTime = () => {
     }
   }, []);
 
+  // Check if user needs to select teacher (non-admin only)
+  useEffect(() => {
+    if (isLoggedIn && currentUser && currentUser.role !== 'admin') {
+      checkTeacherSelection();
+    }
+  }, [isLoggedIn, currentUser]);
+
+  // Check if system needs school year setup (CHỈ KHI CHƯA CÓ NĂM HỌC NÀO)
+  useEffect(() => {
+    if (isLoggedIn && currentUser) {
+      checkSchoolYearSetup();
+    }
+  }, [isLoggedIn, currentUser]);
+
+  const checkTeacherSelection = async () => {
+    try {
+      const result = await fetchTeachers();
+      if (result.success) {
+        const userId = currentUser._id || currentUser.id;
+        const linkedTeacher = result.teachers.find(t => 
+          t.userId && (t.userId._id === userId || t.userId === userId)
+        );
+        
+        if (!linkedTeacher) {
+          setNeedsTeacherSelection(true);
+        }
+      }
+    } catch (err) {
+      console.error('Error checking teacher selection:', err);
+    }
+  };
+
+  const checkSchoolYearSetup = async () => {
+    try {
+      const result = await getActiveSchoolYear();
+      
+      // NẾU CÓ năm học active → Không cần setup
+      if (result.success && result.schoolYear) {
+        setNeedsSchoolYearSetup(false);
+        return;
+      }
+      
+      // NẾU CHƯA CÓ năm học nào → Kiểm tra role
+      // Admin: Cho phép tạo năm học
+      // User: Hiển thị thông báo chờ admin
+      setNeedsSchoolYearSetup(true);
+      
+    } catch (err) {
+      console.error('Error checking school year:', err);
+      // Nếu lỗi (có thể do chưa có năm học) → Set true
+      setNeedsSchoolYearSetup(true);
+    }
+  };
+
   // Load all data when logged in
   useEffect(() => {
-    if (isLoggedIn) {
+    if (isLoggedIn && !needsTeacherSelection && !needsSchoolYearSetup) {
       loadAllData();
     }
-  }, [isLoggedIn, viewingYear]);
+  }, [isLoggedIn, viewingYear, needsTeacherSelection, needsSchoolYearSetup]);
 
   const loadAllData = async () => {
     setLoading(true);
@@ -189,6 +249,8 @@ const EduTime = () => {
       setIsLoggedIn(false);
       setAuthToken(null);
       setCurrentView('dashboard');
+      setNeedsTeacherSelection(false);
+      setNeedsSchoolYearSetup(false);
       
       // Clear data
       setTeachers([]);
@@ -209,8 +271,52 @@ const EduTime = () => {
     }
   };
 
+  const handleSchoolYearCreated = (newSchoolYear) => {
+    setSchoolYear(newSchoolYear);
+    setViewingYear(newSchoolYear.year);
+    setNeedsSchoolYearSetup(false);
+  };
+
+  // Show register view
+  if (showRegister) {
+    return (
+      <RegisterView 
+        onBackToLogin={() => setShowRegister(false)}
+      />
+    );
+  }
+
+  // Show login view
   if (!isLoggedIn) {
-    return <LoginView onLogin={handleLogin} />;
+    return (
+      <LoginView 
+        onLogin={handleLogin}
+        onShowRegister={() => setShowRegister(true)}
+      />
+    );
+  }
+
+  // Show teacher selection for non-admin users without linked teacher
+  if (needsTeacherSelection) {
+    return (
+      <SelectTeacherView
+        currentUser={currentUser}
+        onTeacherSelected={() => {
+          setNeedsTeacherSelection(false);
+          window.location.reload();
+        }}
+      />
+    );
+  }
+
+  // Show school year setup if no active year exists
+  if (needsSchoolYearSetup) {
+    return (
+      <SchoolYearSetupView
+        currentUser={currentUser}
+        onSchoolYearCreated={handleSchoolYearCreated}
+      />
+    );
   }
 
   if (loading) {

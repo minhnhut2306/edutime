@@ -41,10 +41,16 @@ export const useSchoolYear = () => {
         setLoading(false);
         return {
           success: true,
-          schoolYear: response.data,
+          schoolYear: response.data, // Trả về object schoolYear
         };
       } else {
-        throw new Error(response.msg || "Lấy năm học hiện tại thất bại");
+        // 404 - Chưa có năm học active
+        setLoading(false);
+        return {
+          success: false,
+          message: response.msg || "Chưa có năm học active",
+          schoolYear: null,
+        };
       }
     } catch (error) {
       const errorMessage =
@@ -95,7 +101,7 @@ export const useSchoolYear = () => {
         setLoading(false);
         return {
           success: true,
-          schoolYear: response.data,
+          schoolYear: response.data, // Trả về object schoolYear
         };
       } else {
         throw new Error(response.msg || "Tạo năm học thất bại");
