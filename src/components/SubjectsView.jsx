@@ -1,39 +1,98 @@
+import React, { useState, useEffect } from 'react';
+import { Trash2, Plus, Loader, X } from 'react-feather';
+import { useSubjects } from '../hooks/useSubjects';
 
-import React from 'react';
-import { Trash2, Plus } from 'react-feather';
-
-
-const SubjectsView = ({ subjects, setSubjects, currentUser }) => {
+const SubjectsView = ({ currentUser }) => {
+  const [subjects, setSubjects] = useState([]);
+  const [showModal, setShowModal] = useState(false);
+  const [subjectName, setSubjectName] = useState('');
+  const { fetchSubjects, addSubject, deleteSubject, loading, error } = useSubjects();
   const isAdmin = currentUser.role === 'admin';
 
-  const handleAdd = () => {
-    const name = prompt('Nhập tên môn học:');
-    if (name) {
-      const newSubject = {
-        id: `MH${String(subjects.length + 1).padStart(3, '0')}`,
-        name
-      };
-      setSubjects([...subjects, newSubject]);
+  useEffect(() => {
+    loadSubjects();
+  }, []);
+
+  const loadSubjects = async () => {
+    const result = await fetchSubjects();
+    if (result.success) {
+      setSubjects(result.subjects);
     }
   };
 
-  const handleDelete = (id) => {
-    if (confirm('Xóa môn học này?')) {
-      setSubjects(subjects.filter(s => s.id !== id));
+  const handleOpenModal = () => {
+    setSubjectName('');
+    setShowModal(true);
+  };
+
+  const handleCloseModal = () => {
+    setShowModal(false);
+    setSubjectName('');
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    
+    if (!subjectName.trim()) {
+      alert('Vui lòng nhập tên môn học');
+      return;
+    }
+
+    const result = await addSubject({ name: subjectName.trim() });
+    if (result.success) {
+      await loadSubjects();
+      handleCloseModal();
+      alert('Thêm môn học thành công!');
+    } else {
+      alert(result.message || 'Thêm môn học thất bại');
     }
   };
+
+  const handleDelete = async (subjectId) => {
+    if (!confirm('Xóa môn học này?')) return;
+
+    const result = await deleteSubject(subjectId);
+    if (result.success) {
+      await loadSubjects();
+      alert('Xóa môn học thành công!');
+    } else {
+      alert(result.message || 'Xóa môn học thất bại');
+    }
+  };
+
+  const generateSubjectCode = (index) => {
+    return `MH${String(index + 1).padStart(3, '0')}`;
+  };
+
+  if (loading && subjects.length === 0) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <Loader className="animate-spin" size={32} />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold">Quản lý Môn học</h2>
         {isAdmin && (
-          <button onClick={handleAdd} className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">
-            <Plus size={20} />
+          <button 
+            onClick={handleOpenModal} 
+            disabled={loading}
+            className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {loading ? <Loader className="animate-spin" size={20} /> : <Plus size={20} />}
             Thêm
           </button>
         )}
       </div>
+
+      {error && (
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+          {error}
+        </div>
+      )}
 
       <div className="bg-white rounded-xl shadow-lg overflow-hidden">
         <table className="w-full">
@@ -45,23 +104,88 @@ const SubjectsView = ({ subjects, setSubjects, currentUser }) => {
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200">
-            {subjects.map((subject) => (
-              <tr key={subject.id} className="hover:bg-gray-50">
-                <td className="px-6 py-4 text-sm font-medium text-gray-900">{subject.id}</td>
-                <td className="px-6 py-4 text-sm text-gray-900">{subject.name}</td>
-                {isAdmin && (
-                  <td className="px-6 py-4 text-sm">
-                    <button onClick={() => handleDelete(subject.id)} className="text-red-600 hover:text-red-800">
-                      <Trash2 size={16} />
-                    </button>
-                  </td>
-                )}
+            {subjects.length === 0 ? (
+              <tr>
+                <td colSpan={isAdmin ? 3 : 2} className="px-6 py-8 text-center text-gray-500">
+                  Chưa có môn học nào
+                </td>
               </tr>
-            ))}
+            ) : (
+              subjects.map((subject, index) => (
+                <tr key={subject._id} className="hover:bg-gray-50">
+                  <td className="px-6 py-4 text-sm font-medium text-gray-900">
+                    {generateSubjectCode(index)}
+                  </td>
+                  <td className="px-6 py-4 text-sm text-gray-900">{subject.name}</td>
+                  {isAdmin && (
+                    <td className="px-6 py-4 text-sm">
+                      <button 
+                        onClick={() => handleDelete(subject._id)} 
+                        disabled={loading}
+                        className="text-red-600 hover:text-red-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </td>
+                  )}
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       </div>
+
+      {/* Modal Thêm Môn Học */}
+      {showModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md mx-4">
+            <div className="flex items-center justify-between px-6 py-4 border-b">
+              <h3 className="text-lg font-semibold text-gray-900">Thêm môn học mới</h3>
+              <button 
+                onClick={handleCloseModal}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <X size={24} />
+              </button>
+            </div>
+            
+            <form onSubmit={handleSubmit} className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Tên môn học <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={subjectName}
+                  onChange={(e) => setSubjectName(e.target.value)}
+                  placeholder=""
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors"
+                  autoFocus
+                />
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <button
+                  type="button"
+                  onClick={handleCloseModal}
+                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  Hủy
+                </button>
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  {loading ? 'Đang thêm...' : 'Thêm môn'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
+
 export default SubjectsView;

@@ -12,68 +12,128 @@ import LoginView from '../components/LoginView';
 import ReportView from '../components/ReportView';
 import WeeksView from '../components/WeeksView';
 import TeacherDashboardView from '../components/TeacherDashboardView';
+import { useAuth } from '../hooks/useAuth';
+import { useTeacher } from '../hooks/useTeacher';
+import { useClasses } from '../hooks/useClasses';
+import { useSubjects } from '../hooks/useSubjects';
+import { useWeeks } from '../hooks/useWeek';
+import { useTeachingRecord } from '../hooks/useTeachingRecord';
+import { useSchoolYear } from '../hooks/useSchoolYear';
 
-
-// ==================== MAIN APP ====================
 const EduTime = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
   const [currentView, setCurrentView] = useState('dashboard');
+  // eslint-disable-next-line no-unused-vars
+  const [authToken, setAuthToken] = useState(null);
+  const { logout } = useAuth();
 
-  const [users, setUsers] = useState([
-    { username: 'admin', password: 'admin123', name: 'Quản trị viên', email: 'admin@school.edu.vn', role: 'admin', status: 'approved' },
-    { username: 'gv001', password: 'gv123', name: 'Trần Lương Quốc Thạnh', email: 'nva@school.edu.vn', role: 'teacher', status: 'approved', allowedGrades: [] }
-  ]);
+  // Hooks
+  const { fetchTeachers } = useTeacher();
+  const { fetchClasses } = useClasses();
+  const { fetchSubjects } = useSubjects();
+  const { fetchWeeks } = useWeeks();
+  const { fetchTeachingRecords } = useTeachingRecord();
+  const { getActiveSchoolYear, fetchSchoolYears } = useSchoolYear();
 
-  const [schoolYear, setSchoolYear] = useState('2024-2025');
-  const [viewingYear, setViewingYear] = useState('2024-2025');
+  const [users, setUsers] = useState([]);
+  const [schoolYear, setSchoolYear] = useState(null);
+  const [viewingYear, setViewingYear] = useState(null);
   const [archivedYears, setArchivedYears] = useState([]);
 
-  const [teachers, setTeachers] = useState([
-    { id: 'GV001', name: 'Nguyễn Văn A', email: 'nva@school.edu.vn', phone: '0901234567', subjectIds: ['MH001'], mainClassId: 'L001', userId: 'gv001' }
-  ]);
-  const [classes, setClasses] = useState([
-    { id: 'L001', name: '10A1', grade: '10', studentCount: 35 },
-    { id: 'L002', name: '10A2', grade: '10', studentCount: 34 },
-    { id: 'L003', name: '11A1', grade: '11', studentCount: 36 }
-  ]);
-  const [subjects, setSubjects] = useState([
-    { id: 'MH001', name: 'Toán' },
-    { id: 'MH002', name: 'Văn' },
-    { id: 'MH003', name: 'Anh' }
-  ]);
+  const [teachers, setTeachers] = useState([]);
+  const [classes, setClasses] = useState([]);
+  const [subjects, setSubjects] = useState([]);
   const [weeks, setWeeks] = useState([]);
   const [teachingRecords, setTeachingRecords] = useState([]);
+  const [loading, setLoading] = useState(false);
 
+  // Check login status on mount
   useEffect(() => {
-    loadAllData();
-  }, [viewingYear]);
+    const token = localStorage.getItem('token');
+    const userStr = localStorage.getItem('user');
+
+    if (token && userStr) {
+      try {
+        const user = JSON.parse(userStr);
+        setCurrentUser(user);
+        setAuthToken(token);
+        setIsLoggedIn(true);
+      } catch (err) {
+        console.error('Invalid stored user data:', err);
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+      }
+    }
+  }, []);
+
+  // Load all data when logged in
+  useEffect(() => {
+    if (isLoggedIn) {
+      loadAllData();
+    }
+  }, [isLoggedIn, viewingYear]);
 
   const loadAllData = async () => {
-    const key = `edutime_year_${viewingYear}`;
-    const data = await StorageService.loadData(key);
+    setLoading(true);
+    try {
+      // Load school year
+      const activeYearResult = await getActiveSchoolYear();
+      if (activeYearResult.success && activeYearResult.schoolYear) {
+        setSchoolYear(activeYearResult.schoolYear);
+        if (!viewingYear) {
+          setViewingYear(activeYearResult.schoolYear.year);
+        }
+      }
 
-    if (data) {
-      setTeachers(data.teachers || []);
-      setClasses(data.classes || []);
-      setSubjects(data.subjects || []);
-      setWeeks(data.weeks || []);
-      setTeachingRecords(data.teachingRecords || []);
-    }
+      // Load archived years
+      const yearsResult = await fetchSchoolYears();
+      if (yearsResult.success) {
+        setArchivedYears(yearsResult.schoolYears.map(y => y.year));
+      }
 
-    const usersData = await StorageService.loadData('edutime_users');
-    if (usersData) {
-      setUsers(usersData);
-    }
+      // Load teachers
+      const teachersResult = await fetchTeachers();
+      if (teachersResult.success) {
+        setTeachers(teachersResult.teachers);
+      }
 
-    // Load danh sách năm học (CÁCH MỚI)
-    const years = await StorageService.getSchoolYearsList();
-    if (years.length === 0) {
-      // Nếu chưa có năm nào, thêm năm hiện tại
-      await StorageService.addSchoolYear(viewingYear);
-      setArchivedYears([viewingYear]);
-    } else {
-      setArchivedYears(years);
+      // Load classes
+      const classesResult = await fetchClasses();
+      if (classesResult.success) {
+        setClasses(classesResult.classes);
+      }
+
+      // Load subjects
+      const subjectsResult = await fetchSubjects();
+      if (subjectsResult.success) {
+        setSubjects(subjectsResult.subjects);
+      }
+
+      // Load weeks
+      const weeksResult = await fetchWeeks({ schoolYear: viewingYear });
+      if (weeksResult.success) {
+        setWeeks(weeksResult.weeks);
+      }
+
+      // Load teaching records
+      const recordsResult = await fetchTeachingRecords({ schoolYear: viewingYear });
+      if (recordsResult.success) {
+        setTeachingRecords(recordsResult.records);
+      }
+
+      // Load users (for admin)
+      if (currentUser?.role === 'admin') {
+        const usersData = await StorageService.loadData('edutime_users');
+        if (usersData) {
+          setUsers(usersData);
+        }
+      }
+    } catch (error) {
+      console.error('Error loading data:', error);
+      alert('Có lỗi khi tải dữ liệu!');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -97,63 +157,75 @@ const EduTime = () => {
   };
 
   const handleFinishYear = async () => {
-    if (!confirm(`Xác nhận kết thúc năm học ${schoolYear}?\n\nDữ liệu sẽ được lưu trữ và bạn có thể bắt đầu năm học mới.`)) {
+    if (!confirm(`Xác nhận kết thúc năm học ${schoolYear?.year}?\n\nDữ liệu sẽ được lưu trữ và bạn có thể bắt đầu năm học mới.`)) {
       return;
     }
-
-    // Lưu dữ liệu năm hiện tại
     await saveAllData();
-
-    // Tạo năm học mới
-    const currentYear = parseInt(schoolYear.split('-')[0]);
+    const currentYear = parseInt(schoolYear.year.split('-')[0]);
     const newYear = `${currentYear + 1}-${currentYear + 2}`;
-
-    // Thêm năm mới vào danh sách
     await StorageService.addSchoolYear(newYear);
 
-    setSchoolYear(newYear);
+    setSchoolYear({ year: newYear, isActive: true });
     setViewingYear(newYear);
-
-    // Reset dữ liệu cho năm mới
     setWeeks([]);
     setTeachingRecords([]);
-
-    // Reload để cập nhật dropdown
     await loadAllData();
 
-    alert(`Đã kết thúc năm học ${schoolYear}!\nBắt đầu năm học mới: ${newYear}`);
+    alert(`Đã kết thúc năm học ${schoolYear.year}!\nBắt đầu năm học mới: ${newYear}`);
   };
 
-  const handleLogin = (username, password) => {
-    const user = users.find(u => u.username === username && u.password === password);
-    if (user) {
-      if (user.status === 'pending') {
-        alert('Tài khoản của bạn đang chờ duyệt. Vui lòng liên hệ Admin!');
-        return;
-      }
-      if (user.status === 'rejected') {
-        alert('Tài khoản của bạn đã bị từ chối. Vui lòng liên hệ Admin!');
-        return;
-      }
-      setCurrentUser(user);
-      setIsLoggedIn(true);
-    } else {
-      alert('Sai tên đăng nhập hoặc mật khẩu!');
+  const handleLogin = (user, token) => {
+    setCurrentUser(user);
+    setIsLoggedIn(true);
+    setAuthToken(token);
+    console.log('Đăng nhập thành công:', user);
+    console.log('Token:', token);
+  };
+
+  const handleLogout = async () => {
+    try {
+      const result = await logout();
+      setCurrentUser(null);
+      setIsLoggedIn(false);
+      setAuthToken(null);
+      setCurrentView('dashboard');
+      
+      // Clear data
+      setTeachers([]);
+      setClasses([]);
+      setSubjects([]);
+      setWeeks([]);
+      setTeachingRecords([]);
+      setUsers([]);
+      
+      console.log('Đã đăng xuất:', result.message);
+      alert(result.message || 'Đã đăng xuất thành công');
+    } catch (err) {
+      console.error('Error during logout:', err);
+      setCurrentUser(null);
+      setIsLoggedIn(false);
+      setAuthToken(null);
+      setCurrentView('dashboard');
     }
-  };
-
-  const handleLogout = () => {
-    setIsLoggedIn(false);
-    setCurrentUser(null);
-    setCurrentView('dashboard');
   };
 
   if (!isLoggedIn) {
     return <LoginView onLogin={handleLogin} />;
   }
 
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600 text-lg">Đang tải dữ liệu...</p>
+        </div>
+      </div>
+    );
+  }
+
   const isAdmin = currentUser.role === 'admin';
-  const teacher = teachers.find(t => t.userId === currentUser.username);
+  const teacher = currentUser.role === 'user';
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
@@ -185,8 +257,8 @@ const EduTime = () => {
                   subjects={subjects}
                   teachingRecords={teachingRecords}
                   users={users}
-                  schoolYear={schoolYear}
-                  setSchoolYear={setSchoolYear}
+                  schoolYear={schoolYear?.year}
+                  setSchoolYear={(year) => setSchoolYear({ year, isActive: true })}
                   currentUser={currentUser}
                   onFinishYear={handleFinishYear}
                   archivedYears={archivedYears}
@@ -258,7 +330,7 @@ const EduTime = () => {
                   subjects={subjects}
                   teachingRecords={teachingRecords}
                   weeks={weeks}
-                  schoolYear={viewingYear}
+                  schoolYear={schoolYear}
                   currentUser={currentUser}
                 />
               )}

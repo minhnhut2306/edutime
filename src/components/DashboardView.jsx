@@ -3,7 +3,19 @@ import { Users, BookOpen, FileText, BarChart2, Mail } from 'react-feather';
 import { BarChart3, FileSpreadsheet, CheckCircle } from 'lucide-react';
 
 // Dashboard View (Admin)
-const DashboardView = ({ teachers, classes, subjects, teachingRecords, users, schoolYear, setSchoolYear, currentUser, onFinishYear, archivedYears, onChangeYear }) => {
+const DashboardView = ({ 
+  teachers = [], 
+  classes = [], 
+  subjects = [], 
+  teachingRecords = [], 
+  users = [], 
+  schoolYear, 
+  setSchoolYear, 
+  currentUser, 
+  onFinishYear, 
+  archivedYears = [], 
+  onChangeYear 
+}) => {
   const pendingUsers = users.filter(u => u.status === 'pending');
   const totalRecords = teachingRecords.length;
 
@@ -60,9 +72,9 @@ const DashboardView = ({ teachers, classes, subjects, teachingRecords, users, sc
             <label className="block text-sm font-medium text-gray-700 mb-2">Năm học</label>
             <input
               type="text"
-              value={schoolYear}
-              onChange={(e) => setSchoolYear(e.target.value)}
-              disabled={currentUser.role !== 'admin'}
+              value={schoolYear || ''}
+              onChange={(e) => setSchoolYear && setSchoolYear(e.target.value)}
+              disabled={!currentUser || currentUser.role !== 'admin'}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100"
             />
           </div>
@@ -72,7 +84,7 @@ const DashboardView = ({ teachers, classes, subjects, teachingRecords, users, sc
           </div>
         </div>
 
-        {currentUser.role === 'admin' && (
+        {currentUser && currentUser.role === 'admin' && (
           <div className="mt-4 pt-4 border-t space-y-3">
             <button
               onClick={onFinishYear}
@@ -82,11 +94,11 @@ const DashboardView = ({ teachers, classes, subjects, teachingRecords, users, sc
               Kết thúc năm học {schoolYear}
             </button>
 
-            {archivedYears && archivedYears.length > 1 && (
+            {archivedYears.length > 1 && (
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Xem lại dữ liệu năm học trước</label>
                 <select
-                  onChange={(e) => onChangeYear(e.target.value)}
+                  onChange={(e) => onChangeYear && onChangeYear(e.target.value)}
                   value=""
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                 >

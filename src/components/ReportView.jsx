@@ -1,27 +1,46 @@
+import React, { useState, useEffect } from 'react';
+import { Download, BarChart3, Mail, Users, RefreshCw } from 'lucide-react';
+import { useReports } from '../hooks/useReports';
 
-import React, { useState } from 'react';
-import { Download, BarChart3 } from 'lucide-react';
-import ExcelService from '../service/ExcelService';
-
-
-// Report View
-const ReportView = ({ teachers, classes, subjects, teachingRecords, weeks, schoolYear, currentUser }) => {
-  const isAdmin = currentUser.role === 'admin';
+const ReportView = ({ teachers = [], classes = [], subjects = [], teachingRecords = [], weeks = [], schoolYear, currentUser }) => {
+  const isAdmin = currentUser?.role === 'admin';
   
-  // ===== THÊM MỚI: Lấy giáo viên được liên kết =====
-  const linkedTeacher = teachers.find(t => t.userId === currentUser.username);
-  
-  // ===== THÊM MỚI: Giới hạn danh sách GV theo quyền =====
-  const availableTeachers = isAdmin ? teachers : 
-    (linkedTeacher ? [linkedTeacher] : []);
+  // Tìm giáo viên được liên kết với user hiện tại
+  const linkedTeacher = teachers.find(t => t.userId === currentUser?.username);
+  const availableTeachers = isAdmin ? teachers : (linkedTeacher ? [linkedTeacher] : []);
+
+  const {
+    exportMonthReport,
+    exportWeekReport,
+    exportSemesterReport,
+    exportYearReport,
+    loading: reportLoading,
+    error: reportError
+  } = useReports();
 
   const [selectedTeacherId, setSelectedTeacherId] = useState(
     isAdmin ? '' : (linkedTeacher?.id || '')
   );
   const [reportType, setReportType] = useState('teacher');
   const [exportType, setExportType] = useState('month');
+  const [exportParams, setExportParams] = useState({
+    month: new Date().getMonth() + 1,
+    bcNumber: null,
+    weekId: '',
+    weekIds: [],
+    semester: 1,
+    allBC: false,
+    useBCMode: false
+  });
 
-  // ===== THÊM MỚI: Cảnh báo nếu user chưa được liên kết =====
+  // Auto-select teacher nếu là user thường
+  useEffect(() => {
+    if (!isAdmin && linkedTeacher && !selectedTeacherId) {
+      setSelectedTeacherId(linkedTeacher.id);
+    }
+  }, [linkedTeacher, isAdmin, selectedTeacherId]);
+
+  // Cảnh báo nếu user chưa được liên kết
   if (!isAdmin && !linkedTeacher) {
     return (
       <div className="space-y-4">
@@ -42,7 +61,7 @@ const ReportView = ({ teachers, classes, subjects, teachingRecords, weeks, schoo
     );
   }
 
-  const handleExport = () => {
+  const handleExport = async () => {
     if (!isAdmin) {
       alert('⛔ Chỉ Admin mới có quyền xuất báo cáo Excel!');
       return;
@@ -53,38 +72,80 @@ const ReportView = ({ teachers, classes, subjects, teachingRecords, weeks, schoo
       return;
     }
 
+    if (!schoolYear) {
+      alert('Không tìm thấy năm học hiện tại!');
+      return;
+    }
+
     const selectedTeacher = teachers.find(t => t.id === selectedTeacherId);
     if (!selectedTeacher) {
       alert('Không tìm thấy thông tin giáo viên!');
       return;
     }
 
-    const teacherRecords = teachingRecords.filter(r => r.teacherId === selectedTeacherId);
-    if (teacherRecords.length === 0) {
+    const teacherRecordsData = teachingRecords.filter(r => r.teacherId === selectedTeacherId);
+    if (teacherRecordsData.length === 0) {
       alert('Chưa có dữ liệu để xuất báo cáo!');
       return;
     }
 
-    switch (exportType) {
-      case 'month':
-        ExcelService.exportTeacherReport(selectedTeacher, teacherRecords, schoolYear, classes, subjects, weeks);
-        break;
-      case 'week':
-        ExcelService.exportWeeklyReport(selectedTeacher, teacherRecords, schoolYear, classes, subjects, weeks);
-        break;
-      case 'semester':
-        ExcelService.exportSemesterReport(selectedTeacher, teacherRecords, schoolYear, classes, subjects, weeks);
-        break;
-      case 'year':
-        ExcelService.exportYearReport(selectedTeacher, teacherRecords, schoolYear, classes, subjects, weeks);
-        break;
-    }
+    let result;
+    try {
+      switch (exportType) {
+        case 'month':
+          if (exportParams.useBCMode && exportParams.bcNumber) {
+            result = await exportMonthReport(selectedTeacherId, schoolYear, null, exportParams.bcNumber);
+          } else {
+            result = await exportMonthReport(selectedTeacherId, schoolYear, exportParams.month, null);
+          }
+          break;
 
-    alert('✅ Đã xuất báo cáo Excel!');
+        case 'week':
+          if (exportParams.weekIds.length > 0) {
+            result = await exportWeekReport(selectedTeacherId, null, exportParams.weekIds);
+          } else if (exportParams.weekId) {
+            result = await exportWeekReport(selectedTeacherId, exportParams.weekId, null);
+          } else {
+            alert('Vui lòng chọn tuần!');
+            return;
+          }
+          break;
+
+        case 'semester':
+          result = await exportSemesterReport(selectedTeacherId, schoolYear, exportParams.semester);
+          break;
+
+        case 'year':
+          result = await exportYearReport(selectedTeacherId, schoolYear, exportParams.allBC);
+          break;
+
+        default:
+          alert('Loại báo cáo không hợp lệ!');
+          return;
+      }
+
+      if (result.success) {
+        alert('✅ Đã xuất báo cáo Excel thành công!');
+      } else {
+        alert(`❌ Lỗi: ${result.message}`);
+      }
+    } catch (err) {
+      console.error('Export error:', err);
+      alert(`❌ Có lỗi xảy ra: ${err.message}`);
+    }
   };
 
-  const myRecords = selectedTeacherId ?
-    teachingRecords.filter(r => r.teacherId === selectedTeacherId) : [];
+  // Helper function để lấy tên môn học
+  const getSubjectNames = (subjectIds) => {
+    if (!subjectIds || subjectIds.length === 0) return 'Chưa có môn';
+    return subjectIds
+      .map(sid => subjects.find(s => s.id === sid)?.name)
+      .filter(Boolean)
+      .join(', ') || 'Chưa có môn';
+  };
+
+  // Calculate statistics
+  const myRecords = selectedTeacherId ? teachingRecords.filter(r => r.teacherId === selectedTeacherId) : [];
   const totalPeriods = myRecords.reduce((sum, r) => sum + (r.periods || 0), 0);
 
   const today = new Date();
@@ -101,125 +162,168 @@ const ReportView = ({ teachers, classes, subjects, teachingRecords, weeks, schoo
 
   const gradeStats = () => {
     if (!selectedTeacherId) return [];
-
     const grades = [...new Set(classes.map(c => c.grade))].sort();
     return grades.map(grade => {
       const gradeClasses = classes.filter(c => c.grade === grade);
-      const gradeRecords = myRecords.filter(r =>
-        gradeClasses.some(c => c.id === r.classId)
-      );
+      const gradeRecords = myRecords.filter(r => gradeClasses.some(c => c.id === r.classId));
       const gradePeriods = gradeRecords.reduce((sum, r) => sum + (r.periods || 0), 0);
-
-      return {
-        grade,
-        classes: gradeClasses.length,
-        records: gradeRecords.length,
-        periods: gradePeriods
-      };
+      return { grade, classes: gradeClasses.length, records: gradeRecords.length, periods: gradePeriods };
     }).filter(g => g.periods > 0);
   };
 
   const semesterStats = () => {
     if (!selectedTeacherId || weeks.length === 0) return [];
-
     const semester1Weeks = weeks.filter(w => w.weekNumber <= 18);
     const semester2Weeks = weeks.filter(w => w.weekNumber > 18 && w.weekNumber <= 35);
-
-    const sem1Records = myRecords.filter(r =>
-      semester1Weeks.some(w => w.id === r.weekId)
-    );
-    const sem2Records = myRecords.filter(r =>
-      semester2Weeks.some(w => w.id === r.weekId)
-    );
-
+    const sem1Records = myRecords.filter(r => semester1Weeks.some(w => w.id === r.weekId));
+    const sem2Records = myRecords.filter(r => semester2Weeks.some(w => w.id === r.weekId));
     return [
-      {
-        semester: 'Học kỳ 1',
-        weeks: 'Tuần 1-18',
-        records: sem1Records.length,
-        periods: sem1Records.reduce((sum, r) => sum + (r.periods || 0), 0)
-      },
-      {
-        semester: 'Học kỳ 2',
-        weeks: 'Tuần 19-35',
-        records: sem2Records.length,
-        periods: sem2Records.reduce((sum, r) => sum + (r.periods || 0), 0)
-      }
+      { semester: 'Học kỳ 1', weeks: 'Tuần 1-18', records: sem1Records.length, periods: sem1Records.reduce((sum, r) => sum + (r.periods || 0), 0) },
+      { semester: 'Học kỳ 2', weeks: 'Tuần 19-35', records: sem2Records.length, periods: sem2Records.reduce((sum, r) => sum + (r.periods || 0), 0) }
     ];
   };
 
   const weeklyStats = () => {
     if (!selectedTeacherId) return [];
+    return weeks.sort((a, b) => b.weekNumber - a.weekNumber).map(week => {
+      const weekRecords = myRecords.filter(r => r.weekId === week.id);
+      const weekPeriods = weekRecords.reduce((sum, r) => sum + (r.periods || 0), 0);
+      if (weekPeriods === 0) return null;
+      return { weekNumber: week.weekNumber, startDate: week.startDate, endDate: week.endDate, records: weekRecords.length, periods: weekPeriods };
+    }).filter(w => w !== null);
+  };
 
-    return weeks
-      .sort((a, b) => b.weekNumber - a.weekNumber)
-      .map(week => {
-        const weekRecords = myRecords.filter(r => r.weekId === week.id);
-        const weekPeriods = weekRecords.reduce((sum, r) => sum + (r.periods || 0), 0);
+  // Render export parameters
+  const renderExportParams = () => {
+    switch (exportType) {
+      case 'month':
+        return (
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <input type="radio" id="byMonth" checked={!exportParams.useBCMode} onChange={() => setExportParams({ ...exportParams, useBCMode: false, bcNumber: null })} />
+              <label htmlFor="byMonth" className="text-sm font-medium">Theo tháng</label>
+            </div>
+            {!exportParams.useBCMode && (
+              <select value={exportParams.month} onChange={(e) => setExportParams({ ...exportParams, month: parseInt(e.target.value) })} className="w-full px-3 py-2 border rounded-lg">
+                {[...Array(12)].map((_, i) => <option key={i + 1} value={i + 1}>Tháng {i + 1}</option>)}
+              </select>
+            )}
+            <div className="flex items-center gap-2">
+              <input type="radio" id="byBC" checked={exportParams.useBCMode} onChange={() => setExportParams({ ...exportParams, useBCMode: true, bcNumber: 1 })} />
+              <label htmlFor="byBC" className="text-sm font-medium">Theo BC</label>
+            </div>
+            {exportParams.useBCMode && (
+              <select value={exportParams.bcNumber || 1} onChange={(e) => setExportParams({ ...exportParams, bcNumber: parseInt(e.target.value) })} className="w-full px-3 py-2 border rounded-lg">
+                {[...Array(12)].map((_, i) => <option key={i + 1} value={i + 1}>BC {i + 1}</option>)}
+              </select>
+            )}
+          </div>
+        );
 
-        if (weekPeriods === 0) return null;
+      case 'week':
+        return (
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <input type="radio" id="singleWeek" checked={exportParams.weekIds.length === 0} onChange={() => setExportParams({ ...exportParams, weekIds: [] })} />
+              <label htmlFor="singleWeek" className="text-sm font-medium">Một tuần</label>
+            </div>
+            {exportParams.weekIds.length === 0 && (
+              <select value={exportParams.weekId} onChange={(e) => setExportParams({ ...exportParams, weekId: e.target.value })} className="w-full px-3 py-2 border rounded-lg">
+                <option value="">-- Chọn tuần --</option>
+                {weeks.map(w => (
+                  <option key={w.id} value={w.id}>Tuần {w.weekNumber} ({new Date(w.startDate).toLocaleDateString('vi-VN')} - {new Date(w.endDate).toLocaleDateString('vi-VN')})</option>
+                ))}
+              </select>
+            )}
+            <div className="flex items-center gap-2">
+              <input type="radio" id="multiWeeks" checked={exportParams.weekIds.length > 0} onChange={() => setExportParams({ ...exportParams, weekIds: weeks.slice(0, 2).map(w => w.id) })} />
+              <label htmlFor="multiWeeks" className="text-sm font-medium">Nhiều tuần</label>
+            </div>
+            {exportParams.weekIds.length > 0 && (
+              <div className="border rounded-lg p-3 max-h-48 overflow-y-auto">
+                {weeks.map(w => (
+                  <label key={w.id} className="flex items-center gap-2 py-1 hover:bg-gray-50">
+                    <input type="checkbox" checked={exportParams.weekIds.includes(w.id)} onChange={(e) => {
+                      if (e.target.checked) {
+                        setExportParams({ ...exportParams, weekIds: [...exportParams.weekIds, w.id] });
+                      } else {
+                        setExportParams({ ...exportParams, weekIds: exportParams.weekIds.filter(id => id !== w.id) });
+                      }
+                    }} />
+                    <span className="text-sm">Tuần {w.weekNumber}</span>
+                  </label>
+                ))}
+              </div>
+            )}
+          </div>
+        );
 
-        return {
-          weekNumber: week.weekNumber,
-          startDate: week.startDate,
-          endDate: week.endDate,
-          records: weekRecords.length,
-          periods: weekPeriods
-        };
-      })
-      .filter(w => w !== null);
+      case 'semester':
+        return (
+          <select value={exportParams.semester} onChange={(e) => setExportParams({ ...exportParams, semester: parseInt(e.target.value) })} className="w-full px-3 py-2 border rounded-lg">
+            <option value={1}>Học kỳ 1</option>
+            <option value={2}>Học kỳ 2</option>
+          </select>
+        );
+
+      case 'year':
+        return (
+          <label className="flex items-center gap-2">
+            <input type="checkbox" checked={exportParams.allBC} onChange={(e) => setExportParams({ ...exportParams, allBC: e.target.checked })} />
+            <span className="text-sm font-medium">Xuất tất cả BC trong năm</span>
+          </label>
+        );
+
+      default:
+        return null;
+    }
   };
 
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold">Báo cáo & Xuất Excel</h2>
-        <div className="flex gap-2">
-          {isAdmin && selectedTeacherId && (
-            <button
-              onClick={handleExport}
-              className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700"
-            >
-              <Download size={20} />
-              Xuất Excel
-            </button>
-          )}
-        </div>
+        {isAdmin && selectedTeacherId && (
+          <button onClick={handleExport} disabled={reportLoading} className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed">
+            <Download size={20} />
+            {reportLoading ? 'Đang xuất...' : 'Xuất Excel'}
+          </button>
+        )}
       </div>
 
-      {/* ===== SỬA: Hiển thị thông tin khác nhau cho Admin và User ===== */}
+      {reportError && (
+        <div className="bg-red-50 border-l-4 border-red-400 p-4 rounded-lg">
+          <p className="text-red-700">{reportError}</p>
+        </div>
+      )}
+
       {isAdmin ? (
         <div className="bg-white rounded-xl shadow-lg p-6">
           <h3 className="text-lg font-semibold mb-4">Chọn giáo viên & Loại báo cáo</h3>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Giáo viên</label>
-              <select
-                value={selectedTeacherId}
-                onChange={(e) => setSelectedTeacherId(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-              >
+              <select value={selectedTeacherId} onChange={(e) => setSelectedTeacherId(e.target.value)} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
                 <option value="">-- Chọn giáo viên --</option>
                 {availableTeachers.map(t => (
                   <option key={t.id} value={t.id}>
-                    {t.name} - {(t.subjectIds || []).map(sid => subjects.find(s => s.id === sid)?.name).filter(Boolean).join(', ') || 'Chưa có môn'}
+                    {t.name}
                   </option>
                 ))}
               </select>
             </div>
-
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Loại báo cáo</label>
-              <select
-                value={exportType}
-                onChange={(e) => setExportType(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="month">Theo tháng</option>
+              <select value={exportType} onChange={(e) => setExportType(e.target.value)} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                <option value="month">Theo tháng/BC</option>
                 <option value="week">Theo tuần</option>
                 <option value="semester">Theo học kỳ</option>
                 <option value="year">Cả năm</option>
               </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Tham số</label>
+              {renderExportParams()}
             </div>
           </div>
         </div>
@@ -231,9 +335,7 @@ const ReportView = ({ teachers, classes, subjects, teachingRecords, weeks, schoo
             </div>
             <div>
               <p className="font-medium text-blue-900">Báo cáo của bạn</p>
-              <p className="text-sm text-blue-700">
-                Bạn đang xem báo cáo của: <strong>{linkedTeacher?.name}</strong>
-              </p>
+              <p className="text-sm text-blue-700">Bạn đang xem báo cáo của: <strong>{linkedTeacher?.name}</strong></p>
             </div>
           </div>
         </div>
@@ -241,7 +343,6 @@ const ReportView = ({ teachers, classes, subjects, teachingRecords, weeks, schoo
 
       {selectedTeacherId && (
         <>
-          {/* Tổng quan */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl p-6 text-white shadow-lg">
               <p className="text-blue-100 text-sm">Tổng số tiết</p>
@@ -257,7 +358,6 @@ const ReportView = ({ teachers, classes, subjects, teachingRecords, weeks, schoo
             </div>
           </div>
 
-          {/* Thông tin giáo viên */}
           {selectedTeacher && (
             <div className="bg-white rounded-xl shadow-lg p-6">
               <h3 className="text-xl font-bold mb-4">Thông tin giáo viên</h3>
@@ -268,18 +368,11 @@ const ReportView = ({ teachers, classes, subjects, teachingRecords, weeks, schoo
                 </div>
                 <div>
                   <p className="text-sm text-gray-500">Môn dạy</p>
-                  <p className="font-medium text-lg">
-                    {(selectedTeacher.subjectIds || [])
-                      .map(sid => subjects.find(s => s.id === sid)?.name)
-                      .filter(Boolean)
-                      .join(', ') || 'Chưa có'}
-                  </p>
+                  <p className="font-medium text-lg">{getSubjectNames(selectedTeacher.subjectIds)}</p>
                 </div>
                 <div>
                   <p className="text-sm text-gray-500">Lớp chủ nhiệm</p>
-                  <p className="font-medium text-lg">
-                    {classes.find(c => c.id === selectedTeacher.mainClassId)?.name || 'Chưa có'}
-                  </p>
+                  <p className="font-medium text-lg">{classes.find(c => c.id === selectedTeacher.mainClassId)?.name || 'Chưa có'}</p>
                 </div>
                 <div>
                   <p className="text-sm text-gray-500">Email</p>
@@ -289,48 +382,14 @@ const ReportView = ({ teachers, classes, subjects, teachingRecords, weeks, schoo
             </div>
           )}
 
-          {/* Tabs báo cáo */}
           <div className="bg-white rounded-xl shadow-lg p-6">
             <div className="flex gap-2 mb-4 border-b">
-              <button
-                onClick={() => setReportType('teacher')}
-                className={`px-4 py-2 font-medium transition-all ${reportType === 'teacher'
-                  ? 'text-blue-600 border-b-2 border-blue-600'
-                  : 'text-gray-500 hover:text-gray-700'
-                  }`}
-              >
-                📊 Theo tháng
-              </button>
-              <button
-                onClick={() => setReportType('week')}
-                className={`px-4 py-2 font-medium transition-all ${reportType === 'week'
-                  ? 'text-blue-600 border-b-2 border-blue-600'
-                  : 'text-gray-500 hover:text-gray-700'
-                  }`}
-              >
-                📅 Theo tuần
-              </button>
-              <button
-                onClick={() => setReportType('grade')}
-                className={`px-4 py-2 font-medium transition-all ${reportType === 'grade'
-                  ? 'text-blue-600 border-b-2 border-blue-600'
-                  : 'text-gray-500 hover:text-gray-700'
-                  }`}
-              >
-                🎓 Theo khối
-              </button>
-              <button
-                onClick={() => setReportType('semester')}
-                className={`px-4 py-2 font-medium transition-all ${reportType === 'semester'
-                  ? 'text-blue-600 border-b-2 border-blue-600'
-                  : 'text-gray-500 hover:text-gray-700'
-                  }`}
-              >
-                📚 Theo học kỳ
-              </button>
+              <button onClick={() => setReportType('teacher')} className={`px-4 py-2 font-medium transition-all ${reportType === 'teacher' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'}`}>📊 Theo tháng</button>
+              <button onClick={() => setReportType('week')} className={`px-4 py-2 font-medium transition-all ${reportType === 'week' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'}`}>📅 Theo tuần</button>
+              <button onClick={() => setReportType('grade')} className={`px-4 py-2 font-medium transition-all ${reportType === 'grade' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'}`}>🎓 Theo khối</button>
+              <button onClick={() => setReportType('semester')} className={`px-4 py-2 font-medium transition-all ${reportType === 'semester' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'}`}>📚 Theo học kỳ</button>
             </div>
 
-            {/* Báo cáo theo tháng */}
             {reportType === 'teacher' && (
               <div className="overflow-x-auto">
                 <table className="w-full">
@@ -350,9 +409,7 @@ const ReportView = ({ teachers, classes, subjects, teachingRecords, weeks, schoo
                         return weekDate.getMonth() === month;
                       });
                       const monthTotal = monthData.reduce((sum, r) => sum + (r.periods || 0), 0);
-
                       if (monthData.length === 0) return null;
-
                       return (
                         <tr key={month} className="hover:bg-gray-50">
                           <td className="px-4 py-2 text-sm font-medium">Tháng {month + 1}</td>
@@ -366,7 +423,6 @@ const ReportView = ({ teachers, classes, subjects, teachingRecords, weeks, schoo
               </div>
             )}
 
-            {/* Báo cáo theo tuần */}
             {reportType === 'week' && (
               <div className="overflow-x-auto">
                 <table className="w-full">
@@ -382,9 +438,7 @@ const ReportView = ({ teachers, classes, subjects, teachingRecords, weeks, schoo
                     {weeklyStats().map((week) => (
                       <tr key={week.weekNumber} className="hover:bg-gray-50">
                         <td className="px-4 py-2 text-sm font-medium text-blue-600">Tuần {week.weekNumber}</td>
-                        <td className="px-4 py-2 text-sm text-gray-600">
-                          {new Date(week.startDate).toLocaleDateString('vi-VN')} - {new Date(week.endDate).toLocaleDateString('vi-VN')}
-                        </td>
+                        <td className="px-4 py-2 text-sm text-gray-600">{new Date(week.startDate).toLocaleDateString('vi-VN')} - {new Date(week.endDate).toLocaleDateString('vi-VN')}</td>
                         <td className="px-4 py-2 text-sm">{week.records}</td>
                         <td className="px-4 py-2 text-sm font-medium text-green-600">{week.periods}</td>
                       </tr>
@@ -394,7 +448,6 @@ const ReportView = ({ teachers, classes, subjects, teachingRecords, weeks, schoo
               </div>
             )}
 
-            {/* Báo cáo theo khối */}
             {reportType === 'grade' && (
               <div className="overflow-x-auto">
                 <table className="w-full">
@@ -420,7 +473,6 @@ const ReportView = ({ teachers, classes, subjects, teachingRecords, weeks, schoo
               </div>
             )}
 
-            {/* Báo cáo theo học kỳ */}
             {reportType === 'semester' && (
               <div className="overflow-x-auto">
                 <table className="w-full">

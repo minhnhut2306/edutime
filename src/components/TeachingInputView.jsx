@@ -1,121 +1,322 @@
-import React, { useState, useEffect } from 'react';
-import { Lock, Trash2 } from 'react-feather';
+/* eslint-disable no-unused-vars */
+import React, { useState, useEffect } from "react";
+import { Lock, Trash2, Edit3, Check, X } from "react-feather";
+import { useTeachingRecord } from "../hooks/useTeachingRecord";
+import { useClasses } from "../hooks/useClasses";
+import { useSubjects } from "../hooks/useSubjects";
+import { useTeacher } from "../hooks/useTeacher";
+import { useWeeks } from "../hooks/useWeek";
 
-// Teaching Input View (SỬA LẠI)
-const TeachingInputView = ({
-  teachers,
-  classes,
-  subjects,
-  weeks,
-  teachingRecords,
-  setTeachingRecords,
-  schoolYear,
-  currentUser,
-  users // THÊM users vào props
-}) => {
-  const [selectedWeekId, setSelectedWeekId] = useState('');
-  const [selectedClassId, setSelectedClassId] = useState('');
-  const [selectedSubjectId, setSelectedSubjectId] = useState('');
-  const [selectedTeacherId, setSelectedTeacherId] = useState('');
-  const [periods, setPeriods] = useState('');
+/*
+  TeachingInputView.jsx
+  - Fetches teachers/classes/subjects/weeks and teaching records.
+  - Supports add, edit (update), delete.
+  - Highlights subjects that belong to selected teacher and auto-selects the first subject.
+  - Does NOT show the "createdBy" column.
+  - Resets the form after add/update/cancel.
+*/
 
-  const isAdmin = currentUser.role === 'admin';
-  const teacher = teachers.find(t => t.userId === currentUser.username);
+const TeachingInputView = ({ initialTeachingRecords = [], schoolYear }) => {
+  const { fetchTeachers } = useTeacher();
+  const { fetchClasses } = useClasses();
+  const { fetchSubjects } = useSubjects();
+  const { fetchWeeks } = useWeeks();
+  const { fetchTeachingRecords, addTeachingRecord, updateTeachingRecord, deleteTeachingRecord } = useTeachingRecord();
 
-  // ===== THÊM MỚI: LẤY THÔNG TIN PHÂN QUYỀN KHỐI =====
-  const userInfo = users.find(u => u.username === currentUser.username);
-  const allowedGrades = userInfo?.allowedGrades || [];
-  const hasGradeRestriction = !isAdmin && allowedGrades.length > 0;
+  const [teachers, setTeachers] = useState([]);
+  const [classes, setClasses] = useState([]);
+  const [subjects, setSubjects] = useState([]);
+  const [weeks, setWeeks] = useState([]);
 
-  // ===== THÊM MỚI: LỌC LỚP THEO QUYỀN =====
+  const [teachingRecords, setTeachingRecords] = useState(initialTeachingRecords || []);
+
+  const [selectedWeekId, setSelectedWeekId] = useState("");
+  const [selectedClassId, setSelectedClassId] = useState("");
+  const [selectedSubjectId, setSelectedSubjectId] = useState("");
+  const [selectedTeacherId, setSelectedTeacherId] = useState("");
+  const [periods, setPeriods] = useState("");
+
+  // edit state
+  const [isEditing, setIsEditing] = useState(false);
+  const [editingRecordId, setEditingRecordId] = useState(null);
+
+  // load current user from localStorage "user"
+  const rawUser = typeof window !== "undefined" ? localStorage.getItem("user") : null;
+  let parsedUser = null;
+  try {
+    parsedUser = rawUser ? JSON.parse(rawUser) : null;
+  } catch (err) {
+    parsedUser = null;
+  }
+  const currentUser = parsedUser || { role: "user" };
+  const isAdmin = currentUser.role === "admin";
+
+  // helper: normalize _id -> id
+  const normalize = (arr = [], idField = "_id") =>
+    (arr || []).map((x) => ({
+      ...x,
+      id: x[idField] ? (typeof x[idField] === "string" ? x[idField] : x[idField]._id || x[idField]) : x.id || "",
+    }));
+
+  // normalize a single record from backend to UI shape
+  const normalizeRecord = (r) => {
+    if (!r) return null;
+    const id = r._id || r.id;
+    const getId = (val) => {
+      if (!val) return "";
+      if (typeof val === "string") return val;
+      if (val._id) return val._id.toString();
+      if (val.id) return val.id;
+      return "";
+    };
+    return {
+      id: id ? id.toString() : `TR${Date.now()}`,
+      teacherId: getId(r.teacherId),
+      weekId: getId(r.weekId),
+      classId: getId(r.classId),
+      subjectId: getId(r.subjectId),
+      periods: r.periods,
+      schoolYear: r.schoolYear,
+      createdAt: r.createdAt,
+    };
+  };
+
+  // load lists on mount
+  useEffect(() => {
+    (async () => {
+      try {
+        const tRes = await fetchTeachers();
+        const rawTeachers = tRes.success ? (tRes.teachers || (tRes.data && tRes.data.teachers) || []) : [];
+        const normTeachers = normalize(rawTeachers);
+        const normalizedTeachers = normTeachers.map((t) => {
+          const sids = (t.subjectIds || []).map((s) =>
+            s && (s._id || s.id) ? (s._id || s.id) : typeof s === "string" ? s : ""
+          ).filter(Boolean);
+          return { ...t, subjectIds: sids };
+        });
+        setTeachers(normalizedTeachers);
+
+        // auto-select teacher for non-admin users
+        if (!isAdmin) {
+          const matched = normalizedTeachers.find((tt) => {
+            if (!tt.userId) return false;
+            if (typeof tt.userId === "string") {
+              return tt.userId === currentUser._id || tt.userId === currentUser.id;
+            }
+            return (
+              tt.userId._id === currentUser._id ||
+              tt.userId._id === currentUser.id ||
+              tt.userId.email === currentUser.email
+            );
+          });
+          if (matched) setSelectedTeacherId(matched.id);
+        }
+      } catch (err) {
+        setTeachers([]);
+      }
+
+      try {
+        const cRes = await fetchClasses();
+        const rawClasses = cRes.success ? (cRes.classes || (cRes.data && cRes.data.classes) || []) : [];
+        setClasses(normalize(rawClasses));
+      } catch {
+        setClasses([]);
+      }
+
+      try {
+        const sRes = await fetchSubjects();
+        const rawSubjects = sRes.success ? (sRes.subjects || (sRes.data && sRes.data.subjects) || []) : [];
+        setSubjects(normalize(rawSubjects));
+      } catch {
+        setSubjects([]);
+      }
+
+      try {
+        const wRes = await fetchWeeks();
+        const rawWeeks = wRes.success ? (wRes.weeks || (wRes.data && wRes.data.weeks) || []) : [];
+        setWeeks(normalize(rawWeeks));
+      } catch {
+        setWeeks([]);
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // fetch teaching records helper
+  const loadTeachingRecords = async (teacherId) => {
+    try {
+      const res = await fetchTeachingRecords(teacherId);
+      if (!res) return;
+      let raw = [];
+      if (res.success && Array.isArray(res.teachingRecords)) raw = res.teachingRecords;
+      else if (res.success && Array.isArray(res.data)) raw = res.data;
+      else if (res.success && res.data && Array.isArray(res.data.teachingRecords)) raw = res.data.teachingRecords;
+      else if (Array.isArray(res)) raw = res;
+      const norm = raw.map(normalizeRecord).filter(Boolean);
+      setTeachingRecords(norm);
+    } catch (err) {
+      setTeachingRecords([]);
+    }
+  };
+
+  // fetch records on mount and when selectedTeacherId changes
+  useEffect(() => {
+    const teacherIdToFetch = isAdmin ? (selectedTeacherId || undefined) : selectedTeacherId || undefined;
+    loadTeachingRecords(teacherIdToFetch);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedTeacherId, isAdmin]);
+
+  // when teacher changes -> auto-select teacher subject if available
+  useEffect(() => {
+    if (!selectedTeacherId) return;
+    const t = teachers.find((x) => x.id === selectedTeacherId);
+    const tSubjectIds = t?.subjectIds || [];
+    if (tSubjectIds.length > 0) {
+      if (!tSubjectIds.includes(selectedSubjectId)) {
+        setSelectedSubjectId(tSubjectIds[0]);
+      }
+    } else {
+      setSelectedSubjectId("");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedTeacherId, teachers]);
+
+  const allowedGrades = currentUser?.allowedGrades || [];
+  const hasGradeRestriction = !isAdmin && Array.isArray(allowedGrades) && allowedGrades.length > 0;
   const availableClasses = hasGradeRestriction
-    ? classes.filter(c => allowedGrades.includes(c.grade))
+    ? classes.filter((c) => allowedGrades.includes(c.grade))
     : classes;
 
-  useEffect(() => {
-    if (!isAdmin && teacher) {
-      setSelectedTeacherId(teacher.id);
-    }
-  }, [isAdmin, teacher]);
+  const myRecords = isAdmin ? teachingRecords : teachingRecords.filter((r) => r.teacherId === selectedTeacherId);
 
-  const myRecords = isAdmin ? teachingRecords :
-    teachingRecords.filter(r => r.teacherId === teacher?.id);
+  // reset form helper
+  // keepTeacher: when true, keep selectedTeacherId (useful for non-admin users)
+  const resetForm = (keepTeacher = false) => {
+    setSelectedWeekId("");
+    setSelectedClassId("");
+    setPeriods("");
+    setIsEditing(false);
+    setEditingRecordId(null);
+    if (!keepTeacher) setSelectedTeacherId("");
+  };
 
-  const handleAdd = () => {
-    if (!isAdmin && !teacher) {
-      alert('Không tìm thấy thông tin giáo viên!');
-      return;
-    }
+  const startEdit = (record) => {
+    setIsEditing(true);
+    setEditingRecordId(record.id);
+    setSelectedTeacherId(record.teacherId);
+    setSelectedWeekId(record.weekId);
+    setSelectedClassId(record.classId);
+    setSelectedSubjectId(record.subjectId);
+    setPeriods(record.periods);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
 
-    if (isAdmin && !selectedTeacherId) {
-      alert('Vui lòng chọn giáo viên!');
-      return;
-    }
+  const cancelEdit = () => {
+    // keep teacher selected for non-admin users (so they can continue adding for themselves)
+    resetForm(!isAdmin);
+  };
 
+  const handleSave = async () => {
+    if (!editingRecordId) return;
     if (!selectedWeekId || !selectedClassId || !selectedSubjectId || !periods) {
-      alert('Vui lòng nhập đầy đủ thông tin!');
+      alert("Vui lòng nhập đầy đủ thông tin!");
+      return;
+    }
+    const payload = {
+      teacherId: selectedTeacherId,
+      weekId: selectedWeekId,
+      subjectId: selectedSubjectId,
+      classId: selectedClassId,
+      periods: parseInt(periods, 10),
+      schoolYear,
+    };
+
+    const res = await updateTeachingRecord(editingRecordId, payload);
+    if (res.success) {
+      const teacherIdToFetch = isAdmin ? (selectedTeacherId || undefined) : selectedTeacherId || undefined;
+      await loadTeachingRecords(teacherIdToFetch);
+      // reset form after successful update; keep teacher for non-admin
+      resetForm(!isAdmin);
+      alert("✅ Đã cập nhật bản ghi!");
+    } else {
+      alert(res.message || "Cập nhật thất bại");
+    }
+  };
+
+  const handleAdd = async () => {
+    if (isEditing) {
+      await handleSave();
+      return;
+    }
+    if (!isAdmin && !selectedTeacherId) {
+      alert("Không tìm thấy thông tin giáo viên!");
+      return;
+    }
+    if (isAdmin && !selectedTeacherId) {
+      alert("Vui lòng chọn giáo viên!");
+      return;
+    }
+    if (!selectedWeekId || !selectedClassId || !selectedSubjectId || !periods) {
+      alert("Vui lòng nhập đầy đủ thông tin!");
       return;
     }
 
-    // ===== THÊM MỚI: KIỂM TRA QUYỀN THEO KHỐI =====
     if (hasGradeRestriction) {
-      const selectedClass = classes.find(c => c.id === selectedClassId);
+      const selectedClass = classes.find((c) => c.id === selectedClassId);
       if (selectedClass && !allowedGrades.includes(selectedClass.grade)) {
-        alert(`❌ Bạn không có quyền nhập dữ liệu cho khối ${selectedClass.grade}!\nBạn chỉ được nhập khối: ${allowedGrades.join(', ')}`);
+        alert(`❌ Bạn không có quyền nhập dữ liệu cho khối ${selectedClass.grade}!\nBạn chỉ được nhập khối: ${allowedGrades.join(", ")}`);
         return;
       }
     }
 
-    const newRecord = {
-      id: `TR${Date.now()}`,
-      teacherId: isAdmin ? selectedTeacherId : teacher.id,
+    const payload = {
+      teacherId: selectedTeacherId,
       weekId: selectedWeekId,
-      classId: selectedClassId,
       subjectId: selectedSubjectId,
-      periods: parseInt(periods),
+      classId: selectedClassId,
+      periods: parseInt(periods, 10),
       schoolYear,
-      createdBy: currentUser.username,
-      createdAt: new Date().toISOString()
     };
 
-    setTeachingRecords([...teachingRecords, newRecord]);
-    setSelectedWeekId('');
-    setSelectedClassId('');
-    setSelectedSubjectId('');
-    if (isAdmin) setSelectedTeacherId('');
-    setPeriods('');
-    alert('✅ Đã thêm bản ghi!');
+    const res = await addTeachingRecord(payload);
+    if (res.success) {
+      const teacherIdToFetch = isAdmin ? (selectedTeacherId || undefined) : selectedTeacherId || undefined;
+      await loadTeachingRecords(teacherIdToFetch);
+      // reset form after successful add; keep teacher for non-admin users
+      resetForm(!isAdmin);
+      alert("✅ Đã thêm bản ghi!");
+    } else {
+      alert(res.message || "Thêm bản ghi thất bại");
+    }
   };
 
-  // ===== THÊM MỚI: KIỂM TRA QUYỀN XÓA =====
-  const handleDelete = (id) => {
-    const record = teachingRecords.find(r => r.id === id);
+  const handleDelete = async (recordId) => {
+    const record = teachingRecords.find((r) => r.id === recordId);
     if (!record) return;
 
-    // Chỉ cho phép xóa bản ghi của chính mình (trừ admin)
-    if (!isAdmin && record.createdBy !== currentUser.username) {
-      alert('❌ Bạn chỉ có thể xóa bản ghi do chính mình tạo!');
-      return;
-    }
+    if (!confirm("Xác nhận xóa bản ghi này?")) return;
 
-    if (confirm('Xóa bản ghi này?')) {
-      setTeachingRecords(teachingRecords.filter(r => r.id !== id));
+    const res = await deleteTeachingRecord(recordId);
+    if (res.success) {
+      const teacherIdToFetch = isAdmin ? (selectedTeacherId || undefined) : selectedTeacherId || undefined;
+      await loadTeachingRecords(teacherIdToFetch);
+      alert("✅ Đã xóa bản ghi!");
+    } else {
+      alert(res.message || "Xóa thất bại");
     }
   };
 
-  if (!teacher && !isAdmin) {
-    return (
-      <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-lg">
-        <p className="text-yellow-800">Tài khoản của bạn chưa được liên kết với giáo viên. Vui lòng liên hệ Admin!</p>
-      </div>
-    );
-  }
+  const subjectBelongsToSelectedTeacher = (sid) => {
+    if (!selectedTeacherId) return false;
+    const t = teachers.find((tt) => tt.id === selectedTeacherId);
+    if (!t) return false;
+    return (t.subjectIds || []).includes(sid);
+  };
 
   return (
     <div className="space-y-4">
-      <h2 className="text-2xl font-bold">Nhập tiết dạy</h2>
+      <h2 className="text-2xl font-bold">{isEditing ? "Chỉnh sửa bản ghi" : "Nhập tiết dạy"}</h2>
 
-      {/* ===== THÊM MỚI: HIỂN THỊ THÔNG BÁO PHÂN QUYỀN ===== */}
       {hasGradeRestriction && (
         <div className="bg-blue-50 border-l-4 border-blue-400 p-4 rounded-lg">
           <div className="flex items-center gap-2">
@@ -123,30 +324,21 @@ const TeachingInputView = ({
             <div>
               <p className="font-medium text-blue-900">Phân quyền của bạn</p>
               <p className="text-sm text-blue-700">
-                Bạn chỉ được nhập dữ liệu cho các khối: <strong>{allowedGrades.join(', ')}</strong>
+                Bạn chỉ được nhập dữ liệu cho các khối: <strong>{allowedGrades.join(", ")}</strong>
               </p>
             </div>
           </div>
         </div>
       )}
 
-      {!isAdmin && teacher && (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <p className="text-sm text-blue-600">Giáo viên</p>
-              <p className="font-medium">{teacher.name}</p>
-            </div>
-            <div>
-              <p className="text-sm text-blue-600">Lớp chủ nhiệm</p>
-              <p className="font-medium">{classes.find(c => c.id === teacher.mainClassId)?.name || 'Chưa có'}</p>
-            </div>
-          </div>
+      {!isAdmin && !selectedTeacherId && (
+        <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-lg">
+          <p className="text-yellow-800">Tài khoản của bạn chưa được liên kết với giáo viên. Vui lòng liên hệ Admin!</p>
         </div>
       )}
 
       <div className="bg-white rounded-xl shadow-lg p-6">
-        <h3 className="text-lg font-semibold mb-4">Thêm bản ghi mới</h3>
+        <h3 className="text-lg font-semibold mb-4">{isEditing ? "Sửa bản ghi" : "Thêm bản ghi mới"}</h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {isAdmin && (
             <div>
@@ -157,15 +349,11 @@ const TeachingInputView = ({
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
               >
                 <option value="">-- Chọn giáo viên --</option>
-                {teachers.map(t => {
-                  const teacherSubjects = (t.subjectIds || [])
-                    .map(sid => subjects.find(s => s.id === sid)?.name)
-                    .filter(Boolean)
-                    .join(', ') || 'Chưa có môn';
-                  return (
-                    <option key={t.id} value={t.id}>{t.name} - {teacherSubjects}</option>
-                  );
-                })}
+                {teachers.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.name}
+                  </option>
+                ))}
               </select>
             </div>
           )}
@@ -178,9 +366,10 @@ const TeachingInputView = ({
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
             >
               <option value="">-- Chọn tuần --</option>
-              {weeks.map(w => (
+              {weeks.map((w) => (
                 <option key={w.id} value={w.id}>
-                  Tuần {w.weekNumber} ({new Date(w.startDate).toLocaleDateString('vi-VN')} - {new Date(w.endDate).toLocaleDateString('vi-VN')})
+                  Tuần {w.weekNumber} ({new Date(w.startDate).toLocaleDateString("vi-VN")} -{" "}
+                  {new Date(w.endDate).toLocaleDateString("vi-VN")})
                 </option>
               ))}
             </select>
@@ -188,7 +377,7 @@ const TeachingInputView = ({
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Lớp {hasGradeRestriction && <span className="text-blue-600">(Khối: {allowedGrades.join(', ')})</span>}
+              Lớp {hasGradeRestriction && <span className="text-blue-600">(Khối: {allowedGrades.join(", ")})</span>}
             </label>
             <select
               value={selectedClassId}
@@ -196,24 +385,36 @@ const TeachingInputView = ({
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
             >
               <option value="">-- Chọn lớp --</option>
-              {availableClasses.map(c => (
-                <option key={c.id} value={c.id}>{c.name} (Khối {c.grade})</option>
+              {availableClasses.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name} (Khối {c.grade})
+                </option>
               ))}
             </select>
           </div>
 
-          <div>
+          <div className="md:col-span-3">
             <label className="block text-sm font-medium text-gray-700 mb-2">Môn học</label>
-            <select
-              value={selectedSubjectId}
-              onChange={(e) => setSelectedSubjectId(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="">-- Chọn môn --</option>
-              {subjects.map(s => (
-                <option key={s.id} value={s.id}>{s.name}</option>
-              ))}
-            </select>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              {subjects.length === 0 && <div className="text-sm text-gray-500">Không có môn</div>}
+              {subjects.map((s) => {
+                const isTeacherSubject = subjectBelongsToSelectedTeacher(s.id);
+                const isSelected = s.id === selectedSubjectId;
+                return (
+                  <button
+                    key={s.id}
+                    onClick={() => setSelectedSubjectId(s.id)}
+                    className={`px-3 py-2 border rounded-lg text-left transition-colors ${isSelected ? "bg-blue-50 border-blue-400" : isTeacherSubject ? "bg-white border-blue-200" : "bg-white border-gray-200"
+                      }`}
+                    title={isTeacherSubject ? "Môn thuộc giáo viên đã chọn" : ""}
+                  >
+                    <div className="font-medium">{s.name}</div>
+                    <div className="text-xs text-gray-400">{s.code || ""}</div>
+                  </button>
+                );
+              })}
+            </div>
+            <p className="text-xs text-gray-400 mt-1">Khi chọn giáo viên, môn của giáo viên sẽ tự động sáng lên và auto chọn môn đầu tiên nếu có.</p>
           </div>
 
           <div>
@@ -227,21 +428,35 @@ const TeachingInputView = ({
             />
           </div>
 
-          <div className="flex items-end">
+          <div className="flex items-end space-x-2">
             <button
               onClick={handleAdd}
-              className="w-full bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
+              className="inline-flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition"
+              title={isEditing ? "Lưu thay đổi" : "Thêm bản ghi"}
             >
-              Thêm
+              <Check size={16} />
+              <span className="text-sm">{isEditing ? "Lưu" : "Thêm"}</span>
             </button>
+            {isEditing && (
+              <button
+                onClick={cancelEdit}
+                className="inline-flex items-center gap-2 bg-gray-100 text-gray-800 px-4 py-2 rounded-lg hover:bg-gray-200 transition"
+                title="Hủy chỉnh sửa"
+              >
+                <X size={16} />
+                <span className="text-sm">Hủy</span>
+              </button>
+            )}
           </div>
         </div>
       </div>
 
       <div className="bg-white rounded-xl shadow-lg overflow-hidden">
-        <div className="px-6 py-4 bg-gray-50 border-b">
-          <h3 className="text-lg font-semibold">Danh sách bản ghi</h3>
-          <p className="text-sm text-gray-500 mt-1">Tổng: {myRecords.length} bản ghi</p>
+        <div className="px-6 py-4 bg-gray-50 border-b flex items-center justify-between">
+          <div>
+            <h3 className="text-lg font-semibold">Danh sách bản ghi</h3>
+            <p className="text-sm text-gray-500 mt-1">Tổng: {myRecords.length} bản ghi</p>
+          </div>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full">
@@ -252,41 +467,49 @@ const TeachingInputView = ({
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Lớp</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Môn</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Số tiết</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Người tạo</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Thao tác</th>
+                <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Thao tác</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
               {myRecords
                 .sort((a, b) => {
-                  const weekA = weeks.find(w => w.id === a.weekId);
-                  const weekB = weeks.find(w => w.id === b.weekId);
+                  const weekA = weeks.find((w) => w.id === a.weekId);
+                  const weekB = weeks.find((w) => w.id === b.weekId);
                   return (weekB?.weekNumber || 0) - (weekA?.weekNumber || 0);
                 })
                 .map((record) => {
-                  const recordTeacher = teachers.find(t => t.id === record.teacherId);
-                  const week = weeks.find(w => w.id === record.weekId);
-                  const cls = classes.find(c => c.id === record.classId);
-                  const subject = subjects.find(s => s.id === record.subjectId);
+                  const recordTeacher = teachers.find((t) => t.id === record.teacherId);
+                  const week = weeks.find((w) => w.id === record.weekId);
+                  const cls = classes.find((c) => c.id === record.classId);
+                  const subject = subjects.find((s) => s.id === record.subjectId);
+
+                  const canEdit = isAdmin || (!isAdmin && record.teacherId === selectedTeacherId);
 
                   return (
                     <tr key={record.id} className="hover:bg-gray-50">
-                      <td className="px-4 py-3 text-sm font-medium text-blue-600">
-                        Tuần {week?.weekNumber || '?'}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-gray-900">{recordTeacher?.name || '-'}</td>
+                      <td className="px-4 py-3 text-sm font-medium text-blue-600">Tuần {week?.weekNumber || "?"}</td>
+                      <td className="px-4 py-3 text-sm text-gray-900">{recordTeacher?.name || "-"}</td>
                       <td className="px-4 py-3 text-sm text-gray-900">{cls?.name || record.classId}</td>
-                      <td className="px-4 py-3 text-sm text-gray-500">{subject?.name || '-'}</td>
+                      <td className="px-4 py-3 text-sm text-gray-500">{subject?.name || "-"}</td>
                       <td className="px-4 py-3 text-sm text-gray-500">{record.periods}</td>
-                      <td className="px-4 py-3 text-sm text-gray-400">{record.createdBy}</td>
-                      <td className="px-4 py-3 text-sm">
-                        <button
-                          onClick={() => handleDelete(record.id)}
-                          className="text-red-600 hover:text-red-800"
-                          title={!isAdmin && record.createdBy !== currentUser.username ? "Bạn không có quyền xóa" : "Xóa"}
-                        >
-                          <Trash2 size={16} />
-                        </button>
+                      <td className="px-4 py-3 text-sm text-right">
+                        <div className="inline-flex items-center justify-end gap-2">
+                          <button
+                            onClick={() => handleDelete(record.id)}
+                            className="p-2 rounded-md bg-red-50 text-red-600 hover:bg-red-100 transition"
+                            title="Xóa"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                          <button
+                            onClick={() => startEdit(record)}
+                            disabled={!canEdit}
+                            className={`p-2 rounded-md ${!canEdit ? "opacity-40 cursor-not-allowed" : "bg-gray-50 hover:bg-blue-50 text-blue-600"} transition`}
+                            title={canEdit ? "Sửa" : "Bạn không có quyền sửa"}
+                          >
+                            <Edit3 size={16} />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
