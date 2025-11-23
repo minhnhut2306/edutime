@@ -2,8 +2,6 @@ import axios from "axios";
 
 // ✅ KIỂM TRA URL
 const API_URL = "http://localhost:5000/api/";
-// Nếu deploy thì dùng:
-// const API_URL = "https://edutime-server.vercel.app/api/";
 
 console.log("🌐 API_URL:", API_URL);
 
@@ -12,7 +10,7 @@ export const api = axios.create({
   headers: {
     "Content-Type": "application/json",
   },
-  timeout: 30000, // ✅ Tăng timeout cho export Excel
+  timeout: 30000,
 });
 
 // ✅ AUTO ADD TOKEN - Interceptor tự động thêm token vào mọi request
@@ -51,11 +49,8 @@ api.interceptors.response.use(
         data: error.response.data
       });
       
-      // ✅ Nếu 401 Unauthorized -> Có thể token hết hạn
       if (error.response.status === 401) {
         console.warn("⚠️ Token có thể đã hết hạn. Vui lòng đăng nhập lại.");
-        // Có thể redirect đến trang login
-        // window.location.href = '/login';
       }
     } else {
       console.error("❌ Network Error:", error.message);
@@ -79,7 +74,6 @@ export const apiRequest = async (
       },
     };
 
-    // ✅ Ưu tiên token được truyền vào, nếu không có thì lấy từ localStorage
     const authToken = token || localStorage.getItem("token");
     if (authToken) {
       config.headers["Authorization"] = `Bearer ${authToken}`;

@@ -14,15 +14,6 @@ export const reportsAPI = {
 
   /**
    * ✅ FIX: Xuất Excel - UNIFIED API với schoolYear BẮT BUỘC
-   * 
-   * @param {object} options
-   * - teacherIds: string hoặc array - ID giáo viên (BẮT BUỘC)
-   * - schoolYear: string - Năm học (BẮT BUỘC - VD: "2024-2025")
-   * - type: 'bc'|'week'|'semester'|'year' - Loại báo cáo
-   * - bcNumber: number - Số BC (chỉ khi type='bc')
-   * - weekId: string - ID tuần (khi type='week')
-   * - weekIds: array - Mảng ID tuần (khi type='week')
-   * - semester: 1|2 - Học kỳ (khi type='semester')
    */
   exportReport: async (options) => {
     const token = localStorage.getItem("token");
@@ -56,17 +47,26 @@ export const reportsAPI = {
     if (weekIds && weekIds.length > 0) params.append('weekIds', JSON.stringify(weekIds));
     if (semester) params.append('semester', semester);
 
-    console.log("📤 Calling API:", `reports/export?${params.toString()}`);
+    const url = `reports/export?${params.toString()}`;
+    console.log("📤 Calling API:", url);
+    console.log("📤 Full URL:", `http://localhost:5000/api/${url}`);
 
     // ✅ FIX: Đảm bảo headers được gửi đúng
-    const response = await api.get(`reports/export?${params.toString()}`, {
-      headers: { 
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      },
-      responseType: 'blob'
-    });
-    return response;
+    try {
+      const response = await api.get(url, {
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        responseType: 'blob'
+      });
+
+      console.log("✅ Response received:", response.status);
+      return response;
+    } catch (error) {
+      console.error("❌ Export Error:", error.response?.status, error.response?.data);
+      throw error;
+    }
   },
 
   // ==================== LEGACY APIs (backward compatible) ====================
@@ -78,7 +78,6 @@ export const reportsAPI = {
       throw new Error("Phải cung cấp month hoặc bcNumber");
     }
 
-    // ✅ VALIDATION schoolYear
     if (!schoolYear) {
       throw new Error("schoolYear là bắt buộc");
     }
@@ -111,7 +110,6 @@ export const reportsAPI = {
       throw new Error("Phải cung cấp weekId hoặc weekIds");
     }
 
-    // ✅ VALIDATION schoolYear
     if (!schoolYear) {
       throw new Error("schoolYear là bắt buộc");
     }
@@ -137,7 +135,6 @@ export const reportsAPI = {
       throw new Error("Học kỳ phải là 1 hoặc 2");
     }
 
-    // ✅ VALIDATION schoolYear
     if (!schoolYear) {
       throw new Error("schoolYear là bắt buộc");
     }
@@ -154,7 +151,6 @@ export const reportsAPI = {
   exportYearReport: async (teacherId, schoolYear, allBC = false) => {
     const token = localStorage.getItem("token");
     
-    // ✅ VALIDATION schoolYear
     if (!schoolYear) {
       throw new Error("schoolYear là bắt buộc");
     }

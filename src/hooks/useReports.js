@@ -57,15 +57,55 @@ export const useReports = () => {
       
       return { success: true };
     } catch (err) {
-      const msg = err.response?.data?.msg 
-        || err.response?.data?.message 
-        || err.message 
-        || "Có lỗi xảy ra";
+      // ✅✅✅ XỬ LÝ LỖI THÂN THIỆN ✅✅✅
+      let userFriendlyMessage = "Có lỗi xảy ra khi xuất báo cáo";
       
-      console.error("❌ Export Error:", msg);
-      setError(msg);
+      // Lỗi 404 - Không có dữ liệu
+      if (err.response?.status === 404) {
+        // Đọc message từ backend (nếu có)
+        try {
+          const blob = err.response.data;
+          const text = await blob.text();
+          const json = JSON.parse(text);
+          userFriendlyMessage = json.msg || json.message || "Không tìm thấy dữ liệu";
+        } catch (parseError) {
+          userFriendlyMessage = "Không tìm thấy dữ liệu giảng dạy";
+        }
+        
+        // ✅ Thêm gợi ý cụ thể
+        userFriendlyMessage += `\n\n📋 Vui lòng kiểm tra:\n`;
+        userFriendlyMessage += `• Giáo viên đã nhập tiết dạy cho năm học ${options.schoolYear} chưa?\n`;
+        userFriendlyMessage += `• Bản ghi có đúng tuần/tháng/học kỳ không?\n`;
+        userFriendlyMessage += `• Thử chọn năm học khác xem có dữ liệu không?`;
+      }
+      // Lỗi 401 - Chưa đăng nhập
+      else if (err.response?.status === 401) {
+        userFriendlyMessage = "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại!";
+      }
+      // Lỗi 403 - Không có quyền
+      else if (err.response?.status === 403) {
+        userFriendlyMessage = "Bạn không có quyền xuất báo cáo này!";
+      }
+      // Lỗi 500 - Lỗi server
+      else if (err.response?.status === 500) {
+        userFriendlyMessage = "Lỗi hệ thống. Vui lòng thử lại sau hoặc liên hệ quản trị viên!";
+      }
+      // Lỗi mạng
+      else if (err.message === "Network Error") {
+        userFriendlyMessage = "Không thể kết nối đến server. Vui lòng kiểm tra kết nối mạng!";
+      }
+      // Lỗi khác
+      else if (err.response?.data?.msg) {
+        userFriendlyMessage = err.response.data.msg;
+      } else if (err.message) {
+        userFriendlyMessage = err.message;
+      }
+      
+      console.error("❌ Export Error:", err);
+      setError(userFriendlyMessage);
       setLoading(false);
-      return { success: false, message: msg };
+      
+      return { success: false, message: userFriendlyMessage };
     }
   };
 
@@ -81,7 +121,6 @@ export const useReports = () => {
       return { success: false, message: "Phải cung cấp month hoặc bcNumber" };
     }
 
-    // ✅ VALIDATION schoolYear
     if (!schoolYear) {
       setError("schoolYear là bắt buộc");
       setLoading(false);
@@ -116,7 +155,6 @@ export const useReports = () => {
       return { success: false, message: "Phải cung cấp weekId hoặc weekIds" };
     }
 
-    // ✅ VALIDATION schoolYear
     if (!schoolYear) {
       setError("schoolYear là bắt buộc");
       setLoading(false);
@@ -149,7 +187,6 @@ export const useReports = () => {
       return { success: false, message: "Học kỳ phải là 1 hoặc 2" };
     }
 
-    // ✅ VALIDATION schoolYear
     if (!schoolYear) {
       setError("schoolYear là bắt buộc");
       setLoading(false);
@@ -174,7 +211,6 @@ export const useReports = () => {
     setLoading(true);
     setError(null);
 
-    // ✅ VALIDATION schoolYear
     if (!schoolYear) {
       setError("schoolYear là bắt buộc");
       setLoading(false);

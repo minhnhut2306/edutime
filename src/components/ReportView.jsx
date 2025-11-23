@@ -101,70 +101,72 @@ const ReportView = ({ teachers = [], classes = [], subjects = [], teachingRecord
   const deselectAllTeachers = () => setSelectedTeacherIds([]);
   
   const handleExport = async () => {
-    try {
-      if (!isAdmin) {
-        alert('⛔ Chỉ Admin mới có quyền xuất báo cáo Excel!');
-        return;
-      }
-
-      const teacherIdsToExport = exportMode === 'multiple' ? selectedTeacherIds : [selectedTeacherId];
-
-      if (teacherIdsToExport.length === 0 || (exportMode === 'single' && !selectedTeacherId)) {
-        alert('Vui lòng chọn giáo viên!');
-        return;
-      }
-
-      // ✅ KIỂM TRA SCHOOLYEAR
-      if (!currentSchoolYear) {
-        alert('❌ Không tìm thấy năm học hiện tại!\n\nVui lòng kiểm tra lại hệ thống.');
-        return;
-      }
-
-      console.log("🚀 Starting export with:", {
-        teacherIds: teacherIdsToExport,
-        schoolYear: currentSchoolYear, // ✅ LẤY TỪ PROPS
-        type: exportType,
-        exportMode
-      });
-
-      // Build options
-      const options = {
-        teacherIds: exportMode === 'multiple' ? teacherIdsToExport : selectedTeacherId,
-        schoolYear: currentSchoolYear, // ✅ TRUYỀN SCHOOLYEAR TỪ DB
-        type: exportType,
-      };
-
-      // Thêm params theo type
-      if (exportType === 'bc' && exportParams.bcNumber) {
-        options.bcNumber = exportParams.bcNumber;
-      }
-      if (exportType === 'week') {
-        if (exportParams.weekIds.length > 0) {
-          options.weekIds = exportParams.weekIds;
-        } else if (exportParams.weekId) {
-          options.weekId = exportParams.weekId;
-        } else {
-          alert('Vui lòng chọn tuần!');
-          return;
-        }
-      }
-      if (exportType === 'semester') {
-        options.semester = exportParams.semester;
-      }
-
-      const result = await exportReport(options);
-
-      if (result.success) {
-        const count = exportMode === 'multiple' ? teacherIdsToExport.length : 1;
-        alert(`✅ Đã xuất báo cáo Excel thành công!\n\n📊 Năm học: ${currentSchoolYear}\n👥 Số giáo viên: ${count}`);
-      } else {
-        alert(`❌ Lỗi: ${result.message}`);
-      }
-    } catch (err) {
-      console.error("Export error:", err);
-      alert(`❌ Lỗi xuất báo cáo: ${err.message}`);
+  try {
+    if (!isAdmin) {
+      alert('⛔ Chỉ Admin mới có quyền xuất báo cáo Excel!');
+      return;
     }
-  };
+
+    const teacherIdsToExport = exportMode === 'multiple' ? selectedTeacherIds : [selectedTeacherId];
+
+    if (teacherIdsToExport.length === 0 || (exportMode === 'single' && !selectedTeacherId)) {
+      alert('❌ Vui lòng chọn giáo viên!');
+      return;
+    }
+
+    if (!currentSchoolYear) {
+      alert('❌ Không tìm thấy năm học hiện tại!\n\nVui lòng kiểm tra lại hệ thống.');
+      return;
+    }
+
+    console.log("🚀 Starting export with:", {
+      teacherIds: teacherIdsToExport,
+      schoolYear: currentSchoolYear,
+      type: exportType,
+      exportMode
+    });
+
+    // Build options
+    const options = {
+      teacherIds: exportMode === 'multiple' ? teacherIdsToExport : selectedTeacherId,
+      schoolYear: currentSchoolYear,
+      type: exportType,
+    };
+
+    // Thêm params theo type
+    if (exportType === 'bc' && exportParams.bcNumber) {
+      options.bcNumber = exportParams.bcNumber;
+    }
+    if (exportType === 'week') {
+      if (exportParams.weekIds.length > 0) {
+        options.weekIds = exportParams.weekIds;
+      } else if (exportParams.weekId) {
+        options.weekId = exportParams.weekId;
+      } else {
+        alert('❌ Vui lòng chọn tuần!');
+        return;
+      }
+    }
+    if (exportType === 'semester') {
+      options.semester = exportParams.semester;
+    }
+
+    const result = await exportReport(options);
+
+    if (result.success) {
+      const count = exportMode === 'multiple' ? teacherIdsToExport.length : 1;
+      // ✅ THÔNG BÁO THÀNH CÔNG THÂN THIỆN
+      alert(`✅ Xuất báo cáo Excel thành công!\n\n📊 Năm học: ${currentSchoolYear}\n👥 Số giáo viên: ${count}\n📥 File đã được tải về!`);
+    } else {
+      // ✅ HIỂN THỊ LỖI THÂN THIỆN (không hiện 404)
+      alert(`❌ ${result.message || 'Không thể xuất báo cáo'}`);
+    }
+  } catch (err) {
+    console.error("Export error:", err);
+    // ✅ LỖI KHÔNG MONG MUỐN
+    alert(`❌ Có lỗi xảy ra khi xuất báo cáo!\n\n${err.message || 'Vui lòng thử lại sau.'}`);
+  }
+};
 
   // Render export params
   const renderExportParams = () => {
