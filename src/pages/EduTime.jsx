@@ -331,7 +331,13 @@ const EduTime = () => {
   }
 
   const isAdmin = currentUser.role === 'admin';
-  const teacher = currentUser.role === 'user';
+  
+  // ✅ FIX: Tìm teacher object cho user hiện tại thay vì chỉ check boolean
+  const linkedTeacher = !isAdmin ? teachers.find(t => {
+    const teacherUserId = t.userId?._id || t.userId;
+    const currentUserId = currentUser._id || currentUser.id;
+    return teacherUserId === currentUserId;
+  }) : null;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
@@ -374,7 +380,7 @@ const EduTime = () => {
 
               {currentView === 'dashboard' && !isAdmin && (
                 <TeacherDashboardView
-                  teacher={teacher}
+                  teacher={linkedTeacher}
                   teachingRecords={teachingRecords}
                   classes={classes}
                   subjects={subjects}

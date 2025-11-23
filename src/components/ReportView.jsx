@@ -6,7 +6,13 @@ const ReportView = ({ teachers = [], classes = [], subjects = [], teachingRecord
   const isAdmin = currentUser?.role === 'admin';
   
   // Tìm giáo viên được liên kết với user hiện tại
-  const linkedTeacher = teachers.find(t => t.userId === currentUser?.username);
+  const linkedTeacher = teachers.find(t => {
+    if (!t.userId) return false;
+    const teacherUserId = t.userId?._id || t.userId;
+    const currentUserId = currentUser?._id || currentUser?.id;
+    return teacherUserId === currentUserId || teacherUserId?.toString() === currentUserId?.toString();
+  });
+  
   const availableTeachers = isAdmin ? teachers : (linkedTeacher ? [linkedTeacher] : []);
 
   const {
@@ -19,7 +25,7 @@ const ReportView = ({ teachers = [], classes = [], subjects = [], teachingRecord
   } = useReports();
 
   const [selectedTeacherId, setSelectedTeacherId] = useState(
-    isAdmin ? '' : (linkedTeacher?.id || '')
+    isAdmin ? '' : (linkedTeacher?.id || linkedTeacher?._id || '')
   );
   const [reportType, setReportType] = useState('teacher');
   const [exportType, setExportType] = useState('month');
@@ -36,7 +42,7 @@ const ReportView = ({ teachers = [], classes = [], subjects = [], teachingRecord
   // Auto-select teacher nếu là user thường
   useEffect(() => {
     if (!isAdmin && linkedTeacher && !selectedTeacherId) {
-      setSelectedTeacherId(linkedTeacher.id);
+      setSelectedTeacherId(linkedTeacher.id || linkedTeacher._id);
     }
   }, [linkedTeacher, isAdmin, selectedTeacherId]);
 
@@ -62,41 +68,48 @@ const ReportView = ({ teachers = [], classes = [], subjects = [], teachingRecord
   }
 
   const handleExport = async () => {
-    if (!isAdmin) {
-      alert('⛔ Chỉ Admin mới có quyền xuất báo cáo Excel!');
-      return;
-    }
-
-    if (!selectedTeacherId) {
-      alert('Vui lòng chọn giáo viên!');
-      return;
-    }
-
-    if (!schoolYear) {
-      alert('Không tìm thấy năm học hiện tại!');
-      return;
-    }
-
-    const selectedTeacher = teachers.find(t => t.id === selectedTeacherId);
-    if (!selectedTeacher) {
-      alert('Không tìm thấy thông tin giáo viên!');
-      return;
-    }
-
-    const teacherRecordsData = teachingRecords.filter(r => r.teacherId === selectedTeacherId);
-    if (teacherRecordsData.length === 0) {
-      alert('Chưa có dữ liệu để xuất báo cáo!');
-      return;
-    }
-
-    let result;
     try {
+      if (!isAdmin) {
+        alert('⛔ Chỉ Admin mới có quyền xuất báo cáo Excel!');
+        return;
+      }
+
+      if (!selectedTeacherId) {
+        alert('Vui lòng chọn giáo viên!');
+        return;
+      }
+
+      // ✅ FIX: Lấy schoolYear.year nếu schoolYear là object
+      const schoolYearValue = typeof schoolYear === 'object' ? schoolYear?.year : schoolYear;
+      
+      if (!schoolYearValue) {
+        alert('Không tìm thấy năm học hiện tại!');
+        return;
+      }
+
+      const selectedTeacher = teachers.find(t => (t.id || t._id) === selectedTeacherId);
+      if (!selectedTeacher) {
+        alert('Không tìm thấy thông tin giáo viên!');
+        return;
+      }
+
+      const teacherRecordsData = teachingRecords.filter(r => {
+        const rTeacherId = r.teacherId?._id || r.teacherId;
+        return rTeacherId === selectedTeacherId || rTeacherId?.toString() === selectedTeacherId?.toString();
+      });
+      
+      if (teacherRecordsData.length === 0) {
+        alert('Chưa có dữ liệu để xuất báo cáo!');
+        return;
+      }
+
+      let result;
       switch (exportType) {
         case 'month':
           if (exportParams.useBCMode && exportParams.bcNumber) {
-            result = await exportMonthReport(selectedTeacherId, schoolYear, null, exportParams.bcNumber);
+            result = await exportMonthReport(selectedTeacherId, schoolYearValue, null, exportParams.bcNumber);
           } else {
-            result = await exportMonthReport(selectedTeacherId, schoolYear, exportParams.month, null);
+            result = await exportMonthReport(selectedTeacherId, schoolYearValue, exportParams.month, null);
           }
           break;
 
@@ -112,11 +125,11 @@ const ReportView = ({ teachers = [], classes = [], subjects = [], teachingRecord
           break;
 
         case 'semester':
-          result = await exportSemesterReport(selectedTeacherId, schoolYear, exportParams.semester);
+          result = await exportSemesterReport(selectedTeacherId, schoolYearValue, exportParams.semester);
           break;
 
         case 'year':
-          result = await exportYearReport(selectedTeacherId, schoolYear, exportParams.allBC);
+          result = await exportYearReport(selectedTeacherId, schoolYearValue, exportParams.allBC);
           break;
 
         default:
@@ -131,7 +144,7 @@ const ReportView = ({ teachers = [], classes = [], subjects = [], teachingRecord
       }
     } catch (err) {
       console.error('Export error:', err);
-      alert(`❌ Có lỗi xảy ra: ${err.message}`);
+      alert(`❌ Có lỗi xảy ra: ${err.message || 'Lỗi không xác định'}`);
     }
   };
 
@@ -139,33 +152,43 @@ const ReportView = ({ teachers = [], classes = [], subjects = [], teachingRecord
   const getSubjectNames = (subjectIds) => {
     if (!subjectIds || subjectIds.length === 0) return 'Chưa có môn';
     return subjectIds
-      .map(sid => subjects.find(s => s.id === sid)?.name)
+      .map(sid => {
+        const subjectId = typeof sid === 'object' ? (sid._id || sid.id) : sid;
+        return subjects.find(s => (s._id || s.id) === subjectId)?.name;
+      })
       .filter(Boolean)
       .join(', ') || 'Chưa có môn';
   };
 
   // Calculate statistics
-  const myRecords = selectedTeacherId ? teachingRecords.filter(r => r.teacherId === selectedTeacherId) : [];
+  const myRecords = selectedTeacherId ? teachingRecords.filter(r => {
+    const rTeacherId = r.teacherId?._id || r.teacherId;
+    return rTeacherId === selectedTeacherId || rTeacherId?.toString() === selectedTeacherId?.toString();
+  }) : [];
+  
   const totalPeriods = myRecords.reduce((sum, r) => sum + (r.periods || 0), 0);
 
   const today = new Date();
   const currentMonth = today.getMonth();
   const monthRecords = myRecords.filter(r => {
-    const week = weeks.find(w => w.id === r.weekId);
+    const week = weeks.find(w => (w.id || w._id) === (r.weekId?._id || r.weekId));
     if (!week) return false;
     const weekDate = new Date(week.startDate);
     return weekDate.getMonth() === currentMonth;
   });
   const monthPeriods = monthRecords.reduce((sum, r) => sum + (r.periods || 0), 0);
 
-  const selectedTeacher = teachers.find(t => t.id === selectedTeacherId);
+  const selectedTeacher = teachers.find(t => (t.id || t._id) === selectedTeacherId);
 
   const gradeStats = () => {
     if (!selectedTeacherId) return [];
     const grades = [...new Set(classes.map(c => c.grade))].sort();
     return grades.map(grade => {
       const gradeClasses = classes.filter(c => c.grade === grade);
-      const gradeRecords = myRecords.filter(r => gradeClasses.some(c => c.id === r.classId));
+      const gradeRecords = myRecords.filter(r => {
+        const rClassId = r.classId?._id || r.classId;
+        return gradeClasses.some(c => (c.id || c._id) === rClassId);
+      });
       const gradePeriods = gradeRecords.reduce((sum, r) => sum + (r.periods || 0), 0);
       return { grade, classes: gradeClasses.length, records: gradeRecords.length, periods: gradePeriods };
     }).filter(g => g.periods > 0);
@@ -173,10 +196,19 @@ const ReportView = ({ teachers = [], classes = [], subjects = [], teachingRecord
 
   const semesterStats = () => {
     if (!selectedTeacherId || weeks.length === 0) return [];
-    const semester1Weeks = weeks.filter(w => w.weekNumber <= 18);
-    const semester2Weeks = weeks.filter(w => w.weekNumber > 18 && w.weekNumber <= 35);
-    const sem1Records = myRecords.filter(r => semester1Weeks.some(w => w.id === r.weekId));
-    const sem2Records = myRecords.filter(r => semester2Weeks.some(w => w.id === r.weekId));
+    const semester1Weeks = weeks.filter(w => (w.weekNumber || 0) <= 18);
+    const semester2Weeks = weeks.filter(w => (w.weekNumber || 0) > 18 && (w.weekNumber || 0) <= 35);
+    
+    const sem1Records = myRecords.filter(r => {
+      const rWeekId = r.weekId?._id || r.weekId;
+      return semester1Weeks.some(w => (w.id || w._id) === rWeekId);
+    });
+    
+    const sem2Records = myRecords.filter(r => {
+      const rWeekId = r.weekId?._id || r.weekId;
+      return semester2Weeks.some(w => (w.id || w._id) === rWeekId);
+    });
+    
     return [
       { semester: 'Học kỳ 1', weeks: 'Tuần 1-18', records: sem1Records.length, periods: sem1Records.reduce((sum, r) => sum + (r.periods || 0), 0) },
       { semester: 'Học kỳ 2', weeks: 'Tuần 19-35', records: sem2Records.length, periods: sem2Records.reduce((sum, r) => sum + (r.periods || 0), 0) }
@@ -185,11 +217,21 @@ const ReportView = ({ teachers = [], classes = [], subjects = [], teachingRecord
 
   const weeklyStats = () => {
     if (!selectedTeacherId) return [];
-    return weeks.sort((a, b) => b.weekNumber - a.weekNumber).map(week => {
-      const weekRecords = myRecords.filter(r => r.weekId === week.id);
+    return weeks.sort((a, b) => (b.weekNumber || 0) - (a.weekNumber || 0)).map(week => {
+      const weekRecords = myRecords.filter(r => {
+        const rWeekId = r.weekId?._id || r.weekId;
+        const wId = week.id || week._id;
+        return rWeekId === wId || rWeekId?.toString() === wId?.toString();
+      });
       const weekPeriods = weekRecords.reduce((sum, r) => sum + (r.periods || 0), 0);
       if (weekPeriods === 0) return null;
-      return { weekNumber: week.weekNumber, startDate: week.startDate, endDate: week.endDate, records: weekRecords.length, periods: weekPeriods };
+      return { 
+        weekNumber: week.weekNumber, 
+        startDate: week.startDate, 
+        endDate: week.endDate, 
+        records: weekRecords.length, 
+        periods: weekPeriods 
+      };
     }).filter(w => w !== null);
   };
 
@@ -200,20 +242,38 @@ const ReportView = ({ teachers = [], classes = [], subjects = [], teachingRecord
         return (
           <div className="space-y-3">
             <div className="flex items-center gap-2">
-              <input type="radio" id="byMonth" checked={!exportParams.useBCMode} onChange={() => setExportParams({ ...exportParams, useBCMode: false, bcNumber: null })} />
+              <input 
+                type="radio" 
+                id="byMonth" 
+                checked={!exportParams.useBCMode} 
+                onChange={() => setExportParams({ ...exportParams, useBCMode: false, bcNumber: null })} 
+              />
               <label htmlFor="byMonth" className="text-sm font-medium">Theo tháng</label>
             </div>
             {!exportParams.useBCMode && (
-              <select value={exportParams.month} onChange={(e) => setExportParams({ ...exportParams, month: parseInt(e.target.value) })} className="w-full px-3 py-2 border rounded-lg">
+              <select 
+                value={exportParams.month} 
+                onChange={(e) => setExportParams({ ...exportParams, month: parseInt(e.target.value) })} 
+                className="w-full px-3 py-2 border rounded-lg"
+              >
                 {[...Array(12)].map((_, i) => <option key={i + 1} value={i + 1}>Tháng {i + 1}</option>)}
               </select>
             )}
             <div className="flex items-center gap-2">
-              <input type="radio" id="byBC" checked={exportParams.useBCMode} onChange={() => setExportParams({ ...exportParams, useBCMode: true, bcNumber: 1 })} />
+              <input 
+                type="radio" 
+                id="byBC" 
+                checked={exportParams.useBCMode} 
+                onChange={() => setExportParams({ ...exportParams, useBCMode: true, bcNumber: 1 })} 
+              />
               <label htmlFor="byBC" className="text-sm font-medium">Theo BC</label>
             </div>
             {exportParams.useBCMode && (
-              <select value={exportParams.bcNumber || 1} onChange={(e) => setExportParams({ ...exportParams, bcNumber: parseInt(e.target.value) })} className="w-full px-3 py-2 border rounded-lg">
+              <select 
+                value={exportParams.bcNumber || 1} 
+                onChange={(e) => setExportParams({ ...exportParams, bcNumber: parseInt(e.target.value) })} 
+                className="w-full px-3 py-2 border rounded-lg"
+              >
                 {[...Array(12)].map((_, i) => <option key={i + 1} value={i + 1}>BC {i + 1}</option>)}
               </select>
             )}
@@ -224,32 +284,53 @@ const ReportView = ({ teachers = [], classes = [], subjects = [], teachingRecord
         return (
           <div className="space-y-3">
             <div className="flex items-center gap-2">
-              <input type="radio" id="singleWeek" checked={exportParams.weekIds.length === 0} onChange={() => setExportParams({ ...exportParams, weekIds: [] })} />
+              <input 
+                type="radio" 
+                id="singleWeek" 
+                checked={exportParams.weekIds.length === 0} 
+                onChange={() => setExportParams({ ...exportParams, weekIds: [] })} 
+              />
               <label htmlFor="singleWeek" className="text-sm font-medium">Một tuần</label>
             </div>
             {exportParams.weekIds.length === 0 && (
-              <select value={exportParams.weekId} onChange={(e) => setExportParams({ ...exportParams, weekId: e.target.value })} className="w-full px-3 py-2 border rounded-lg">
+              <select 
+                value={exportParams.weekId} 
+                onChange={(e) => setExportParams({ ...exportParams, weekId: e.target.value })} 
+                className="w-full px-3 py-2 border rounded-lg"
+              >
                 <option value="">-- Chọn tuần --</option>
                 {weeks.map(w => (
-                  <option key={w.id} value={w.id}>Tuần {w.weekNumber} ({new Date(w.startDate).toLocaleDateString('vi-VN')} - {new Date(w.endDate).toLocaleDateString('vi-VN')})</option>
+                  <option key={w.id || w._id} value={w.id || w._id}>
+                    Tuần {w.weekNumber} ({new Date(w.startDate).toLocaleDateString('vi-VN')} - {new Date(w.endDate).toLocaleDateString('vi-VN')})
+                  </option>
                 ))}
               </select>
             )}
             <div className="flex items-center gap-2">
-              <input type="radio" id="multiWeeks" checked={exportParams.weekIds.length > 0} onChange={() => setExportParams({ ...exportParams, weekIds: weeks.slice(0, 2).map(w => w.id) })} />
+              <input 
+                type="radio" 
+                id="multiWeeks" 
+                checked={exportParams.weekIds.length > 0} 
+                onChange={() => setExportParams({ ...exportParams, weekIds: weeks.slice(0, 2).map(w => w.id || w._id) })} 
+              />
               <label htmlFor="multiWeeks" className="text-sm font-medium">Nhiều tuần</label>
             </div>
             {exportParams.weekIds.length > 0 && (
               <div className="border rounded-lg p-3 max-h-48 overflow-y-auto">
                 {weeks.map(w => (
-                  <label key={w.id} className="flex items-center gap-2 py-1 hover:bg-gray-50">
-                    <input type="checkbox" checked={exportParams.weekIds.includes(w.id)} onChange={(e) => {
-                      if (e.target.checked) {
-                        setExportParams({ ...exportParams, weekIds: [...exportParams.weekIds, w.id] });
-                      } else {
-                        setExportParams({ ...exportParams, weekIds: exportParams.weekIds.filter(id => id !== w.id) });
-                      }
-                    }} />
+                  <label key={w.id || w._id} className="flex items-center gap-2 py-1 hover:bg-gray-50">
+                    <input 
+                      type="checkbox" 
+                      checked={exportParams.weekIds.includes(w.id || w._id)} 
+                      onChange={(e) => {
+                        const wId = w.id || w._id;
+                        if (e.target.checked) {
+                          setExportParams({ ...exportParams, weekIds: [...exportParams.weekIds, wId] });
+                        } else {
+                          setExportParams({ ...exportParams, weekIds: exportParams.weekIds.filter(id => id !== wId) });
+                        }
+                      }} 
+                    />
                     <span className="text-sm">Tuần {w.weekNumber}</span>
                   </label>
                 ))}
@@ -260,7 +341,11 @@ const ReportView = ({ teachers = [], classes = [], subjects = [], teachingRecord
 
       case 'semester':
         return (
-          <select value={exportParams.semester} onChange={(e) => setExportParams({ ...exportParams, semester: parseInt(e.target.value) })} className="w-full px-3 py-2 border rounded-lg">
+          <select 
+            value={exportParams.semester} 
+            onChange={(e) => setExportParams({ ...exportParams, semester: parseInt(e.target.value) })} 
+            className="w-full px-3 py-2 border rounded-lg"
+          >
             <option value={1}>Học kỳ 1</option>
             <option value={2}>Học kỳ 2</option>
           </select>
@@ -269,7 +354,11 @@ const ReportView = ({ teachers = [], classes = [], subjects = [], teachingRecord
       case 'year':
         return (
           <label className="flex items-center gap-2">
-            <input type="checkbox" checked={exportParams.allBC} onChange={(e) => setExportParams({ ...exportParams, allBC: e.target.checked })} />
+            <input 
+              type="checkbox" 
+              checked={exportParams.allBC} 
+              onChange={(e) => setExportParams({ ...exportParams, allBC: e.target.checked })} 
+            />
             <span className="text-sm font-medium">Xuất tất cả BC trong năm</span>
           </label>
         );
@@ -284,7 +373,11 @@ const ReportView = ({ teachers = [], classes = [], subjects = [], teachingRecord
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold">Báo cáo & Xuất Excel</h2>
         {isAdmin && selectedTeacherId && (
-          <button onClick={handleExport} disabled={reportLoading} className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed">
+          <button 
+            onClick={handleExport} 
+            disabled={reportLoading} 
+            className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+          >
             <Download size={20} />
             {reportLoading ? 'Đang xuất...' : 'Xuất Excel'}
           </button>
@@ -303,10 +396,14 @@ const ReportView = ({ teachers = [], classes = [], subjects = [], teachingRecord
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Giáo viên</label>
-              <select value={selectedTeacherId} onChange={(e) => setSelectedTeacherId(e.target.value)} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+              <select 
+                value={selectedTeacherId} 
+                onChange={(e) => setSelectedTeacherId(e.target.value)} 
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              >
                 <option value="">-- Chọn giáo viên --</option>
                 {availableTeachers.map(t => (
-                  <option key={t.id} value={t.id}>
+                  <option key={t.id || t._id} value={t.id || t._id}>
                     {t.name}
                   </option>
                 ))}
@@ -314,7 +411,11 @@ const ReportView = ({ teachers = [], classes = [], subjects = [], teachingRecord
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Loại báo cáo</label>
-              <select value={exportType} onChange={(e) => setExportType(e.target.value)} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+              <select 
+                value={exportType} 
+                onChange={(e) => setExportType(e.target.value)} 
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              >
                 <option value="month">Theo tháng/BC</option>
                 <option value="week">Theo tuần</option>
                 <option value="semester">Theo học kỳ</option>
@@ -372,7 +473,7 @@ const ReportView = ({ teachers = [], classes = [], subjects = [], teachingRecord
                 </div>
                 <div>
                   <p className="text-sm text-gray-500">Lớp chủ nhiệm</p>
-                  <p className="font-medium text-lg">{classes.find(c => c.id === selectedTeacher.mainClassId)?.name || 'Chưa có'}</p>
+                  <p className="font-medium text-lg">{classes.find(c => (c.id || c._id) === (selectedTeacher.mainClassId?._id || selectedTeacher.mainClassId))?.name || 'Chưa có'}</p>
                 </div>
                 <div>
                   <p className="text-sm text-gray-500">Email</p>
@@ -384,10 +485,30 @@ const ReportView = ({ teachers = [], classes = [], subjects = [], teachingRecord
 
           <div className="bg-white rounded-xl shadow-lg p-6">
             <div className="flex gap-2 mb-4 border-b">
-              <button onClick={() => setReportType('teacher')} className={`px-4 py-2 font-medium transition-all ${reportType === 'teacher' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'}`}>📊 Theo tháng</button>
-              <button onClick={() => setReportType('week')} className={`px-4 py-2 font-medium transition-all ${reportType === 'week' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'}`}>📅 Theo tuần</button>
-              <button onClick={() => setReportType('grade')} className={`px-4 py-2 font-medium transition-all ${reportType === 'grade' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'}`}>🎓 Theo khối</button>
-              <button onClick={() => setReportType('semester')} className={`px-4 py-2 font-medium transition-all ${reportType === 'semester' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'}`}>📚 Theo học kỳ</button>
+              <button 
+                onClick={() => setReportType('teacher')} 
+                className={`px-4 py-2 font-medium transition-all ${reportType === 'teacher' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
+              >
+                📊 Theo tháng
+              </button>
+              <button 
+                onClick={() => setReportType('week')} 
+                className={`px-4 py-2 font-medium transition-all ${reportType === 'week' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
+              >
+                📅 Theo tuần
+              </button>
+              <button 
+                onClick={() => setReportType('grade')} 
+                className={`px-4 py-2 font-medium transition-all ${reportType === 'grade' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
+              >
+                🎓 Theo khối
+              </button>
+              <button 
+                onClick={() => setReportType('semester')} 
+                className={`px-4 py-2 font-medium transition-all ${reportType === 'semester' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
+              >
+                📚 Theo học kỳ
+              </button>
             </div>
 
             {reportType === 'teacher' && (
@@ -403,7 +524,7 @@ const ReportView = ({ teachers = [], classes = [], subjects = [], teachingRecord
                   <tbody className="divide-y divide-gray-200">
                     {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map(month => {
                       const monthData = myRecords.filter(r => {
-                        const week = weeks.find(w => w.id === r.weekId);
+                        const week = weeks.find(w => (w.id || w._id) === (r.weekId?._id || r.weekId));
                         if (!week) return false;
                         const weekDate = new Date(week.startDate);
                         return weekDate.getMonth() === month;
@@ -438,7 +559,9 @@ const ReportView = ({ teachers = [], classes = [], subjects = [], teachingRecord
                     {weeklyStats().map((week) => (
                       <tr key={week.weekNumber} className="hover:bg-gray-50">
                         <td className="px-4 py-2 text-sm font-medium text-blue-600">Tuần {week.weekNumber}</td>
-                        <td className="px-4 py-2 text-sm text-gray-600">{new Date(week.startDate).toLocaleDateString('vi-VN')} - {new Date(week.endDate).toLocaleDateString('vi-VN')}</td>
+                        <td className="px-4 py-2 text-sm text-gray-600">
+                          {new Date(week.startDate).toLocaleDateString('vi-VN')} - {new Date(week.endDate).toLocaleDateString('vi-VN')}
+                        </td>
                         <td className="px-4 py-2 text-sm">{week.records}</td>
                         <td className="px-4 py-2 text-sm font-medium text-green-600">{week.periods}</td>
                       </tr>

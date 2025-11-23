@@ -43,23 +43,29 @@ const TeacherDashboardView = ({ teacher, teachingRecords = [], classes = [], sub
     return classId === mainClassId || classId?.toString() === mainClassId?.toString();
   });
 
-  const teacherSubjects = (teacher.subjectIds || [])
+  // ✅ FIX: Xử lý an toàn subjectIds
+  const teacherSubjects = ((teacher.subjectIds || [])
     .map(sid => {
-      const subjectId = typeof sid === 'object' ? (sid._id || sid.id || sid.name) : sid;
-      if (typeof sid === 'object' && sid.name) return sid.name;
+      // Nếu sid đã là object có name
+      if (typeof sid === 'object' && sid !== null && sid.name) {
+        return sid.name;
+      }
+      
+      // Nếu sid là string ID, tìm trong danh sách subjects
+      const subjectId = typeof sid === 'object' ? (sid._id || sid.id) : sid;
       const subject = (subjects || []).find(s => {
         const sId = s._id || s.id;
         return sId === subjectId || sId?.toString() === subjectId?.toString();
       });
       return subject?.name;
     })
-    .filter(Boolean)
-    .join(', ') || 'Chưa có';
+    .filter(Boolean) // Loại bỏ undefined/null
+    .join(', ')) || 'Chưa có';
 
   return (
     <div className="space-y-6">
       <div className="bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl p-6 text-white shadow-lg">
-        <h2 className="text-2xl font-bold mb-4">Xin chào, {teacher.name}!</h2>
+        <h2 className="text-2xl font-bold mb-4">Xin chào, {teacher.name || 'Giáo viên'}!</h2>
         <div className="grid grid-cols-2 gap-4">
           <div>
             <p className="text-blue-100 text-sm">Lớp chủ nhiệm</p>
