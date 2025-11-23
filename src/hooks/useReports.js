@@ -5,7 +5,7 @@ export const useReports = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  // Hàm helper để download file
+  // Helper download file
   const downloadFile = (blob, fileName) => {
     const url = window.URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -18,138 +18,101 @@ export const useReports = () => {
   };
 
   /**
-   * Lấy báo cáo giáo viên theo loại
-   * @param {string} teacherId - ID giáo viên
-   * @param {string} type - Loại báo cáo: month|bc|week|semester|year
-   * @param {object} filters - Các filter: schoolYear, month, bcNumber, weekId, semester
+   * Xuất báo cáo - UNIFIED FUNCTION
+   * Tất cả loại báo cáo đều dùng chung 1 mẫu Excel
+   * 
+   * @param {object} options
+   * - teacherIds: string hoặc array
+   * - schoolYear: string
+   * - type: 'bc'|'week'|'semester'|'year'
+   * - bcNumber, weekId, weekIds, semester
    */
-  const getTeacherReport = async (teacherId, type, filters = {}) => {
+  const exportReport = async (options) => {
     setLoading(true);
     setError(null);
-    try {
-      const response = await reportsAPI.getTeacherReport(teacherId, type, filters);
-      if (response.code === 200) {
-        setLoading(false);
-        return {
-          success: true,
-          data: response.data,
-        };
-      } else {
-        throw new Error(response.msg || "Lấy báo cáo thất bại");
-      }
-    } catch (error) {
-      const errorMessage =
-        error.response?.data?.msg || error.message || "Có lỗi xảy ra";
-      setError(errorMessage);
-      setLoading(false);
-      return {
-        success: false,
-        message: errorMessage,
-      };
-    }
-  };
-
-  /**
-   * Xuất báo cáo theo tháng hoặc BC
-   * @param {string} teacherId - ID giáo viên
-   * @param {string} schoolYear - Năm học (VD: "2024-2025")
-   * @param {number|null} month - Tháng (1-12), null nếu xuất theo BC
-   * @param {number|null} bcNumber - Số BC (1-12), null nếu xuất theo tháng
-   */
-  const exportMonthReport = async (teacherId, schoolYear, month = null, bcNumber = null) => {
-    setLoading(true);
-    setError(null);
-    
-    // Validation: Phải có ít nhất 1 trong 2
-    if (month === null && bcNumber === null) {
-      setError("Phải cung cấp month hoặc bcNumber");
-      setLoading(false);
-      return {
-        success: false,
-        message: "Phải cung cấp month hoặc bcNumber",
-      };
-    }
-
-    // Không cho phép cả 2 cùng lúc
-    if (month !== null && bcNumber !== null) {
-      setError("Chỉ được chọn month HOẶC bcNumber, không được cả hai");
-      setLoading(false);
-      return {
-        success: false,
-        message: "Chỉ được chọn month HOẶC bcNumber, không được cả hai",
-      };
-    }
 
     try {
-      const response = await reportsAPI.exportMonthReport(teacherId, schoolYear, month, bcNumber);
+      const response = await reportsAPI.exportReport(options);
       setLoading(false);
 
-      const fileName = bcNumber !== null
-        ? `BaoCao_BC${bcNumber}_${schoolYear}.xlsx`
-        : `BaoCaoThang_${month}_${schoolYear}.xlsx`;
+      // Build filename
+      const { type = 'bc', bcNumber, schoolYear, teacherIds, semester } = options;
+      let fileName = `BaoCao_${schoolYear}`;
+      if (type === 'bc' && bcNumber) fileName = `BC${bcNumber}_${schoolYear}`;
+      else if (type === 'week') fileName = `BaoCaoTuan_${schoolYear}`;
+      else if (type === 'semester') fileName = `HocKy${semester}_${schoolYear}`;
+      else if (type === 'year') fileName = `CaNam_${schoolYear}`;
+      
+      const count = Array.isArray(teacherIds) ? teacherIds.length : 1;
+      if (count > 1) fileName += `_${count}GV`;
+      fileName += '.xlsx';
 
       downloadFile(response.data, fileName);
       return { success: true };
-    } catch (error) {
-      const errorMessage =
-        error.response?.data?.msg || error.message || "Có lỗi xảy ra";
-      setError(errorMessage);
+    } catch (err) {
+      const msg = err.response?.data?.msg || err.message || "Có lỗi xảy ra";
+      setError(msg);
       setLoading(false);
-      return {
-        success: false,
-        message: errorMessage,
-      };
+      return { success: false, message: msg };
     }
   };
 
-  /**
-   * Xuất báo cáo theo tuần
-   * @param {string} teacherId - ID giáo viên
-   * @param {string|null} weekId - ID của 1 tuần đơn lẻ, null nếu xuất nhiều tuần
-   * @param {array|null} weekIds - Mảng ID của nhiều tuần, null nếu xuất 1 tuần
-   */
+  // ==================== LEGACY FUNCTIONS ====================
+
+  const exportMonthReport = async (teacherIds, schoolYear, month = null, bcNumber = null) => {
+    setLoading(true);
+    setError(null);
+
+    if (month === null && bcNumber === null) {
+      setError("Phải cung cấp month hoặc bcNumber");
+      setLoading(false);
+      return { success: false, message: "Phải cung cấp month hoặc bcNumber" };
+    }
+
+    try {
+      const response = await reportsAPI.exportMonthReport(teacherIds, schoolYear, month, bcNumber);
+      setLoading(false);
+
+      const bc = bcNumber || month;
+      const count = Array.isArray(teacherIds) ? teacherIds.length : 1;
+      const fileName = count > 1 ? `BC${bc}_${schoolYear}_${count}GV.xlsx` : `BC${bc}_${schoolYear}.xlsx`;
+
+      downloadFile(response.data, fileName);
+      return { success: true };
+    } catch (err) {
+      const msg = err.response?.data?.msg || err.message || "Có lỗi xảy ra";
+      setError(msg);
+      setLoading(false);
+      return { success: false, message: msg };
+    }
+  };
+
   const exportWeekReport = async (teacherId, weekId = null, weekIds = null) => {
     setLoading(true);
     setError(null);
 
-    // Validation: Phải có ít nhất 1 trong 2
     if (!weekId && (!weekIds || weekIds.length === 0)) {
       setError("Phải cung cấp weekId hoặc weekIds");
       setLoading(false);
-      return {
-        success: false,
-        message: "Phải cung cấp weekId hoặc weekIds",
-      };
+      return { success: false, message: "Phải cung cấp weekId hoặc weekIds" };
     }
 
     try {
       const response = await reportsAPI.exportWeekReport(teacherId, weekId, weekIds);
       setLoading(false);
 
-      const fileName = weekIds && weekIds.length > 0
-        ? `BaoCao_NhieuTuan.xlsx`
-        : `BaoCaoTuan_${weekId}.xlsx`;
+      const fileName = weekIds && weekIds.length > 0 ? `BaoCao_NhieuTuan.xlsx` : `BaoCaoTuan.xlsx`;
 
       downloadFile(response.data, fileName);
       return { success: true };
-    } catch (error) {
-      const errorMessage =
-        error.response?.data?.msg || error.message || "Có lỗi xảy ra";
-      setError(errorMessage);
+    } catch (err) {
+      const msg = err.response?.data?.msg || err.message || "Có lỗi xảy ra";
+      setError(msg);
       setLoading(false);
-      return {
-        success: false,
-        message: errorMessage,
-      };
+      return { success: false, message: msg };
     }
   };
 
-  /**
-   * Xuất báo cáo theo học kỳ
-   * @param {string} teacherId - ID giáo viên
-   * @param {string} schoolYear - Năm học
-   * @param {number} semester - Học kỳ (1 hoặc 2)
-   */
   const exportSemesterReport = async (teacherId, schoolYear, semester) => {
     setLoading(true);
     setError(null);
@@ -157,63 +120,64 @@ export const useReports = () => {
     if (!semester || (semester !== 1 && semester !== 2)) {
       setError("Học kỳ phải là 1 hoặc 2");
       setLoading(false);
-      return {
-        success: false,
-        message: "Học kỳ phải là 1 hoặc 2",
-      };
+      return { success: false, message: "Học kỳ phải là 1 hoặc 2" };
     }
 
     try {
       const response = await reportsAPI.exportSemesterReport(teacherId, schoolYear, semester);
       setLoading(false);
 
-      const fileName = `BaoCaoHocKy${semester}_${schoolYear}.xlsx`;
-      downloadFile(response.data, fileName);
+      downloadFile(response.data, `HocKy${semester}_${schoolYear}.xlsx`);
       return { success: true };
-    } catch (error) {
-      const errorMessage =
-        error.response?.data?.msg || error.message || "Có lỗi xảy ra";
-      setError(errorMessage);
+    } catch (err) {
+      const msg = err.response?.data?.msg || err.message || "Có lỗi xảy ra";
+      setError(msg);
       setLoading(false);
-      return {
-        success: false,
-        message: errorMessage,
-      };
+      return { success: false, message: msg };
     }
   };
 
-  /**
-   * Xuất báo cáo theo năm
-   * @param {string} teacherId - ID giáo viên
-   * @param {string} schoolYear - Năm học
-   * @param {boolean} allBC - true = xuất tất cả BC, false = xuất báo cáo năm thông thường
-   */
   const exportYearReport = async (teacherId, schoolYear, allBC = false) => {
     setLoading(true);
     setError(null);
+
     try {
       const response = await reportsAPI.exportYearReport(teacherId, schoolYear, allBC);
       setLoading(false);
 
-      const fileName = allBC
-        ? `BaoCaoTongHopBC_${schoolYear}.xlsx`
-        : `BaoCaoNam_${schoolYear}.xlsx`;
+      const fileName = allBC ? `TongHopBC_${schoolYear}.xlsx` : `BaoCaoNam_${schoolYear}.xlsx`;
 
       downloadFile(response.data, fileName);
       return { success: true };
-    } catch (error) {
-      const errorMessage =
-        error.response?.data?.msg || error.message || "Có lỗi xảy ra";
-      setError(errorMessage);
+    } catch (err) {
+      const msg = err.response?.data?.msg || err.message || "Có lỗi xảy ra";
+      setError(msg);
       setLoading(false);
-      return {
-        success: false,
-        message: errorMessage,
-      };
+      return { success: false, message: msg };
+    }
+  };
+
+  const getTeacherReport = async (teacherId, type, filters = {}) => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      const response = await reportsAPI.getTeacherReport(teacherId, type, filters);
+      setLoading(false);
+      if (response.code === 200) {
+        return { success: true, data: response.data };
+      }
+      throw new Error(response.msg || "Lấy báo cáo thất bại");
+    } catch (err) {
+      const msg = err.response?.data?.msg || err.message || "Có lỗi xảy ra";
+      setError(msg);
+      setLoading(false);
+      return { success: false, message: msg };
     }
   };
 
   return {
+    exportReport,
     getTeacherReport,
     exportMonthReport,
     exportWeekReport,
