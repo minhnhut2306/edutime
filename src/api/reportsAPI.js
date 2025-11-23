@@ -1,3 +1,5 @@
+// ==================== UPDATED: src/api/reportsAPI.js ====================
+
 import { api, apiRequest } from "./baseApi";
 
 export const reportsAPI = {
@@ -11,15 +13,13 @@ export const reportsAPI = {
   },
 
   /**
-   * Xuất Excel - UNIFIED API
-   * Tất cả loại báo cáo đều dùng chung 1 mẫu Excel
-   * Tự động xác định BC từ dữ liệu
+   * ✅ FIX: Xuất Excel - UNIFIED API với schoolYear BẮT BUỘC
    * 
    * @param {object} options
-   * - teacherIds: string hoặc array - ID giáo viên
-   * - schoolYear: string - Năm học (bắt buộc)
+   * - teacherIds: string hoặc array - ID giáo viên (BẮT BUỘC)
+   * - schoolYear: string - Năm học (BẮT BUỘC - VD: "2024-2025")
    * - type: 'bc'|'week'|'semester'|'year' - Loại báo cáo
-   * - bcNumber: number - Số BC (chỉ khi type='bc' và muốn chỉ định BC cụ thể)
+   * - bcNumber: number - Số BC (chỉ khi type='bc')
    * - weekId: string - ID tuần (khi type='week')
    * - weekIds: array - Mảng ID tuần (khi type='week')
    * - semester: 1|2 - Học kỳ (khi type='semester')
@@ -28,7 +28,15 @@ export const reportsAPI = {
     const token = localStorage.getItem("token");
     const { teacherIds, schoolYear, type = 'bc', bcNumber, weekId, weekIds, semester } = options;
 
-    if (!schoolYear) throw new Error("schoolYear là bắt buộc");
+    // ✅ DEBUG TOKEN
+    console.log("🔑 Token exists:", !!token);
+    if (token) {
+      console.log("🔑 Token preview:", token.substring(0, 20) + "...");
+    }
+
+    // ✅ VALIDATION
+    if (!token) throw new Error("Chưa đăng nhập! Vui lòng đăng nhập lại.");
+    if (!schoolYear) throw new Error("schoolYear là bắt buộc (VD: 2024-2025)");
     if (!teacherIds) throw new Error("teacherIds là bắt buộc");
 
     // Build params
@@ -48,8 +56,14 @@ export const reportsAPI = {
     if (weekIds && weekIds.length > 0) params.append('weekIds', JSON.stringify(weekIds));
     if (semester) params.append('semester', semester);
 
+    console.log("📤 Calling API:", `reports/export?${params.toString()}`);
+
+    // ✅ FIX: Đảm bảo headers được gửi đúng
     const response = await api.get(`reports/export?${params.toString()}`, {
-      headers: { Authorization: `Bearer ${token}` },
+      headers: { 
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
       responseType: 'blob'
     });
     return response;
@@ -62,6 +76,11 @@ export const reportsAPI = {
     
     if (month === null && bcNumber === null) {
       throw new Error("Phải cung cấp month hoặc bcNumber");
+    }
+
+    // ✅ VALIDATION schoolYear
+    if (!schoolYear) {
+      throw new Error("schoolYear là bắt buộc");
     }
 
     let params = `schoolYear=${schoolYear}`;
@@ -85,14 +104,19 @@ export const reportsAPI = {
     return response;
   },
 
-  exportWeekReport: async (teacherId, weekId = null, weekIds = null) => {
+  exportWeekReport: async (teacherId, weekId = null, weekIds = null, schoolYear) => {
     const token = localStorage.getItem("token");
     
     if (!weekId && (!weekIds || weekIds.length === 0)) {
       throw new Error("Phải cung cấp weekId hoặc weekIds");
     }
 
-    let params = `teacherId=${teacherId}`;
+    // ✅ VALIDATION schoolYear
+    if (!schoolYear) {
+      throw new Error("schoolYear là bắt buộc");
+    }
+
+    let params = `teacherId=${teacherId}&schoolYear=${schoolYear}`;
     if (weekIds && weekIds.length > 0) {
       params += `&weekIds=${JSON.stringify(weekIds)}`;
     } else if (weekId) {
@@ -113,6 +137,11 @@ export const reportsAPI = {
       throw new Error("Học kỳ phải là 1 hoặc 2");
     }
 
+    // ✅ VALIDATION schoolYear
+    if (!schoolYear) {
+      throw new Error("schoolYear là bắt buộc");
+    }
+
     const params = `teacherId=${teacherId}&schoolYear=${schoolYear}&semester=${semester}`;
 
     const response = await api.get(`reports/export/semester?${params}`, {
@@ -124,6 +153,12 @@ export const reportsAPI = {
 
   exportYearReport: async (teacherId, schoolYear, allBC = false) => {
     const token = localStorage.getItem("token");
+    
+    // ✅ VALIDATION schoolYear
+    if (!schoolYear) {
+      throw new Error("schoolYear là bắt buộc");
+    }
+
     let params = `teacherId=${teacherId}&schoolYear=${schoolYear}`;
     if (allBC) params += `&allBC=true`;
 

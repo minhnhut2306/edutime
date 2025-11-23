@@ -20,8 +20,7 @@ export const useReports = () => {
   };
 
   /**
-   * ✅ FIX: Xuất báo cáo - UNIFIED FUNCTION
-   * Tất cả loại báo cáo đều dùng chung 1 mẫu Excel
+   * ✅ FIX: Xuất báo cáo - UNIFIED FUNCTION với schoolYear
    */
   const exportReport = async (options) => {
     setLoading(true);
@@ -30,7 +29,7 @@ export const useReports = () => {
     try {
       console.log("📤 exportReport HOOK - Options:", options);
 
-      // ✅ VALIDATION
+      // ✅ VALIDATION - schoolYear BẮT BUỘC
       if (!options.schoolYear) {
         throw new Error("Vui lòng chọn năm học");
       }
@@ -82,6 +81,13 @@ export const useReports = () => {
       return { success: false, message: "Phải cung cấp month hoặc bcNumber" };
     }
 
+    // ✅ VALIDATION schoolYear
+    if (!schoolYear) {
+      setError("schoolYear là bắt buộc");
+      setLoading(false);
+      return { success: false, message: "schoolYear là bắt buộc" };
+    }
+
     try {
       const response = await reportsAPI.exportMonthReport(teacherIds, schoolYear, month, bcNumber);
       setLoading(false);
@@ -100,7 +106,7 @@ export const useReports = () => {
     }
   };
 
-  const exportWeekReport = async (teacherId, weekId = null, weekIds = null) => {
+  const exportWeekReport = async (teacherId, weekId = null, weekIds = null, schoolYear) => {
     setLoading(true);
     setError(null);
 
@@ -110,11 +116,18 @@ export const useReports = () => {
       return { success: false, message: "Phải cung cấp weekId hoặc weekIds" };
     }
 
+    // ✅ VALIDATION schoolYear
+    if (!schoolYear) {
+      setError("schoolYear là bắt buộc");
+      setLoading(false);
+      return { success: false, message: "schoolYear là bắt buộc" };
+    }
+
     try {
-      const response = await reportsAPI.exportWeekReport(teacherId, weekId, weekIds);
+      const response = await reportsAPI.exportWeekReport(teacherId, weekId, weekIds, schoolYear);
       setLoading(false);
 
-      const fileName = weekIds && weekIds.length > 0 ? `BaoCao_NhieuTuan.xlsx` : `BaoCaoTuan.xlsx`;
+      const fileName = weekIds && weekIds.length > 0 ? `BaoCao_NhieuTuan_${schoolYear}.xlsx` : `BaoCaoTuan_${schoolYear}.xlsx`;
 
       downloadFile(response.data, fileName);
       return { success: true };
@@ -136,6 +149,13 @@ export const useReports = () => {
       return { success: false, message: "Học kỳ phải là 1 hoặc 2" };
     }
 
+    // ✅ VALIDATION schoolYear
+    if (!schoolYear) {
+      setError("schoolYear là bắt buộc");
+      setLoading(false);
+      return { success: false, message: "schoolYear là bắt buộc" };
+    }
+
     try {
       const response = await reportsAPI.exportSemesterReport(teacherId, schoolYear, semester);
       setLoading(false);
@@ -153,6 +173,13 @@ export const useReports = () => {
   const exportYearReport = async (teacherId, schoolYear, allBC = false) => {
     setLoading(true);
     setError(null);
+
+    // ✅ VALIDATION schoolYear
+    if (!schoolYear) {
+      setError("schoolYear là bắt buộc");
+      setLoading(false);
+      return { success: false, message: "schoolYear là bắt buộc" };
+    }
 
     try {
       const response = await reportsAPI.exportYearReport(teacherId, schoolYear, allBC);
@@ -200,8 +227,3 @@ export const useReports = () => {
     error,
   };
 };
-
-// ==================== UPDATED: Key part of ReportView.jsx ====================
-
-// Thay thế handleExport function trong ReportView.jsx:
-

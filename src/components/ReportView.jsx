@@ -9,6 +9,9 @@ const ReportView = ({ teachers = [], classes = [], subjects = [], teachingRecord
   const [teachingRecords, setTeachingRecords] = useState(initialRecords || []);
   const [loadingRecords, setLoadingRecords] = useState(false);
 
+  // ✅ QUAN TRỌNG: Lấy schoolYear từ props
+  const currentSchoolYear = typeof schoolYear === 'object' ? schoolYear?.year : schoolYear;
+
   // Tìm giáo viên được liên kết với user hiện tại
   const linkedTeacher = teachers.find(t => {
     if (!t.userId) return false;
@@ -27,9 +30,9 @@ const ReportView = ({ teachers = [], classes = [], subjects = [], teachingRecord
   const [selectedTeacherIds, setSelectedTeacherIds] = useState([]);
   const [exportMode, setExportMode] = useState('single');
 
-  const [exportType, setExportType] = useState('bc'); // bc, week, semester, year
+  const [exportType, setExportType] = useState('bc');
   const [exportParams, setExportParams] = useState({
-    bcNumber: null, // null = tự động xác định từ dữ liệu
+    bcNumber: null,
     weekId: '',
     weekIds: [],
     semester: 1,
@@ -96,6 +99,7 @@ const ReportView = ({ teachers = [], classes = [], subjects = [], teachingRecord
 
   const selectAllTeachers = () => setSelectedTeacherIds(availableTeachers.map(t => t.id || t._id));
   const deselectAllTeachers = () => setSelectedTeacherIds([]);
+  
   const handleExport = async () => {
     try {
       if (!isAdmin) {
@@ -110,16 +114,15 @@ const ReportView = ({ teachers = [], classes = [], subjects = [], teachingRecord
         return;
       }
 
-      const schoolYearValue = typeof schoolYear === 'object' ? schoolYear?.year : schoolYear;
-
-      if (!schoolYearValue) {
-        alert('Không tìm thấy năm học hiện tại!');
+      // ✅ KIỂM TRA SCHOOLYEAR
+      if (!currentSchoolYear) {
+        alert('❌ Không tìm thấy năm học hiện tại!\n\nVui lòng kiểm tra lại hệ thống.');
         return;
       }
 
       console.log("🚀 Starting export with:", {
         teacherIds: teacherIdsToExport,
-        schoolYear: schoolYearValue,
+        schoolYear: currentSchoolYear, // ✅ LẤY TỪ PROPS
         type: exportType,
         exportMode
       });
@@ -127,7 +130,7 @@ const ReportView = ({ teachers = [], classes = [], subjects = [], teachingRecord
       // Build options
       const options = {
         teacherIds: exportMode === 'multiple' ? teacherIdsToExport : selectedTeacherId,
-        schoolYear: schoolYearValue,
+        schoolYear: currentSchoolYear, // ✅ TRUYỀN SCHOOLYEAR TỪ DB
         type: exportType,
       };
 
@@ -153,7 +156,7 @@ const ReportView = ({ teachers = [], classes = [], subjects = [], teachingRecord
 
       if (result.success) {
         const count = exportMode === 'multiple' ? teacherIdsToExport.length : 1;
-        alert(`✅ Đã xuất báo cáo Excel thành công! (${count} giáo viên)`);
+        alert(`✅ Đã xuất báo cáo Excel thành công!\n\n📊 Năm học: ${currentSchoolYear}\n👥 Số giáo viên: ${count}`);
       } else {
         alert(`❌ Lỗi: ${result.message}`);
       }
@@ -298,7 +301,11 @@ const ReportView = ({ teachers = [], classes = [], subjects = [], teachingRecord
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold">Báo cáo & Xuất Excel</h2>
+        <div>
+          <h2 className="text-2xl font-bold">Báo cáo & Xuất Excel</h2>
+          {/* ✅ HIỂN THỊ NĂM HỌC */}
+          <p className="text-sm text-gray-500 mt-1">Năm học: <span className="font-semibold text-blue-600">{currentSchoolYear || 'Chưa xác định'}</span></p>
+        </div>
         {isAdmin && (selectedTeacherId || selectedTeacherIds.length > 0) && (
           <button
             onClick={handleExport}
