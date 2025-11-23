@@ -1,3 +1,5 @@
+// ==================== UPDATED: src/hooks/useReports.js ====================
+
 import { useState } from "react";
 import { reportsAPI } from "../api/reportsAPI";
 
@@ -18,20 +20,24 @@ export const useReports = () => {
   };
 
   /**
-   * Xuất báo cáo - UNIFIED FUNCTION
+   * ✅ FIX: Xuất báo cáo - UNIFIED FUNCTION
    * Tất cả loại báo cáo đều dùng chung 1 mẫu Excel
-   * 
-   * @param {object} options
-   * - teacherIds: string hoặc array
-   * - schoolYear: string
-   * - type: 'bc'|'week'|'semester'|'year'
-   * - bcNumber, weekId, weekIds, semester
    */
   const exportReport = async (options) => {
     setLoading(true);
     setError(null);
 
     try {
+      console.log("📤 exportReport HOOK - Options:", options);
+
+      // ✅ VALIDATION
+      if (!options.schoolYear) {
+        throw new Error("Vui lòng chọn năm học");
+      }
+      if (!options.teacherIds && !options.teacherId) {
+        throw new Error("Vui lòng chọn giáo viên");
+      }
+
       const response = await reportsAPI.exportReport(options);
       setLoading(false);
 
@@ -47,10 +53,17 @@ export const useReports = () => {
       if (count > 1) fileName += `_${count}GV`;
       fileName += '.xlsx';
 
+      console.log("📥 Downloading file:", fileName);
       downloadFile(response.data, fileName);
+      
       return { success: true };
     } catch (err) {
-      const msg = err.response?.data?.msg || err.message || "Có lỗi xảy ra";
+      const msg = err.response?.data?.msg 
+        || err.response?.data?.message 
+        || err.message 
+        || "Có lỗi xảy ra";
+      
+      console.error("❌ Export Error:", msg);
       setError(msg);
       setLoading(false);
       return { success: false, message: msg };
@@ -187,3 +200,8 @@ export const useReports = () => {
     error,
   };
 };
+
+// ==================== UPDATED: Key part of ReportView.jsx ====================
+
+// Thay thế handleExport function trong ReportView.jsx:
+

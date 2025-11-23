@@ -5,7 +5,7 @@ import { useTeachingRecord } from '../hooks/useTeachingRecord';
 
 const ReportView = ({ teachers = [], classes = [], subjects = [], teachingRecords: initialRecords = [], weeks = [], schoolYear, currentUser }) => {
   const isAdmin = currentUser?.role === 'admin';
-  
+
   const [teachingRecords, setTeachingRecords] = useState(initialRecords || []);
   const [loadingRecords, setLoadingRecords] = useState(false);
 
@@ -16,7 +16,7 @@ const ReportView = ({ teachers = [], classes = [], subjects = [], teachingRecord
     const currentUserId = currentUser?._id || currentUser?.id;
     return teacherUserId === currentUserId || teacherUserId?.toString() === currentUserId?.toString();
   });
-  
+
   const availableTeachers = isAdmin ? teachers : (linkedTeacher ? [linkedTeacher] : []);
 
   const { exportReport, loading: reportLoading, error: reportError } = useReports();
@@ -26,7 +26,7 @@ const ReportView = ({ teachers = [], classes = [], subjects = [], teachingRecord
   const [selectedTeacherId, setSelectedTeacherId] = useState(isAdmin ? '' : (linkedTeacher?.id || linkedTeacher?._id || ''));
   const [selectedTeacherIds, setSelectedTeacherIds] = useState([]);
   const [exportMode, setExportMode] = useState('single');
-  
+
   const [exportType, setExportType] = useState('bc'); // bc, week, semester, year
   const [exportParams, setExportParams] = useState({
     bcNumber: null, // null = tự động xác định từ dữ liệu
@@ -89,66 +89,77 @@ const ReportView = ({ teachers = [], classes = [], subjects = [], teachingRecord
 
   // Toggle chọn nhiều GV
   const toggleTeacherSelection = (teacherId) => {
-    setSelectedTeacherIds(prev => 
+    setSelectedTeacherIds(prev =>
       prev.includes(teacherId) ? prev.filter(id => id !== teacherId) : [...prev, teacherId]
     );
   };
 
   const selectAllTeachers = () => setSelectedTeacherIds(availableTeachers.map(t => t.id || t._id));
   const deselectAllTeachers = () => setSelectedTeacherIds([]);
-
   const handleExport = async () => {
-    if (!isAdmin) {
-      alert('⛔ Chỉ Admin mới có quyền xuất báo cáo Excel!');
-      return;
-    }
-
-    const teacherIdsToExport = exportMode === 'multiple' ? selectedTeacherIds : [selectedTeacherId];
-    
-    if (teacherIdsToExport.length === 0 || (exportMode === 'single' && !selectedTeacherId)) {
-      alert('Vui lòng chọn giáo viên!');
-      return;
-    }
-
-    const schoolYearValue = typeof schoolYear === 'object' ? schoolYear?.year : schoolYear;
-    
-    if (!schoolYearValue) {
-      alert('Không tìm thấy năm học hiện tại!');
-      return;
-    }
-
-    // Build options
-    const options = {
-      teacherIds: exportMode === 'multiple' ? teacherIdsToExport : selectedTeacherId,
-      schoolYear: schoolYearValue,
-      type: exportType,
-    };
-
-    // Thêm params theo type
-    if (exportType === 'bc' && exportParams.bcNumber) {
-      options.bcNumber = exportParams.bcNumber;
-    }
-    if (exportType === 'week') {
-      if (exportParams.weekIds.length > 0) {
-        options.weekIds = exportParams.weekIds;
-      } else if (exportParams.weekId) {
-        options.weekId = exportParams.weekId;
-      } else {
-        alert('Vui lòng chọn tuần!');
+    try {
+      if (!isAdmin) {
+        alert('⛔ Chỉ Admin mới có quyền xuất báo cáo Excel!');
         return;
       }
-    }
-    if (exportType === 'semester') {
-      options.semester = exportParams.semester;
-    }
 
-    const result = await exportReport(options);
+      const teacherIdsToExport = exportMode === 'multiple' ? selectedTeacherIds : [selectedTeacherId];
 
-    if (result.success) {
-      const count = exportMode === 'multiple' ? teacherIdsToExport.length : 1;
-      alert(`✅ Đã xuất báo cáo Excel thành công! (${count} giáo viên)`);
-    } else {
-      alert(`❌ Lỗi: ${result.message}`);
+      if (teacherIdsToExport.length === 0 || (exportMode === 'single' && !selectedTeacherId)) {
+        alert('Vui lòng chọn giáo viên!');
+        return;
+      }
+
+      const schoolYearValue = typeof schoolYear === 'object' ? schoolYear?.year : schoolYear;
+
+      if (!schoolYearValue) {
+        alert('Không tìm thấy năm học hiện tại!');
+        return;
+      }
+
+      console.log("🚀 Starting export with:", {
+        teacherIds: teacherIdsToExport,
+        schoolYear: schoolYearValue,
+        type: exportType,
+        exportMode
+      });
+
+      // Build options
+      const options = {
+        teacherIds: exportMode === 'multiple' ? teacherIdsToExport : selectedTeacherId,
+        schoolYear: schoolYearValue,
+        type: exportType,
+      };
+
+      // Thêm params theo type
+      if (exportType === 'bc' && exportParams.bcNumber) {
+        options.bcNumber = exportParams.bcNumber;
+      }
+      if (exportType === 'week') {
+        if (exportParams.weekIds.length > 0) {
+          options.weekIds = exportParams.weekIds;
+        } else if (exportParams.weekId) {
+          options.weekId = exportParams.weekId;
+        } else {
+          alert('Vui lòng chọn tuần!');
+          return;
+        }
+      }
+      if (exportType === 'semester') {
+        options.semester = exportParams.semester;
+      }
+
+      const result = await exportReport(options);
+
+      if (result.success) {
+        const count = exportMode === 'multiple' ? teacherIdsToExport.length : 1;
+        alert(`✅ Đã xuất báo cáo Excel thành công! (${count} giáo viên)`);
+      } else {
+        alert(`❌ Lỗi: ${result.message}`);
+      }
+    } catch (err) {
+      console.error("Export error:", err);
+      alert(`❌ Lỗi xuất báo cáo: ${err.message}`);
     }
   };
 
@@ -159,17 +170,17 @@ const ReportView = ({ teachers = [], classes = [], subjects = [], teachingRecord
         return (
           <div className="space-y-2">
             <label className="flex items-center gap-2">
-              <input 
-                type="checkbox" 
+              <input
+                type="checkbox"
                 checked={!exportParams.bcNumber}
                 onChange={(e) => setExportParams({ ...exportParams, bcNumber: e.target.checked ? null : 9 })}
               />
               <span className="text-sm">Tự động xác định BC từ dữ liệu</span>
             </label>
             {exportParams.bcNumber && (
-              <select 
-                value={exportParams.bcNumber} 
-                onChange={(e) => setExportParams({ ...exportParams, bcNumber: parseInt(e.target.value) })} 
+              <select
+                value={exportParams.bcNumber}
+                onChange={(e) => setExportParams({ ...exportParams, bcNumber: parseInt(e.target.value) })}
                 className="w-full px-3 py-2 border rounded-lg"
               >
                 {[9, 10, 11, 12, 1, 2, 3, 4, 5, 6, 7, 8].map(bc => (
@@ -188,27 +199,27 @@ const ReportView = ({ teachers = [], classes = [], subjects = [], teachingRecord
           <div className="space-y-3">
             <div className="flex items-center gap-4">
               <label className="flex items-center gap-2">
-                <input 
-                  type="radio" 
-                  checked={exportParams.weekIds.length === 0} 
-                  onChange={() => setExportParams({ ...exportParams, weekIds: [] })} 
+                <input
+                  type="radio"
+                  checked={exportParams.weekIds.length === 0}
+                  onChange={() => setExportParams({ ...exportParams, weekIds: [] })}
                 />
                 <span className="text-sm">Một tuần</span>
               </label>
               <label className="flex items-center gap-2">
-                <input 
-                  type="radio" 
-                  checked={exportParams.weekIds.length > 0} 
-                  onChange={() => setExportParams({ ...exportParams, weekIds: [weeks[0]?.id || weeks[0]?._id].filter(Boolean) })} 
+                <input
+                  type="radio"
+                  checked={exportParams.weekIds.length > 0}
+                  onChange={() => setExportParams({ ...exportParams, weekIds: [weeks[0]?.id || weeks[0]?._id].filter(Boolean) })}
                 />
                 <span className="text-sm">Nhiều tuần</span>
               </label>
             </div>
-            
+
             {exportParams.weekIds.length === 0 ? (
-              <select 
-                value={exportParams.weekId} 
-                onChange={(e) => setExportParams({ ...exportParams, weekId: e.target.value })} 
+              <select
+                value={exportParams.weekId}
+                onChange={(e) => setExportParams({ ...exportParams, weekId: e.target.value })}
                 className="w-full px-3 py-2 border rounded-lg"
               >
                 <option value="">-- Chọn tuần --</option>
@@ -224,16 +235,16 @@ const ReportView = ({ teachers = [], classes = [], subjects = [], teachingRecord
                   const wId = w.id || w._id;
                   return (
                     <label key={wId} className="flex items-center gap-2 py-1 hover:bg-gray-50 cursor-pointer">
-                      <input 
-                        type="checkbox" 
-                        checked={exportParams.weekIds.includes(wId)} 
+                      <input
+                        type="checkbox"
+                        checked={exportParams.weekIds.includes(wId)}
                         onChange={(e) => {
                           if (e.target.checked) {
                             setExportParams({ ...exportParams, weekIds: [...exportParams.weekIds, wId] });
                           } else {
                             setExportParams({ ...exportParams, weekIds: exportParams.weekIds.filter(id => id !== wId) });
                           }
-                        }} 
+                        }}
                       />
                       <span className="text-sm">Tuần {w.weekNumber}</span>
                     </label>
@@ -250,9 +261,9 @@ const ReportView = ({ teachers = [], classes = [], subjects = [], teachingRecord
       case 'semester':
         return (
           <div>
-            <select 
-              value={exportParams.semester} 
-              onChange={(e) => setExportParams({ ...exportParams, semester: parseInt(e.target.value) })} 
+            <select
+              value={exportParams.semester}
+              onChange={(e) => setExportParams({ ...exportParams, semester: parseInt(e.target.value) })}
               className="w-full px-3 py-2 border rounded-lg"
             >
               <option value={1}>Học kỳ 1 (Tuần 1-18)</option>
@@ -281,7 +292,7 @@ const ReportView = ({ teachers = [], classes = [], subjects = [], teachingRecord
     const rTeacherId = r.teacherId?._id || r.teacherId;
     return rTeacherId === selectedTeacherId || rTeacherId?.toString() === selectedTeacherId?.toString();
   }) : [];
-  
+
   const totalPeriods = myRecords.reduce((sum, r) => sum + (r.periods || 0), 0);
 
   return (
@@ -289,9 +300,9 @@ const ReportView = ({ teachers = [], classes = [], subjects = [], teachingRecord
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold">Báo cáo & Xuất Excel</h2>
         {isAdmin && (selectedTeacherId || selectedTeacherIds.length > 0) && (
-          <button 
-            onClick={handleExport} 
-            disabled={reportLoading || loadingRecords} 
+          <button
+            onClick={handleExport}
+            disabled={reportLoading || loadingRecords}
             className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
           >
             <Download size={20} />
@@ -309,7 +320,7 @@ const ReportView = ({ teachers = [], classes = [], subjects = [], teachingRecord
       {isAdmin && (
         <div className="bg-white rounded-xl shadow-lg p-6">
           <h3 className="text-lg font-semibold mb-4">Cài đặt xuất báo cáo</h3>
-          
+
           {/* Chế độ xuất */}
           <div className="mb-4">
             <label className="block text-sm font-medium text-gray-700 mb-2">Chế độ xuất</label>
@@ -329,11 +340,11 @@ const ReportView = ({ teachers = [], classes = [], subjects = [], teachingRecord
             {/* Chọn giáo viên */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Giáo viên</label>
-              
+
               {exportMode === 'single' ? (
-                <select 
-                  value={selectedTeacherId} 
-                  onChange={(e) => setSelectedTeacherId(e.target.value)} 
+                <select
+                  value={selectedTeacherId}
+                  onChange={(e) => setSelectedTeacherId(e.target.value)}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg"
                 >
                   <option value="">-- Chọn giáo viên --</option>
@@ -364,9 +375,9 @@ const ReportView = ({ teachers = [], classes = [], subjects = [], teachingRecord
             {/* Loại báo cáo */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Loại báo cáo</label>
-              <select 
-                value={exportType} 
-                onChange={(e) => setExportType(e.target.value)} 
+              <select
+                value={exportType}
+                onChange={(e) => setExportType(e.target.value)}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg"
               >
                 <option value="bc">Theo BC (Biên chế/Tháng)</option>
@@ -385,7 +396,7 @@ const ReportView = ({ teachers = [], classes = [], subjects = [], teachingRecord
               {renderExportParams()}
             </div>
           </div>
-          
+
           {loadingRecords && (
             <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg flex items-center gap-2">
               <RefreshCw className="animate-spin" size={20} />
