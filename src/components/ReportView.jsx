@@ -1,10 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { Download, BarChart3, Mail, Users, RefreshCw } from 'lucide-react';
 import { useReports } from '../hooks/useReports';
+import { useTeachingRecord } from '../hooks/useTeachingRecord';
 
-const ReportView = ({ teachers = [], classes = [], subjects = [], teachingRecords = [], weeks = [], schoolYear, currentUser }) => {
+const ReportView = ({ teachers = [], classes = [], subjects = [], teachingRecords: initialRecords = [], weeks = [], schoolYear, currentUser }) => {
   const isAdmin = currentUser?.role === 'admin';
   
+  // ✅ FIX: Thêm state để lưu teaching records từ API
+  const [teachingRecords, setTeachingRecords] = useState(initialRecords || []);
+  const [loadingRecords, setLoadingRecords] = useState(false);
+
   // Tìm giáo viên được liên kết với user hiện tại
   const linkedTeacher = teachers.find(t => {
     if (!t.userId) return false;
@@ -24,6 +29,8 @@ const ReportView = ({ teachers = [], classes = [], subjects = [], teachingRecord
     error: reportError
   } = useReports();
 
+  const { fetchTeachingRecords } = useTeachingRecord();
+
   const [selectedTeacherId, setSelectedTeacherId] = useState(
     isAdmin ? '' : (linkedTeacher?.id || linkedTeacher?._id || '')
   );
@@ -38,6 +45,37 @@ const ReportView = ({ teachers = [], classes = [], subjects = [], teachingRecord
     allBC: false,
     useBCMode: false
   });
+
+  // ✅ FIX: Load teaching records khi teacher thay đổi
+  useEffect(() => {
+    if (!selectedTeacherId) {
+      setTeachingRecords([]);
+      return;
+    }
+
+    loadTeacherRecords();
+  }, [selectedTeacherId, isAdmin]);
+
+  const loadTeacherRecords = async () => {
+    setLoadingRecords(true);
+    try {
+      const result = await fetchTeachingRecords(selectedTeacherId);
+      
+      if (result.success) {
+        const records = result.teachingRecords || [];
+        console.log(`✅ Loaded ${records.length} records for teacher ${selectedTeacherId}`);
+        setTeachingRecords(records);
+      } else {
+        console.warn('⚠️ Failed to load records:', result.message);
+        setTeachingRecords([]);
+      }
+    } catch (error) {
+      console.error('❌ Error loading records:', error);
+      setTeachingRecords([]);
+    } finally {
+      setLoadingRecords(false);
+    }
+  };
 
   // Auto-select teacher nếu là user thường
   useEffect(() => {
@@ -160,11 +198,13 @@ const ReportView = ({ teachers = [], classes = [], subjects = [], teachingRecord
       .join(', ') || 'Chưa có môn';
   };
 
-  // Calculate statistics
+  // ✅ FIX: Calculate statistics từ teachingRecords (state được load từ API)
   const myRecords = selectedTeacherId ? teachingRecords.filter(r => {
     const rTeacherId = r.teacherId?._id || r.teacherId;
     return rTeacherId === selectedTeacherId || rTeacherId?.toString() === selectedTeacherId?.toString();
   }) : [];
+  
+  console.log('📊 myRecords:', myRecords.length, 'teachingRecords:', teachingRecords.length);
   
   const totalPeriods = myRecords.reduce((sum, r) => sum + (r.periods || 0), 0);
 
@@ -216,7 +256,8 @@ const ReportView = ({ teachers = [], classes = [], subjects = [], teachingRecord
   };
 
   const weeklyStats = () => {
-    if (!selectedTeacherId) return [];
+    if (!selectedTeacherId || myRecords.length === 0) return [];
+    
     return weeks.sort((a, b) => (b.weekNumber || 0) - (a.weekNumber || 0)).map(week => {
       const weekRecords = myRecords.filter(r => {
         const rWeekId = r.weekId?._id || r.weekId;
@@ -375,7 +416,7 @@ const ReportView = ({ teachers = [], classes = [], subjects = [], teachingRecord
         {isAdmin && selectedTeacherId && (
           <button 
             onClick={handleExport} 
-            disabled={reportLoading} 
+            disabled={reportLoading || loadingRecords} 
             className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
           >
             <Download size={20} />
@@ -427,6 +468,14 @@ const ReportView = ({ teachers = [], classes = [], subjects = [], teachingRecord
               {renderExportParams()}
             </div>
           </div>
+          
+          {/* ✅ FIX: Hiển thị loading state */}
+          {loadingRecords && (
+            <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg flex items-center gap-2">
+              <RefreshCw className="animate-spin" size={20} />
+              <p className="text-sm text-blue-700">Đang tải dữ liệu...</p>
+            </div>
+          )}
         </div>
       ) : (
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
@@ -442,7 +491,7 @@ const ReportView = ({ teachers = [], classes = [], subjects = [], teachingRecord
         </div>
       )}
 
-      {selectedTeacherId && (
+      {selectedTeacherId && !loadingRecords && (
         <>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl p-6 text-white shadow-lg">
@@ -628,6 +677,20 @@ const ReportView = ({ teachers = [], classes = [], subjects = [], teachingRecord
         <div className="bg-gray-50 border-2 border-dashed border-gray-300 rounded-xl p-12 text-center">
           <BarChart3 size={48} className="mx-auto text-gray-400 mb-4" />
           <p className="text-gray-500 text-lg">Vui lòng chọn giáo viên để xem báo cáo</p>
+        </div>
+      )}
+
+      {selectedTeacherId && loadingRecords && (
+        <div className="bg-gray-50 border-2 border-dashed border-gray-300 rounded-xl p-12 text-center">
+          <RefreshCw size={48} className="mx-auto text-gray-400 mb-4 animate-spin" />
+          <p className="text-gray-500 text-lg">Đang tải dữ liệu báo cáo...</p>
+        </div>
+      )}
+
+      {selectedTeacherId && !loadingRecords && myRecords.length === 0 && (
+        <div className="bg-yellow-50 border-2 border-dashed border-yellow-300 rounded-xl p-12 text-center">
+          <BarChart3 size={48} className="mx-auto text-yellow-400 mb-4" />
+          <p className="text-yellow-700 text-lg">Chưa có dữ liệu giảng dạy cho giáo viên này</p>
         </div>
       )}
     </div>
