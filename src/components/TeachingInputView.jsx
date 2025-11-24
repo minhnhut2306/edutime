@@ -205,16 +205,20 @@ const TeachingInputView = ({ initialTeachingRecords = [], schoolYear }) => {
       alert("Vui lòng nhập đầy đủ thông tin!");
       return;
     }
+
+    // ✅ Đảm bảo recordType được truyền khi update
     const payload = {
       teacherId: selectedTeacherId,
       weekId: selectedWeekId,
       subjectId: selectedSubjectId,
       classId: selectedClassId,
       periods: parseInt(periods, 10),
-      recordType: recordType,
-      notes: notes,
+      recordType: recordType || 'teaching', // Mặc định là 'teaching'
+      notes: notes || '',
       schoolYear,
     };
+
+    console.log('📤 Update payload:', payload); // Debug log
 
     const res = await updateTeachingRecord(editingRecordId, payload);
     if (res.success) {
@@ -253,16 +257,19 @@ const TeachingInputView = ({ initialTeachingRecords = [], schoolYear }) => {
       }
     }
 
+    // ✅ QUAN TRỌNG: Đảm bảo recordType được truyền đúng
     const payload = {
       teacherId: selectedTeacherId,
       weekId: selectedWeekId,
       subjectId: selectedSubjectId,
       classId: selectedClassId,
       periods: parseInt(periods, 10),
-      recordType: recordType,
-      notes: notes,
+      recordType: recordType || 'teaching', // Mặc định là 'teaching' nếu không có
+      notes: notes || '',
       schoolYear,
     };
+
+    console.log('📤 Payload gửi lên:', payload); // Debug log
 
     const res = await addTeachingRecord(payload);
     if (res.success) {
@@ -515,12 +522,11 @@ const TeachingInputView = ({ initialTeachingRecords = [], schoolYear }) => {
                       <td className="px-4 py-3 text-sm font-medium text-blue-600">Tuần {week?.weekNumber || "?"}</td>
                       <td className="px-4 py-3 text-sm text-gray-900">{recordTeacher?.name || "-"}</td>
                       <td className="px-4 py-3 text-sm">
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                          record.recordType === 'teaching' ? 'bg-blue-100 text-blue-700' :
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${record.recordType === 'teaching' ? 'bg-blue-100 text-blue-700' :
                           record.recordType === 'extra' ? 'bg-purple-100 text-purple-700' :
-                          record.recordType === 'exam' ? 'bg-orange-100 text-orange-700' :
-                          'bg-green-100 text-green-700'
-                        }`}>
+                            record.recordType === 'exam' ? 'bg-orange-100 text-orange-700' :
+                              'bg-green-100 text-green-700'
+                          }`}>
                           {recordTypeLabels[record.recordType] || 'Giảng dạy'}
                         </span>
                       </td>
