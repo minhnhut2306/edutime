@@ -18,7 +18,6 @@ const TeachingInputView = ({ initialTeachingRecords = [], schoolYear }) => {
   const [classes, setClasses] = useState([]);
   const [subjects, setSubjects] = useState([]);
   const [weeks, setWeeks] = useState([]);
-
   const [teachingRecords, setTeachingRecords] = useState(initialTeachingRecords || []);
 
   const [selectedWeekId, setSelectedWeekId] = useState("");
@@ -26,6 +25,8 @@ const TeachingInputView = ({ initialTeachingRecords = [], schoolYear }) => {
   const [selectedSubjectId, setSelectedSubjectId] = useState("");
   const [selectedTeacherId, setSelectedTeacherId] = useState("");
   const [periods, setPeriods] = useState("");
+  const [recordType, setRecordType] = useState("teaching");
+  const [notes, setNotes] = useState("");
 
   const [isEditing, setIsEditing] = useState(false);
   const [editingRecordId, setEditingRecordId] = useState(null);
@@ -34,7 +35,6 @@ const TeachingInputView = ({ initialTeachingRecords = [], schoolYear }) => {
   let parsedUser = null;
   try {
     parsedUser = rawUser ? JSON.parse(rawUser) : null;
-
   } catch (err) {
     parsedUser = null;
   }
@@ -64,6 +64,8 @@ const TeachingInputView = ({ initialTeachingRecords = [], schoolYear }) => {
       classId: getId(r.classId),
       subjectId: getId(r.subjectId),
       periods: r.periods,
+      recordType: r.recordType || 'teaching',
+      notes: r.notes || '',
       schoolYear: r.schoolYear,
       createdAt: r.createdAt,
     };
@@ -97,7 +99,6 @@ const TeachingInputView = ({ initialTeachingRecords = [], schoolYear }) => {
           });
           if (matched) setSelectedTeacherId(matched.id);
         }
-
       } catch (err) {
         setTeachers([]);
       }
@@ -139,7 +140,6 @@ const TeachingInputView = ({ initialTeachingRecords = [], schoolYear }) => {
       else if (Array.isArray(res)) raw = res;
       const norm = raw.map(normalizeRecord).filter(Boolean);
       setTeachingRecords(norm);
-
     } catch (err) {
       setTeachingRecords([]);
     }
@@ -175,6 +175,8 @@ const TeachingInputView = ({ initialTeachingRecords = [], schoolYear }) => {
     setSelectedWeekId("");
     setSelectedClassId("");
     setPeriods("");
+    setRecordType("teaching");
+    setNotes("");
     setIsEditing(false);
     setEditingRecordId(null);
     if (!keepTeacher) setSelectedTeacherId("");
@@ -188,6 +190,8 @@ const TeachingInputView = ({ initialTeachingRecords = [], schoolYear }) => {
     setSelectedClassId(record.classId);
     setSelectedSubjectId(record.subjectId);
     setPeriods(record.periods);
+    setRecordType(record.recordType || 'teaching');
+    setNotes(record.notes || '');
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
@@ -207,6 +211,8 @@ const TeachingInputView = ({ initialTeachingRecords = [], schoolYear }) => {
       subjectId: selectedSubjectId,
       classId: selectedClassId,
       periods: parseInt(periods, 10),
+      recordType: recordType,
+      notes: notes,
       schoolYear,
     };
 
@@ -215,7 +221,7 @@ const TeachingInputView = ({ initialTeachingRecords = [], schoolYear }) => {
       const teacherIdToFetch = isAdmin ? (selectedTeacherId || undefined) : selectedTeacherId || undefined;
       await loadTeachingRecords(teacherIdToFetch);
       resetForm(!isAdmin);
-      alert(" Đã cập nhật bản ghi!");
+      alert("✅ Đã cập nhật bản ghi!");
     } else {
       alert(res.message || "Cập nhật thất bại");
     }
@@ -242,7 +248,7 @@ const TeachingInputView = ({ initialTeachingRecords = [], schoolYear }) => {
     if (hasGradeRestriction) {
       const selectedClass = classes.find((c) => c.id === selectedClassId);
       if (selectedClass && !allowedGrades.includes(selectedClass.grade)) {
-        alert(` Bạn không có quyền nhập dữ liệu cho khối ${selectedClass.grade}!\nBạn chỉ được nhập khối: ${allowedGrades.join(", ")}`);
+        alert(`❌ Bạn không có quyền nhập dữ liệu cho khối ${selectedClass.grade}!\nBạn chỉ được nhập khối: ${allowedGrades.join(", ")}`);
         return;
       }
     }
@@ -253,6 +259,8 @@ const TeachingInputView = ({ initialTeachingRecords = [], schoolYear }) => {
       subjectId: selectedSubjectId,
       classId: selectedClassId,
       periods: parseInt(periods, 10),
+      recordType: recordType,
+      notes: notes,
       schoolYear,
     };
 
@@ -261,7 +269,7 @@ const TeachingInputView = ({ initialTeachingRecords = [], schoolYear }) => {
       const teacherIdToFetch = isAdmin ? (selectedTeacherId || undefined) : selectedTeacherId || undefined;
       await loadTeachingRecords(teacherIdToFetch);
       resetForm(!isAdmin);
-      alert(" Đã thêm bản ghi!");
+      alert("✅ Đã thêm bản ghi!");
     } else {
       alert(res.message || "Thêm bản ghi thất bại");
     }
@@ -277,7 +285,7 @@ const TeachingInputView = ({ initialTeachingRecords = [], schoolYear }) => {
     if (res.success) {
       const teacherIdToFetch = isAdmin ? (selectedTeacherId || undefined) : selectedTeacherId || undefined;
       await loadTeachingRecords(teacherIdToFetch);
-      alert(" Đã xóa bản ghi!");
+      alert("✅ Đã xóa bản ghi!");
     } else {
       alert(res.message || "Xóa thất bại");
     }
@@ -288,6 +296,15 @@ const TeachingInputView = ({ initialTeachingRecords = [], schoolYear }) => {
     const t = teachers.find((tt) => tt.id === selectedTeacherId);
     if (!t) return false;
     return (t.subjectIds || []).includes(sid);
+  };
+
+  const recordTypeLabels = {
+    'teaching': 'Giảng dạy',
+    'tn-hn1': 'TN-HN 1',
+    'tn-hn2': 'TN-HN 2',
+    'tn-hn3': 'TN-HN 3',
+    'extra': 'Kiêm nhiệm',
+    'exam': 'Coi thi'
   };
 
   return (
@@ -354,6 +371,24 @@ const TeachingInputView = ({ initialTeachingRecords = [], schoolYear }) => {
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
+              Loại tiết dạy
+            </label>
+            <select
+              value={recordType}
+              onChange={(e) => setRecordType(e.target.value)}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="teaching">Giảng dạy (Khối 10, 11, 12)</option>
+              <option value="tn-hn1">TN-HN 1</option>
+              <option value="tn-hn2">TN-HN 2</option>
+              <option value="tn-hn3">TN-HN 3</option>
+              <option value="extra">Kiêm nhiệm</option>
+              <option value="exam">Coi thi</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
               Lớp {hasGradeRestriction && <span className="text-blue-600">(Khối: {allowedGrades.join(", ")})</span>}
             </label>
             <select
@@ -405,6 +440,17 @@ const TeachingInputView = ({ initialTeachingRecords = [], schoolYear }) => {
             />
           </div>
 
+          <div className="md:col-span-2">
+            <label className="block text-sm font-medium text-gray-700 mb-2">Ghi chú (tùy chọn)</label>
+            <input
+              type="text"
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="VD: Dạy thay, thi giữa kỳ..."
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+
           <div className="flex items-end space-x-2">
             <button
               onClick={handleAdd}
@@ -441,9 +487,11 @@ const TeachingInputView = ({ initialTeachingRecords = [], schoolYear }) => {
               <tr>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tuần</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Giáo viên</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Loại</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Lớp</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Môn</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Số tiết</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Ghi chú</th>
                 <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Thao tác</th>
               </tr>
             </thead>
@@ -466,9 +514,20 @@ const TeachingInputView = ({ initialTeachingRecords = [], schoolYear }) => {
                     <tr key={record.id} className="hover:bg-gray-50">
                       <td className="px-4 py-3 text-sm font-medium text-blue-600">Tuần {week?.weekNumber || "?"}</td>
                       <td className="px-4 py-3 text-sm text-gray-900">{recordTeacher?.name || "-"}</td>
+                      <td className="px-4 py-3 text-sm">
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                          record.recordType === 'teaching' ? 'bg-blue-100 text-blue-700' :
+                          record.recordType === 'extra' ? 'bg-purple-100 text-purple-700' :
+                          record.recordType === 'exam' ? 'bg-orange-100 text-orange-700' :
+                          'bg-green-100 text-green-700'
+                        }`}>
+                          {recordTypeLabels[record.recordType] || 'Giảng dạy'}
+                        </span>
+                      </td>
                       <td className="px-4 py-3 text-sm text-gray-900">{cls?.name || record.classId}</td>
                       <td className="px-4 py-3 text-sm text-gray-500">{subject?.name || "-"}</td>
                       <td className="px-4 py-3 text-sm text-gray-500">{record.periods}</td>
+                      <td className="px-4 py-3 text-sm text-gray-400 italic">{record.notes || '-'}</td>
                       <td className="px-4 py-3 text-sm text-right">
                         <div className="inline-flex items-center justify-end gap-2">
                           <button
