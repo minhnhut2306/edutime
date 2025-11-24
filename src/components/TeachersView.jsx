@@ -170,7 +170,7 @@ const TeachersView = ({ currentUser }) => {
       loadTeachers();
     } else {
       const errorMsg = result.message || 'Không thể thêm giáo viên';
-      alert('❌ Lỗi: ' + errorMsg);
+      alert(' Lỗi: ' + errorMsg);
     }
   };
 
@@ -292,7 +292,7 @@ const TeachersView = ({ currentUser }) => {
         )}
       </div>
 
-      {/* Kết quả Import */}
+      {}
       {importResult && (
         <div className="bg-white rounded-xl shadow-lg p-4">
           <div className="flex justify-between items-center mb-3">
@@ -307,10 +307,10 @@ const TeachersView = ({ currentUser }) => {
 
           <div className="flex gap-4 mb-3">
             <span className="text-green-600 font-medium">
-              ✅ Thành công: {importResult.successCount}
+               Thành công: {importResult.successCount}
             </span>
             <span className="text-red-600 font-medium">
-              ❌ Thất bại: {importResult.failedCount}
+               Thất bại: {importResult.failedCount}
             </span>
           </div>
 
@@ -327,7 +327,7 @@ const TeachersView = ({ currentUser }) => {
         </div>
       )}
 
-      {/* Modal Thêm Giáo Viên */}
+      {}
       {showAddModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl shadow-2xl p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
@@ -400,7 +400,7 @@ const TeachersView = ({ currentUser }) => {
                       );
                     })}
                   </div>
-                  <p className="text-xs text-gray-500 mt-1">💡 Click vào môn để chọn/bỏ chọn</p>
+                  <p className="text-xs text-gray-500 mt-1"> Click vào môn để chọn/bỏ chọn</p>
                 </div>
 
                 <div className="col-span-2">
@@ -441,7 +441,7 @@ const TeachersView = ({ currentUser }) => {
         </div>
       )}
 
-      {/* Form Chỉnh sửa */}
+      {}
       {editingTeacher && (
         <div className="bg-white rounded-xl shadow-lg p-6">
           <h3 className="text-lg font-semibold mb-4">Chỉnh sửa giáo viên</h3>
@@ -498,7 +498,7 @@ const TeachersView = ({ currentUser }) => {
                   );
                 })}
               </div>
-              <p className="text-xs text-gray-500 mt-1">💡 Click vào môn để chọn/bỏ chọn</p>
+              <p className="text-xs text-gray-500 mt-1"> Click vào môn để chọn/bỏ chọn</p>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Lớp chủ nhiệm</label>
@@ -525,7 +525,7 @@ const TeachersView = ({ currentUser }) => {
         </div>
       )}
 
-      {/* Bảng danh sách */}
+      {}
       <div className="bg-white rounded-xl shadow-lg overflow-hidden">
         <table className="w-full">
           <thead className="bg-gray-50 border-b">

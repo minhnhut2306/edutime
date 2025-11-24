@@ -2,8 +2,6 @@ import React from 'react';
 import { Users, BookOpen, FileText, BarChart2 } from 'react-feather';
 import { Clock, Edit2, Download, Lock } from 'lucide-react';
 
-
-// Sidebar Component (SỬA LẠI)
 const Sidebar = ({ currentView, setCurrentView, currentUser }) => {
   const isAdmin = currentUser.role === 'admin';
 
@@ -36,7 +34,7 @@ const Sidebar = ({ currentView, setCurrentView, currentUser }) => {
           <NavButton icon={Users} label="Giáo viên" view="teachers" />
           <NavButton icon={BookOpen} label="Lớp học" view="classes" />
           <NavButton icon={FileText} label="Môn học" view="subjects" />
-          <NavButton icon={Clock} label="Tuần học" view="weeks" />  {/* THÊM DÒNG NÀY */}
+          <NavButton icon={Clock} label="Tuần học" view="weeks" />  {}
         </>
       )}
       <NavButton icon={Edit2} label="Nhập tiết dạy" view="input" />

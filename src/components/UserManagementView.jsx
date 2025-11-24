@@ -21,10 +21,10 @@ const UserManagementView = () => {
 
   const handleChangeRole = async (userId, currentRole) => {
     const newRole = currentRole === 'admin' ? 'user' : 'admin';
-    const confirmMsg = currentRole === 'admin' 
-      ? 'Hạ quyền admin thành user?' 
+    const confirmMsg = currentRole === 'admin'
+      ? 'Hạ quyền admin thành user?'
       : 'Cấp quyền admin cho user này?';
-    
+
     if (!confirm(confirmMsg)) return;
 
     const result = await updateUserRole(userId, newRole);
@@ -48,7 +48,7 @@ const UserManagementView = () => {
     }
   };
 
-  // Lấy currentUser từ localStorage
+
   let myUser = null;
   try {
     const stored = localStorage.getItem('user');
@@ -59,7 +59,7 @@ const UserManagementView = () => {
     console.error('Lỗi parse user:', err);
   }
 
-  // Phân tách tài khoản của mình và danh sách quản lý
+
   const otherUsers = users.filter(user => user._id !== myUser?._id);
 
   if (loading && users.length === 0) {
@@ -72,14 +72,14 @@ const UserManagementView = () => {
 
   return (
     <div className="space-y-6">
-      {/* Thông tin tài khoản hiện tại */}
+      {}
       {myUser && (
         <div className="bg-gradient-to-r from-blue-50 to-blue-100 rounded-xl shadow-md p-6 border border-blue-200">
           <h2 className="text-lg font-bold text-blue-900 mb-4">Tài khoản của tôi</h2>
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-blue-700 mb-1"><span className="font-semibold">Email:</span> {myUser.email}</p>
-              <p className="text-sm text-blue-700"><span className="font-semibold">Vai trò:</span> 
+              <p className="text-sm text-blue-700"><span className="font-semibold">Vai trò:</span>
                 <span className="ml-2 px-3 py-1 bg-red-100 text-red-800 rounded-full text-xs font-medium">
                   {myUser.role === 'admin' ? 'Admin' : 'User'}
                 </span>
@@ -92,7 +92,7 @@ const UserManagementView = () => {
         </div>
       )}
 
-      {/* Danh sách quản lý người dùng */}
+      {}
       <div className="space-y-4">
         <div className="flex justify-between items-center">
           <h2 className="text-2xl font-bold">Quản lý Người dùng</h2>

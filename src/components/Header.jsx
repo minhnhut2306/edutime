@@ -2,8 +2,6 @@
 import React from 'react';
 import { Calendar, LogOut, Save } from 'react-feather';
 
-
-// Header Component (SỬA LẠI - thêm dropdown chọn năm)
 const Header = ({ currentUser, onLogout, onSave, schoolYear, archivedYears, onChangeYear }) => (
   <header className="bg-white shadow-lg border-b">
     <div className="max-w-7xl mx-auto px-6 py-4">

@@ -1,41 +1,29 @@
-// ==================== UPDATED: src/api/reportsAPI.js ====================
-
 import { api, apiRequest } from "./baseApi";
 
 export const reportsAPI = {
-  /**
-   * Lấy báo cáo giáo viên (JSON)
-   */
   getTeacherReport: async (teacherId, type, filters = {}) => {
     const token = localStorage.getItem("token");
     const params = new URLSearchParams({ type, ...filters }).toString();
     return await apiRequest(`reports/teacher/${teacherId}?${params}`, "GET", {}, token);
   },
 
-  /**
-   * ✅ FIX: Xuất Excel - UNIFIED API với schoolYear BẮT BUỘC
-   */
   exportReport: async (options) => {
     const token = localStorage.getItem("token");
     const { teacherIds, schoolYear, type = 'bc', bcNumber, weekId, weekIds, semester } = options;
 
-    // ✅ DEBUG TOKEN
-    console.log("🔑 Token exists:", !!token);
+    console.log(" Token exists:", !!token);
     if (token) {
-      console.log("🔑 Token preview:", token.substring(0, 20) + "...");
+      console.log(" Token preview:", token.substring(0, 20) + "...");
     }
 
-    // ✅ VALIDATION
     if (!token) throw new Error("Chưa đăng nhập! Vui lòng đăng nhập lại.");
     if (!schoolYear) throw new Error("schoolYear là bắt buộc (VD: 2024-2025)");
     if (!teacherIds) throw new Error("teacherIds là bắt buộc");
 
-    // Build params
     const params = new URLSearchParams();
     params.append('schoolYear', schoolYear);
     params.append('type', type);
 
-    // Handle teacherIds
     if (Array.isArray(teacherIds)) {
       params.append('teacherIds', JSON.stringify(teacherIds));
     } else {
@@ -48,10 +36,9 @@ export const reportsAPI = {
     if (semester) params.append('semester', semester);
 
     const url = `reports/export?${params.toString()}`;
-    console.log("📤 Calling API:", url);
-    console.log("📤 Full URL:", `http://localhost:5000/api/${url}`);
+    console.log("Calling API:", url);
+    console.log("Full URL:", `http://localhost:5000/api/${url}`);
 
-    // ✅ FIX: Đảm bảo headers được gửi đúng
     try {
       const response = await api.get(url, {
         headers: { 
@@ -61,15 +48,13 @@ export const reportsAPI = {
         responseType: 'blob'
       });
 
-      console.log("✅ Response received:", response.status);
+      console.log("Response received:", response.status);
       return response;
     } catch (error) {
-      console.error("❌ Export Error:", error.response?.status, error.response?.data);
+      console.error("Export Error:", error.response?.status, error.response?.data);
       throw error;
     }
   },
-
-  // ==================== LEGACY APIs (backward compatible) ====================
 
   exportMonthReport: async (teacherIds, schoolYear, month = null, bcNumber = null) => {
     const token = localStorage.getItem("token");

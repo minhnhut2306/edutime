@@ -1,4 +1,4 @@
-// ==================== UPDATED: src/hooks/useReports.js ====================
+
 
 import { useState } from "react";
 import { reportsAPI } from "../api/reportsAPI";
@@ -7,7 +7,7 @@ export const useReports = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  // Helper download file
+
   const downloadFile = (blob, fileName) => {
     const url = window.URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -19,17 +19,12 @@ export const useReports = () => {
     window.URL.revokeObjectURL(url);
   };
 
-  /**
-   * ✅ FIX: Xuất báo cáo - UNIFIED FUNCTION với schoolYear
-   */
+
   const exportReport = async (options) => {
     setLoading(true);
     setError(null);
 
     try {
-      console.log("📤 exportReport HOOK - Options:", options);
-
-      // ✅ VALIDATION - schoolYear BẮT BUỘC
       if (!options.schoolYear) {
         throw new Error("Vui lòng chọn năm học");
       }
@@ -40,29 +35,28 @@ export const useReports = () => {
       const response = await reportsAPI.exportReport(options);
       setLoading(false);
 
-      // Build filename
+
       const { type = 'bc', bcNumber, schoolYear, teacherIds, semester } = options;
       let fileName = `BaoCao_${schoolYear}`;
       if (type === 'bc' && bcNumber) fileName = `BC${bcNumber}_${schoolYear}`;
       else if (type === 'week') fileName = `BaoCaoTuan_${schoolYear}`;
       else if (type === 'semester') fileName = `HocKy${semester}_${schoolYear}`;
       else if (type === 'year') fileName = `CaNam_${schoolYear}`;
-      
+
       const count = Array.isArray(teacherIds) ? teacherIds.length : 1;
       if (count > 1) fileName += `_${count}GV`;
       fileName += '.xlsx';
 
-      console.log("📥 Downloading file:", fileName);
       downloadFile(response.data, fileName);
-      
+
       return { success: true };
     } catch (err) {
-      // ✅✅✅ XỬ LÝ LỖI THÂN THIỆN ✅✅✅
+
       let userFriendlyMessage = "Có lỗi xảy ra khi xuất báo cáo";
-      
-      // Lỗi 404 - Không có dữ liệu
+
+
       if (err.response?.status === 404) {
-        // Đọc message từ backend (nếu có)
+
         try {
           const blob = err.response.data;
           const text = await blob.text();
@@ -71,45 +65,45 @@ export const useReports = () => {
         } catch (parseError) {
           userFriendlyMessage = "Không tìm thấy dữ liệu giảng dạy";
         }
-        
-        // ✅ Thêm gợi ý cụ thể
-        userFriendlyMessage += `\n\n📋 Vui lòng kiểm tra:\n`;
+
+
+        userFriendlyMessage += `\n\n Vui lòng kiểm tra:\n`;
         userFriendlyMessage += `• Giáo viên đã nhập tiết dạy cho năm học ${options.schoolYear} chưa?\n`;
         userFriendlyMessage += `• Bản ghi có đúng tuần/tháng/học kỳ không?\n`;
         userFriendlyMessage += `• Thử chọn năm học khác xem có dữ liệu không?`;
       }
-      // Lỗi 401 - Chưa đăng nhập
+
       else if (err.response?.status === 401) {
         userFriendlyMessage = "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại!";
       }
-      // Lỗi 403 - Không có quyền
+
       else if (err.response?.status === 403) {
         userFriendlyMessage = "Bạn không có quyền xuất báo cáo này!";
       }
-      // Lỗi 500 - Lỗi server
+
       else if (err.response?.status === 500) {
         userFriendlyMessage = "Lỗi hệ thống. Vui lòng thử lại sau hoặc liên hệ quản trị viên!";
       }
-      // Lỗi mạng
+
       else if (err.message === "Network Error") {
         userFriendlyMessage = "Không thể kết nối đến server. Vui lòng kiểm tra kết nối mạng!";
       }
-      // Lỗi khác
+
       else if (err.response?.data?.msg) {
         userFriendlyMessage = err.response.data.msg;
       } else if (err.message) {
         userFriendlyMessage = err.message;
       }
-      
-      console.error("❌ Export Error:", err);
+
+      console.error(" Export Error:", err);
       setError(userFriendlyMessage);
       setLoading(false);
-      
+
       return { success: false, message: userFriendlyMessage };
     }
   };
 
-  // ==================== LEGACY FUNCTIONS ====================
+
 
   const exportMonthReport = async (teacherIds, schoolYear, month = null, bcNumber = null) => {
     setLoading(true);

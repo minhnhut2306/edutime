@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { Users, Loader, CheckCircle } from 'lucide-react';
 import { useTeacher } from '../hooks/useTeacher';
 
-// eslint-disable-next-line no-unused-vars
 const SelectTeacherView = ({ currentUser, onTeacherSelected }) => {
   const [teachers, setTeachers] = useState([]);
   const [selectedTeacherId, setSelectedTeacherId] = useState('');
@@ -16,7 +15,7 @@ const SelectTeacherView = ({ currentUser, onTeacherSelected }) => {
   const loadTeachers = async () => {
     const result = await fetchTeachers();
     if (result.success) {
-      // Chỉ hiển thị giáo viên chưa được liên kết với user nào
+
       const availableTeachers = result.teachers.filter(t => !t.userId);
       setTeachers(availableTeachers);
     } else {
@@ -36,13 +35,13 @@ const SelectTeacherView = ({ currentUser, onTeacherSelected }) => {
 
     setSubmitting(true);
     const result = await updateTeacherUserId(selectedTeacherId, currentUser._id || currentUser.id);
-    
+
     if (result.success) {
-      alert('✅ Đã liên kết tài khoản với giáo viên thành công!');
-      // Reload page để cập nhật thông tin
+      alert(' Đã liên kết tài khoản với giáo viên thành công!');
+
       window.location.reload();
     } else {
-      alert('❌ Lỗi: ' + result.message);
+      alert(' Lỗi: ' + result.message);
       setSubmitting(false);
     }
   };
@@ -67,7 +66,7 @@ const SelectTeacherView = ({ currentUser, onTeacherSelected }) => {
           </div>
           <h1 className="text-3xl font-bold text-gray-900">Chọn hồ sơ giáo viên</h1>
           <p className="text-gray-500 mt-2">Vui lòng chọn hồ sơ giáo viên của bạn</p>
-          <p className="text-sm text-orange-600 mt-2">⚠️ Bạn chỉ có thể chọn một lần duy nhất</p>
+          <p className="text-sm text-orange-600 mt-2">️ Bạn chỉ có thể chọn một lần duy nhất</p>
         </div>
 
         {teachers.length === 0 ? (

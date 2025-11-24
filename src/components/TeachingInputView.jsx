@@ -7,15 +7,6 @@ import { useSubjects } from "../hooks/useSubjects";
 import { useTeacher } from "../hooks/useTeacher";
 import { useWeeks } from "../hooks/useWeek";
 
-/*
-  TeachingInputView.jsx
-  - Fetches teachers/classes/subjects/weeks and teaching records.
-  - Supports add, edit (update), delete.
-  - Highlights subjects that belong to selected teacher and auto-selects the first subject.
-  - Does NOT show the "createdBy" column.
-  - Resets the form after add/update/cancel.
-*/
-
 const TeachingInputView = ({ initialTeachingRecords = [], schoolYear }) => {
   const { fetchTeachers } = useTeacher();
   const { fetchClasses } = useClasses();
@@ -36,29 +27,26 @@ const TeachingInputView = ({ initialTeachingRecords = [], schoolYear }) => {
   const [selectedTeacherId, setSelectedTeacherId] = useState("");
   const [periods, setPeriods] = useState("");
 
-  // edit state
   const [isEditing, setIsEditing] = useState(false);
   const [editingRecordId, setEditingRecordId] = useState(null);
 
-  // load current user from localStorage "user"
   const rawUser = typeof window !== "undefined" ? localStorage.getItem("user") : null;
   let parsedUser = null;
   try {
     parsedUser = rawUser ? JSON.parse(rawUser) : null;
+
   } catch (err) {
     parsedUser = null;
   }
   const currentUser = parsedUser || { role: "user" };
   const isAdmin = currentUser.role === "admin";
 
-  // helper: normalize _id -> id
   const normalize = (arr = [], idField = "_id") =>
     (arr || []).map((x) => ({
       ...x,
       id: x[idField] ? (typeof x[idField] === "string" ? x[idField] : x[idField]._id || x[idField]) : x.id || "",
     }));
 
-  // normalize a single record from backend to UI shape
   const normalizeRecord = (r) => {
     if (!r) return null;
     const id = r._id || r.id;
@@ -81,7 +69,6 @@ const TeachingInputView = ({ initialTeachingRecords = [], schoolYear }) => {
     };
   };
 
-  // load lists on mount
   useEffect(() => {
     (async () => {
       try {
@@ -96,7 +83,6 @@ const TeachingInputView = ({ initialTeachingRecords = [], schoolYear }) => {
         });
         setTeachers(normalizedTeachers);
 
-        // auto-select teacher for non-admin users
         if (!isAdmin) {
           const matched = normalizedTeachers.find((tt) => {
             if (!tt.userId) return false;
@@ -111,6 +97,7 @@ const TeachingInputView = ({ initialTeachingRecords = [], schoolYear }) => {
           });
           if (matched) setSelectedTeacherId(matched.id);
         }
+
       } catch (err) {
         setTeachers([]);
       }
@@ -139,10 +126,8 @@ const TeachingInputView = ({ initialTeachingRecords = [], schoolYear }) => {
         setWeeks([]);
       }
     })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // fetch teaching records helper
   const loadTeachingRecords = async (teacherId) => {
     try {
       const res = await fetchTeachingRecords(teacherId);
@@ -154,19 +139,17 @@ const TeachingInputView = ({ initialTeachingRecords = [], schoolYear }) => {
       else if (Array.isArray(res)) raw = res;
       const norm = raw.map(normalizeRecord).filter(Boolean);
       setTeachingRecords(norm);
+
     } catch (err) {
       setTeachingRecords([]);
     }
   };
 
-  // fetch records on mount and when selectedTeacherId changes
   useEffect(() => {
     const teacherIdToFetch = isAdmin ? (selectedTeacherId || undefined) : selectedTeacherId || undefined;
     loadTeachingRecords(teacherIdToFetch);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedTeacherId, isAdmin]);
 
-  // when teacher changes -> auto-select teacher subject if available
   useEffect(() => {
     if (!selectedTeacherId) return;
     const t = teachers.find((x) => x.id === selectedTeacherId);
@@ -178,7 +161,6 @@ const TeachingInputView = ({ initialTeachingRecords = [], schoolYear }) => {
     } else {
       setSelectedSubjectId("");
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedTeacherId, teachers]);
 
   const allowedGrades = currentUser?.allowedGrades || [];
@@ -189,8 +171,6 @@ const TeachingInputView = ({ initialTeachingRecords = [], schoolYear }) => {
 
   const myRecords = isAdmin ? teachingRecords : teachingRecords.filter((r) => r.teacherId === selectedTeacherId);
 
-  // reset form helper
-  // keepTeacher: when true, keep selectedTeacherId (useful for non-admin users)
   const resetForm = (keepTeacher = false) => {
     setSelectedWeekId("");
     setSelectedClassId("");
@@ -212,7 +192,6 @@ const TeachingInputView = ({ initialTeachingRecords = [], schoolYear }) => {
   };
 
   const cancelEdit = () => {
-    // keep teacher selected for non-admin users (so they can continue adding for themselves)
     resetForm(!isAdmin);
   };
 
@@ -235,9 +214,8 @@ const TeachingInputView = ({ initialTeachingRecords = [], schoolYear }) => {
     if (res.success) {
       const teacherIdToFetch = isAdmin ? (selectedTeacherId || undefined) : selectedTeacherId || undefined;
       await loadTeachingRecords(teacherIdToFetch);
-      // reset form after successful update; keep teacher for non-admin
       resetForm(!isAdmin);
-      alert("✅ Đã cập nhật bản ghi!");
+      alert(" Đã cập nhật bản ghi!");
     } else {
       alert(res.message || "Cập nhật thất bại");
     }
@@ -264,7 +242,7 @@ const TeachingInputView = ({ initialTeachingRecords = [], schoolYear }) => {
     if (hasGradeRestriction) {
       const selectedClass = classes.find((c) => c.id === selectedClassId);
       if (selectedClass && !allowedGrades.includes(selectedClass.grade)) {
-        alert(`❌ Bạn không có quyền nhập dữ liệu cho khối ${selectedClass.grade}!\nBạn chỉ được nhập khối: ${allowedGrades.join(", ")}`);
+        alert(` Bạn không có quyền nhập dữ liệu cho khối ${selectedClass.grade}!\nBạn chỉ được nhập khối: ${allowedGrades.join(", ")}`);
         return;
       }
     }
@@ -282,9 +260,8 @@ const TeachingInputView = ({ initialTeachingRecords = [], schoolYear }) => {
     if (res.success) {
       const teacherIdToFetch = isAdmin ? (selectedTeacherId || undefined) : selectedTeacherId || undefined;
       await loadTeachingRecords(teacherIdToFetch);
-      // reset form after successful add; keep teacher for non-admin users
       resetForm(!isAdmin);
-      alert("✅ Đã thêm bản ghi!");
+      alert(" Đã thêm bản ghi!");
     } else {
       alert(res.message || "Thêm bản ghi thất bại");
     }
@@ -300,7 +277,7 @@ const TeachingInputView = ({ initialTeachingRecords = [], schoolYear }) => {
     if (res.success) {
       const teacherIdToFetch = isAdmin ? (selectedTeacherId || undefined) : selectedTeacherId || undefined;
       await loadTeachingRecords(teacherIdToFetch);
-      alert("✅ Đã xóa bản ghi!");
+      alert(" Đã xóa bản ghi!");
     } else {
       alert(res.message || "Xóa thất bại");
     }

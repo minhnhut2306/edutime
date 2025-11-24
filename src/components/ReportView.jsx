@@ -1,18 +1,21 @@
+/* eslint-disable no-unused-vars */
+
 import React, { useState, useEffect } from 'react';
 import { Download, BarChart3, Mail, Users, RefreshCw } from 'lucide-react';
 import { useReports } from '../hooks/useReports';
 import { useTeachingRecord } from '../hooks/useTeachingRecord';
 
+// eslint-disable-next-line no-unused-vars
 const ReportView = ({ teachers = [], classes = [], subjects = [], teachingRecords: initialRecords = [], weeks = [], schoolYear, currentUser }) => {
   const isAdmin = currentUser?.role === 'admin';
 
   const [teachingRecords, setTeachingRecords] = useState(initialRecords || []);
   const [loadingRecords, setLoadingRecords] = useState(false);
 
-  // ✅ QUAN TRỌNG: Lấy schoolYear từ props
+
   const currentSchoolYear = typeof schoolYear === 'object' ? schoolYear?.year : schoolYear;
 
-  // Tìm giáo viên được liên kết với user hiện tại
+
   const linkedTeacher = teachers.find(t => {
     if (!t.userId) return false;
     const teacherUserId = t.userId?._id || t.userId;
@@ -25,7 +28,7 @@ const ReportView = ({ teachers = [], classes = [], subjects = [], teachingRecord
   const { exportReport, loading: reportLoading, error: reportError } = useReports();
   const { fetchTeachingRecords } = useTeachingRecord();
 
-  // State
+
   const [selectedTeacherId, setSelectedTeacherId] = useState(isAdmin ? '' : (linkedTeacher?.id || linkedTeacher?._id || ''));
   const [selectedTeacherIds, setSelectedTeacherIds] = useState([]);
   const [exportMode, setExportMode] = useState('single');
@@ -38,7 +41,7 @@ const ReportView = ({ teachers = [], classes = [], subjects = [], teachingRecord
     semester: 1,
   });
 
-  // Load teaching records
+
   useEffect(() => {
     if (!selectedTeacherId) {
       setTeachingRecords([]);
@@ -63,14 +66,14 @@ const ReportView = ({ teachers = [], classes = [], subjects = [], teachingRecord
     }
   };
 
-  // Auto-select teacher
+
   useEffect(() => {
     if (!isAdmin && linkedTeacher && !selectedTeacherId) {
       setSelectedTeacherId(linkedTeacher.id || linkedTeacher._id);
     }
   }, [linkedTeacher, isAdmin, selectedTeacherId]);
 
-  // Cảnh báo nếu user chưa được liên kết
+
   if (!isAdmin && !linkedTeacher) {
     return (
       <div className="space-y-4">
@@ -90,7 +93,7 @@ const ReportView = ({ teachers = [], classes = [], subjects = [], teachingRecord
     );
   }
 
-  // Toggle chọn nhiều GV
+
   const toggleTeacherSelection = (teacherId) => {
     setSelectedTeacherIds(prev =>
       prev.includes(teacherId) ? prev.filter(id => id !== teacherId) : [...prev, teacherId]
@@ -99,41 +102,33 @@ const ReportView = ({ teachers = [], classes = [], subjects = [], teachingRecord
 
   const selectAllTeachers = () => setSelectedTeacherIds(availableTeachers.map(t => t.id || t._id));
   const deselectAllTeachers = () => setSelectedTeacherIds([]);
-  
+
   const handleExport = async () => {
   try {
     if (!isAdmin) {
-      alert('⛔ Chỉ Admin mới có quyền xuất báo cáo Excel!');
+      alert(' Chỉ Admin mới có quyền xuất báo cáo Excel!');
       return;
     }
 
     const teacherIdsToExport = exportMode === 'multiple' ? selectedTeacherIds : [selectedTeacherId];
 
     if (teacherIdsToExport.length === 0 || (exportMode === 'single' && !selectedTeacherId)) {
-      alert('❌ Vui lòng chọn giáo viên!');
+      alert(' Vui lòng chọn giáo viên!');
       return;
     }
 
     if (!currentSchoolYear) {
-      alert('❌ Không tìm thấy năm học hiện tại!\n\nVui lòng kiểm tra lại hệ thống.');
+      alert(' Không tìm thấy năm học hiện tại!\n\nVui lòng kiểm tra lại hệ thống.');
       return;
     }
 
-    console.log("🚀 Starting export with:", {
-      teacherIds: teacherIdsToExport,
-      schoolYear: currentSchoolYear,
-      type: exportType,
-      exportMode
-    });
-
-    // Build options
     const options = {
       teacherIds: exportMode === 'multiple' ? teacherIdsToExport : selectedTeacherId,
       schoolYear: currentSchoolYear,
       type: exportType,
     };
 
-    // Thêm params theo type
+
     if (exportType === 'bc' && exportParams.bcNumber) {
       options.bcNumber = exportParams.bcNumber;
     }
@@ -143,7 +138,7 @@ const ReportView = ({ teachers = [], classes = [], subjects = [], teachingRecord
       } else if (exportParams.weekId) {
         options.weekId = exportParams.weekId;
       } else {
-        alert('❌ Vui lòng chọn tuần!');
+        alert(' Vui lòng chọn tuần!');
         return;
       }
     }
@@ -155,20 +150,20 @@ const ReportView = ({ teachers = [], classes = [], subjects = [], teachingRecord
 
     if (result.success) {
       const count = exportMode === 'multiple' ? teacherIdsToExport.length : 1;
-      // ✅ THÔNG BÁO THÀNH CÔNG THÂN THIỆN
-      alert(`✅ Xuất báo cáo Excel thành công!\n\n📊 Năm học: ${currentSchoolYear}\n👥 Số giáo viên: ${count}\n📥 File đã được tải về!`);
+
+      alert(` Xuất báo cáo Excel thành công!\n\n Năm học: ${currentSchoolYear}\n Số giáo viên: ${count}\n File đã được tải về!`);
     } else {
-      // ✅ HIỂN THỊ LỖI THÂN THIỆN (không hiện 404)
-      alert(`❌ ${result.message || 'Không thể xuất báo cáo'}`);
+
+      alert(` ${result.message || 'Không thể xuất báo cáo'}`);
     }
   } catch (err) {
     console.error("Export error:", err);
-    // ✅ LỖI KHÔNG MONG MUỐN
-    alert(`❌ Có lỗi xảy ra khi xuất báo cáo!\n\n${err.message || 'Vui lòng thử lại sau.'}`);
+
+    alert(` Có lỗi xảy ra khi xuất báo cáo!\n\n${err.message || 'Vui lòng thử lại sau.'}`);
   }
 };
 
-  // Render export params
+
   const renderExportParams = () => {
     switch (exportType) {
       case 'bc':
@@ -194,7 +189,7 @@ const ReportView = ({ teachers = [], classes = [], subjects = [], teachingRecord
               </select>
             )}
             <p className="text-xs text-gray-500">
-              💡 Nếu chọn "Tự động", hệ thống sẽ xuất tất cả BC có dữ liệu (mỗi BC = 1 sheet)
+               Nếu chọn "Tự động", hệ thống sẽ xuất tất cả BC có dữ liệu (mỗi BC = 1 sheet)
             </p>
           </div>
         );
@@ -258,7 +253,7 @@ const ReportView = ({ teachers = [], classes = [], subjects = [], teachingRecord
               </div>
             )}
             <p className="text-xs text-gray-500">
-              💡 Tuần thuộc tháng nào sẽ tự động xuất BC tháng đó
+               Tuần thuộc tháng nào sẽ tự động xuất BC tháng đó
             </p>
           </div>
         );
@@ -275,7 +270,7 @@ const ReportView = ({ teachers = [], classes = [], subjects = [], teachingRecord
               <option value={2}>Học kỳ 2 (Tuần 19-35)</option>
             </select>
             <p className="text-xs text-gray-500 mt-2">
-              💡 Xuất tất cả BC trong học kỳ (mỗi tháng = 1 sheet)
+               Xuất tất cả BC trong học kỳ (mỗi tháng = 1 sheet)
             </p>
           </div>
         );
@@ -283,7 +278,7 @@ const ReportView = ({ teachers = [], classes = [], subjects = [], teachingRecord
       case 'year':
         return (
           <p className="text-sm text-gray-600 p-3 bg-gray-50 rounded-lg">
-            💡 Xuất tất cả BC trong năm học (mỗi tháng có dữ liệu = 1 sheet)
+             Xuất tất cả BC trong năm học (mỗi tháng có dữ liệu = 1 sheet)
           </p>
         );
 
@@ -292,7 +287,7 @@ const ReportView = ({ teachers = [], classes = [], subjects = [], teachingRecord
     }
   };
 
-  // Stats
+
   const myRecords = selectedTeacherId ? teachingRecords.filter(r => {
     const rTeacherId = r.teacherId?._id || r.teacherId;
     return rTeacherId === selectedTeacherId || rTeacherId?.toString() === selectedTeacherId?.toString();
@@ -305,7 +300,7 @@ const ReportView = ({ teachers = [], classes = [], subjects = [], teachingRecord
       <div className="flex justify-between items-center">
         <div>
           <h2 className="text-2xl font-bold">Báo cáo & Xuất Excel</h2>
-          {/* ✅ HIỂN THỊ NĂM HỌC */}
+          {}
           <p className="text-sm text-gray-500 mt-1">Năm học: <span className="font-semibold text-blue-600">{currentSchoolYear || 'Chưa xác định'}</span></p>
         </div>
         {isAdmin && (selectedTeacherId || selectedTeacherIds.length > 0) && (
@@ -330,7 +325,7 @@ const ReportView = ({ teachers = [], classes = [], subjects = [], teachingRecord
         <div className="bg-white rounded-xl shadow-lg p-6">
           <h3 className="text-lg font-semibold mb-4">Cài đặt xuất báo cáo</h3>
 
-          {/* Chế độ xuất */}
+          {}
           <div className="mb-4">
             <label className="block text-sm font-medium text-gray-700 mb-2">Chế độ xuất</label>
             <div className="flex gap-4">
@@ -346,7 +341,7 @@ const ReportView = ({ teachers = [], classes = [], subjects = [], teachingRecord
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {/* Chọn giáo viên */}
+            {}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Giáo viên</label>
 
@@ -381,7 +376,7 @@ const ReportView = ({ teachers = [], classes = [], subjects = [], teachingRecord
               )}
             </div>
 
-            {/* Loại báo cáo */}
+            {}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Loại báo cáo</label>
               <select
@@ -395,11 +390,11 @@ const ReportView = ({ teachers = [], classes = [], subjects = [], teachingRecord
                 <option value="year">Cả năm học</option>
               </select>
               <p className="text-xs text-gray-500 mt-1">
-                📋 Tất cả đều xuất theo mẫu BC chuẩn
+                 Tất cả đều xuất theo mẫu BC chuẩn
               </p>
             </div>
 
-            {/* Tham số */}
+            {}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Tham số</label>
               {renderExportParams()}
@@ -415,7 +410,7 @@ const ReportView = ({ teachers = [], classes = [], subjects = [], teachingRecord
         </div>
       )}
 
-      {/* Stats */}
+      {}
       {selectedTeacherId && !loadingRecords && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl p-6 text-white shadow-lg">

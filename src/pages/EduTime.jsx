@@ -1,3 +1,6 @@
+/* eslint-disable no-unused-vars */
+
+
 import React, { useState, useEffect } from 'react';
 import Header from '../components/Header';
 import Sidebar from '../components/Sidebar';
@@ -30,11 +33,9 @@ const EduTime = () => {
   const [showRegister, setShowRegister] = useState(false);
   const [needsTeacherSelection, setNeedsTeacherSelection] = useState(false);
   const [needsSchoolYearSetup, setNeedsSchoolYearSetup] = useState(false);
-  // eslint-disable-next-line no-unused-vars
   const [authToken, setAuthToken] = useState(null);
   const { logout } = useAuth();
 
-  // Hooks
   const { fetchTeachers } = useTeacher();
   const { fetchClasses } = useClasses();
   const { fetchSubjects } = useSubjects();
@@ -54,7 +55,6 @@ const EduTime = () => {
   const [teachingRecords, setTeachingRecords] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  // Check login status on mount
   useEffect(() => {
     const token = localStorage.getItem('token');
     const userStr = localStorage.getItem('user');
@@ -66,21 +66,18 @@ const EduTime = () => {
         setAuthToken(token);
         setIsLoggedIn(true);
       } catch (err) {
-        console.error('Invalid stored user data:', err);
         localStorage.removeItem('token');
         localStorage.removeItem('user');
       }
     }
   }, []);
 
-  // Check if user needs to select teacher (non-admin only)
   useEffect(() => {
     if (isLoggedIn && currentUser && currentUser.role !== 'admin') {
       checkTeacherSelection();
     }
   }, [isLoggedIn, currentUser]);
 
-  // Check if system needs school year setup (CHỈ KHI CHƯA CÓ NĂM HỌC NÀO)
   useEffect(() => {
     if (isLoggedIn && currentUser) {
       checkSchoolYearSetup();
@@ -92,42 +89,35 @@ const EduTime = () => {
       const result = await fetchTeachers();
       if (result.success) {
         const userId = currentUser._id || currentUser.id;
-        const linkedTeacher = result.teachers.find(t => 
+        const linkedTeacher = result.teachers.find(t =>
           t.userId && (t.userId._id === userId || t.userId === userId)
         );
-        
+
         if (!linkedTeacher) {
           setNeedsTeacherSelection(true);
         }
       }
     } catch (err) {
-      console.error('Error checking teacher selection:', err);
+      // Silent error handling
     }
   };
 
   const checkSchoolYearSetup = async () => {
     try {
       const result = await getActiveSchoolYear();
-      
-      // NẾU CÓ năm học active → Không cần setup
+
       if (result.success && result.schoolYear) {
         setNeedsSchoolYearSetup(false);
         return;
       }
-      
-      // NẾU CHƯA CÓ năm học nào → Kiểm tra role
-      // Admin: Cho phép tạo năm học
-      // User: Hiển thị thông báo chờ admin
+
       setNeedsSchoolYearSetup(true);
-      
+
     } catch (err) {
-      console.error('Error checking school year:', err);
-      // Nếu lỗi (có thể do chưa có năm học) → Set true
       setNeedsSchoolYearSetup(true);
     }
   };
 
-  // Load all data when logged in
   useEffect(() => {
     if (isLoggedIn && !needsTeacherSelection && !needsSchoolYearSetup) {
       loadAllData();
@@ -137,7 +127,6 @@ const EduTime = () => {
   const loadAllData = async () => {
     setLoading(true);
     try {
-      // Load school year
       const activeYearResult = await getActiveSchoolYear();
       if (activeYearResult.success && activeYearResult.schoolYear) {
         setSchoolYear(activeYearResult.schoolYear);
@@ -146,43 +135,36 @@ const EduTime = () => {
         }
       }
 
-      // Load archived years
       const yearsResult = await fetchSchoolYears();
       if (yearsResult.success) {
         setArchivedYears(yearsResult.schoolYears.map(y => y.year));
       }
 
-      // Load teachers
       const teachersResult = await fetchTeachers();
       if (teachersResult.success) {
         setTeachers(teachersResult.teachers);
       }
 
-      // Load classes
       const classesResult = await fetchClasses();
       if (classesResult.success) {
         setClasses(classesResult.classes);
       }
 
-      // Load subjects
       const subjectsResult = await fetchSubjects();
       if (subjectsResult.success) {
         setSubjects(subjectsResult.subjects);
       }
 
-      // Load weeks
       const weeksResult = await fetchWeeks({ schoolYear: viewingYear });
       if (weeksResult.success) {
         setWeeks(weeksResult.weeks);
       }
 
-      // Load teaching records
       const recordsResult = await fetchTeachingRecords({ schoolYear: viewingYear });
       if (recordsResult.success) {
         setTeachingRecords(recordsResult.records);
       }
 
-      // Load users (for admin)
       if (currentUser?.role === 'admin') {
         const usersData = await StorageService.loadData('edutime_users');
         if (usersData) {
@@ -190,7 +172,6 @@ const EduTime = () => {
         }
       }
     } catch (error) {
-      console.error('Error loading data:', error);
       alert('Có lỗi khi tải dữ liệu!');
     } finally {
       setLoading(false);
@@ -238,8 +219,6 @@ const EduTime = () => {
     setCurrentUser(user);
     setIsLoggedIn(true);
     setAuthToken(token);
-    console.log('Đăng nhập thành công:', user);
-    console.log('Token:', token);
   };
 
   const handleLogout = async () => {
@@ -251,19 +230,16 @@ const EduTime = () => {
       setCurrentView('dashboard');
       setNeedsTeacherSelection(false);
       setNeedsSchoolYearSetup(false);
-      
-      // Clear data
+
       setTeachers([]);
       setClasses([]);
       setSubjects([]);
       setWeeks([]);
       setTeachingRecords([]);
       setUsers([]);
-      
-      console.log('Đã đăng xuất:', result.message);
+
       alert(result.message || 'Đã đăng xuất thành công');
     } catch (err) {
-      console.error('Error during logout:', err);
       setCurrentUser(null);
       setIsLoggedIn(false);
       setAuthToken(null);
@@ -277,26 +253,23 @@ const EduTime = () => {
     setNeedsSchoolYearSetup(false);
   };
 
-  // Show register view
   if (showRegister) {
     return (
-      <RegisterView 
+      <RegisterView
         onBackToLogin={() => setShowRegister(false)}
       />
     );
   }
 
-  // Show login view
   if (!isLoggedIn) {
     return (
-      <LoginView 
+      <LoginView
         onLogin={handleLogin}
         onShowRegister={() => setShowRegister(true)}
       />
     );
   }
 
-  // Show teacher selection for non-admin users without linked teacher
   if (needsTeacherSelection) {
     return (
       <SelectTeacherView
@@ -309,7 +282,6 @@ const EduTime = () => {
     );
   }
 
-  // Show school year setup if no active year exists
   if (needsSchoolYearSetup) {
     return (
       <SchoolYearSetupView
@@ -331,8 +303,8 @@ const EduTime = () => {
   }
 
   const isAdmin = currentUser.role === 'admin';
-  
-  // ✅ FIX: Tìm teacher object cho user hiện tại thay vì chỉ check boolean
+
+
   const linkedTeacher = !isAdmin ? teachers.find(t => {
     const teacherUserId = t.userId?._id || t.userId;
     const currentUserId = currentUser._id || currentUser.id;

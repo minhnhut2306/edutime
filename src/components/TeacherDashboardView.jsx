@@ -2,7 +2,7 @@ import React from 'react';
 import { Edit2, Download, AlertCircle } from 'react-feather';
 
 const TeacherDashboardView = ({ teacher, teachingRecords = [], classes = [], subjects = [] }) => {
-  // Kiểm tra nếu teacher chưa được liên kết
+
   if (!teacher) {
     return (
       <div className="space-y-6">
@@ -43,15 +43,15 @@ const TeacherDashboardView = ({ teacher, teachingRecords = [], classes = [], sub
     return classId === mainClassId || classId?.toString() === mainClassId?.toString();
   });
 
-  // ✅ FIX: Xử lý an toàn subjectIds
+
   const teacherSubjects = ((teacher.subjectIds || [])
     .map(sid => {
-      // Nếu sid đã là object có name
+
       if (typeof sid === 'object' && sid !== null && sid.name) {
         return sid.name;
       }
-      
-      // Nếu sid là string ID, tìm trong danh sách subjects
+
+
       const subjectId = typeof sid === 'object' ? (sid._id || sid.id) : sid;
       const subject = (subjects || []).find(s => {
         const sId = s._id || s.id;
@@ -59,7 +59,7 @@ const TeacherDashboardView = ({ teacher, teachingRecords = [], classes = [], sub
       });
       return subject?.name;
     })
-    .filter(Boolean) // Loại bỏ undefined/null
+    .filter(Boolean)
     .join(', ')) || 'Chưa có';
 
   return (

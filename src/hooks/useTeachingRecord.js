@@ -1,21 +1,20 @@
 import { useState } from "react";
 import { teachingrecordsAPI } from "../api/teachingrecordsAPI";
 
-// CHÚ Ý: CHO PHÉP TRUYỀN teacherId
 export const useTeachingRecord = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  // Truyền teacherId cho non-admin, không truyền cho admin (admin có thể truyền để lấy theo teacher)
+
   const fetchTeachingRecords = async (teacherId) => {
     setLoading(true);
     setError(null);
     try {
-      const response = await teachingrecordsAPI.teachingRecords(teacherId); // truyền teacherId nếu có
-      // response structure: depends on server helper; adapt if needed
+      const response = await teachingrecordsAPI.teachingRecords(teacherId);
+
       if (response.code === 200 || response.success) {
         setLoading(false);
-        // server helper may wrap data differently; try common patterns
+
         const teachingRecords = response.data || response.teachingRecords || response;
         return {
           success: true,

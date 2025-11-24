@@ -6,7 +6,7 @@ const LoginView = ({ onLogin, onShowRegister }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  
+
   const { login, loading, error } = useAuth();
 
   const handleLogin = async () => {
@@ -16,7 +16,7 @@ const LoginView = ({ onLogin, onShowRegister }) => {
     }
 
     const result = await login(email, password);
-    
+
     if (result.success) {
       onLogin(result.user, result.token);
     }

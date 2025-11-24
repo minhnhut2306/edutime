@@ -1,15 +1,15 @@
-// ==================== SERVICES ====================
+
 const StorageService = {
   async loadData(key) {
     try {
-      // Sửa điều kiện kiểm tra Storage API
+
       if (typeof window === 'undefined' || !window.storage) {
         console.warn('Storage API not available');
         return null;
       }
       const data = await window.storage.get(key, true);
       return data ? JSON.parse(data.value) : null;
-    // eslint-disable-next-line no-unused-vars
+
     } catch (error) {
       return null;
     }
@@ -32,11 +32,11 @@ const StorageService = {
   async getSchoolYearsList() {
     try {
       if (typeof window === 'undefined' || !window.storage) {
-        return ['2024-2025']; // Trả về mặc định
+        return ['2024-2025'];
       }
       const result = await window.storage.list('edutime_year_', true);
       if (!result || !result.keys) return ['2024-2025'];
-      
+
       const years = result.keys
         .map(key => key.replace('edutime_year_', ''))
         .sort((a, b) => {
@@ -44,9 +44,9 @@ const StorageService = {
           const [yearB] = b.split('-').map(Number);
           return yearB - yearA;
         });
-      
+
       return years.length > 0 ? years : ['2024-2025'];
-    // eslint-disable-next-line no-unused-vars
+
     } catch (error) {
       return ['2024-2025'];
     }

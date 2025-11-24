@@ -2,19 +2,18 @@ import React from 'react';
 import { Users, BookOpen, FileText, BarChart2, Mail } from 'react-feather';
 import { BarChart3, FileSpreadsheet, CheckCircle } from 'lucide-react';
 
-// Dashboard View (Admin)
-const DashboardView = ({ 
-  teachers = [], 
-  classes = [], 
-  subjects = [], 
-  teachingRecords = [], 
-  users = [], 
-  schoolYear, 
-  setSchoolYear, 
-  currentUser, 
-  onFinishYear, 
-  archivedYears = [], 
-  onChangeYear 
+const DashboardView = ({
+  teachers = [],
+  classes = [],
+  subjects = [],
+  teachingRecords = [],
+  users = [],
+  schoolYear,
+  setSchoolYear,
+  currentUser,
+  onFinishYear,
+  archivedYears = [],
+  onChangeYear
 }) => {
   const pendingUsers = users.filter(u => u.status === 'pending');
   const totalRecords = teachingRecords.length;
@@ -119,9 +118,9 @@ const DashboardView = ({
           </div>
         )}
 
-        {/* THÊM MỚI: Thống kê theo khối */}
+        {}
         <div className="bg-white rounded-xl p-6 shadow-lg">
-          <h3 className="text-xl font-bold mb-4">📊 Thống kê theo khối</h3>
+          <h3 className="text-xl font-bold mb-4"> Thống kê theo khối</h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {[...new Set(classes.map(c => c.grade))].sort().map(grade => {
               const gradeClasses = classes.filter(c => c.grade === grade);

@@ -1,4 +1,4 @@
-// src/components/RegisterView.jsx
+
 import React, { useState } from 'react';
 import { Calendar, Eye, EyeOff, AlertCircle, Loader, ArrowLeft } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
@@ -9,47 +9,47 @@ const RegisterView = ({ onBackToLogin }) => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  
+
   const { register, loading, error } = useAuth();
   const [localError, setLocalError] = useState('');
 
   const handleRegister = async () => {
     setLocalError('');
 
-    // Validation
+
     if (!email || !password || !confirmPassword) {
       setLocalError('Vui lòng nhập đầy đủ thông tin!');
       return;
     }
 
-    // Email format
+
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
       setLocalError('Email không đúng định dạng!');
       return;
     }
 
-    // Password length
+
     if (password.length < 8) {
       setLocalError('Mật khẩu phải có ít nhất 8 ký tự!');
       return;
     }
 
-    // Password special char
+
     const specialCharRegex = /[!@#$%^&*(),.?":{}|<>]/;
     if (!specialCharRegex.test(password)) {
       setLocalError('Mật khẩu phải có ít nhất 1 ký tự đặc biệt!');
       return;
     }
 
-    // Password match
+
     if (password !== confirmPassword) {
       setLocalError('Mật khẩu xác nhận không khớp!');
       return;
     }
 
     const result = await register(email, password);
-    
+
     if (result.success) {
       alert('Đăng ký thành công! Vui lòng đăng nhập.');
       onBackToLogin();

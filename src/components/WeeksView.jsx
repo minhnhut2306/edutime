@@ -208,7 +208,7 @@ const WeeksView = ({ currentUser, schoolYear }) => {
           {newWeek.startDate && newWeek.endDate && new Date(newWeek.startDate) < new Date(newWeek.endDate) && (
             <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-lg">
               <p className="text-sm text-green-700">
-                ✓ Tuần này sẽ được đánh số: <strong>Tuần {weeks.length + 1}</strong>
+                 Tuần này sẽ được đánh số: <strong>Tuần {weeks.length + 1}</strong>
                 {' '}({calculateDays(newWeek.startDate, newWeek.endDate)} ngày)
               </p>
             </div>

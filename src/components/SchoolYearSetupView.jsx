@@ -9,14 +9,14 @@ const SchoolYearSetupView = ({ currentUser, onSchoolYearCreated }) => {
 
   const isAdmin = currentUser?.role === 'admin';
 
-  // Tự động suggest năm học hiện tại
+
   const getCurrentSchoolYear = () => {
     const now = new Date();
     const currentYear = now.getFullYear();
-    const currentMonth = now.getMonth() + 1; // 1-12
-    
-    // Nếu tháng 1-8: năm học là (năm trước) - (năm hiện tại)
-    // Nếu tháng 9-12: năm học là (năm hiện tại) - (năm sau)
+    const currentMonth = now.getMonth() + 1;
+
+
+
     if (currentMonth >= 1 && currentMonth <= 8) {
       return `${currentYear - 1}-${currentYear}`;
     } else {
@@ -36,14 +36,14 @@ const SchoolYearSetupView = ({ currentUser, onSchoolYearCreated }) => {
       return;
     }
 
-    // Validate format
+
     const yearPattern = /^\d{4}-\d{4}$/;
     if (!yearPattern.test(yearInput)) {
       setLocalError('Định dạng năm học không hợp lệ (VD: 2024-2025)');
       return;
     }
 
-    // Validate years are consecutive
+
     const [startYear, endYear] = yearInput.split('-').map(Number);
     if (endYear !== startYear + 1) {
       setLocalError('Năm học phải liên tiếp nhau (VD: 2024-2025)');
@@ -53,8 +53,8 @@ const SchoolYearSetupView = ({ currentUser, onSchoolYearCreated }) => {
     const result = await createSchoolYear({ year: yearInput });
 
     if (result.success) {
-      alert('✅ Đã tạo năm học thành công!');
-      // Đảm bảo truyền đúng object
+      alert(' Đã tạo năm học thành công!');
+
       const schoolYearObj = result.schoolYear || { year: yearInput, status: 'active' };
       onSchoolYearCreated(schoolYearObj);
     } else {
@@ -75,8 +75,8 @@ const SchoolYearSetupView = ({ currentUser, onSchoolYearCreated }) => {
             {isAdmin ? 'Thiết lập năm học' : 'Hệ thống chưa sẵn sàng'}
           </h1>
           <p className="text-gray-500 mt-2">
-            {isAdmin 
-              ? 'Tạo năm học đầu tiên để bắt đầu sử dụng hệ thống' 
+            {isAdmin
+              ? 'Tạo năm học đầu tiên để bắt đầu sử dụng hệ thống'
               : 'Vui lòng chờ Admin thiết lập năm học'}
           </p>
         </div>
@@ -91,7 +91,7 @@ const SchoolYearSetupView = ({ currentUser, onSchoolYearCreated }) => {
                   Năm học chưa được tạo. Vui lòng liên hệ <strong>Admin</strong> để thiết lập năm học đầu tiên.
                 </p>
                 <p className="text-xs text-yellow-700 mt-3">
-                  💡 Chỉ cần <strong>1 Admin duy nhất</strong> tạo năm học lần đầu, sau đó tất cả tài khoản khác (kể cả Admin) sẽ tự động sử dụng năm học đó.
+                   Chỉ cần <strong>1 Admin duy nhất</strong> tạo năm học lần đầu, sau đó tất cả tài khoản khác (kể cả Admin) sẽ tự động sử dụng năm học đó.
                 </p>
               </div>
               <button
@@ -158,7 +158,7 @@ const SchoolYearSetupView = ({ currentUser, onSchoolYearCreated }) => {
             </div>
 
             <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-              <p className="text-sm text-blue-800 font-medium mb-2">📝 Lưu ý quan trọng:</p>
+              <p className="text-sm text-blue-800 font-medium mb-2"> Lưu ý quan trọng:</p>
               <ul className="text-xs text-blue-700 space-y-1">
                 <li>• <strong>Chỉ cần tạo 1 lần duy nhất</strong> - Tất cả tài khoản khác (kể cả Admin) sẽ tự động sử dụng</li>
                 <li>• Năm học sẽ được sử dụng cho toàn bộ hệ thống</li>

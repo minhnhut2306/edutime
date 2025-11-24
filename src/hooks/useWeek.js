@@ -103,6 +103,6 @@ export const useWeeks = () => {
         message: errorMessage,
       };
     }
-  };    
+  };
   return { loading, error, fetchWeeks, updateWeek, addWeek, deleteWeek };
 };
