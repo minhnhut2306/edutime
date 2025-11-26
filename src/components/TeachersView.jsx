@@ -44,9 +44,14 @@ const TeachersView = ({ currentUser, isReadOnly = false, schoolYear }) => {
   };
 
   const loadTeachers = async () => {
-    const result = await fetchTeachers();
+    console.log('🔍 Loading teachers for school year:', schoolYear)
+     const result = await fetchTeachers(schoolYear);
     if (result.success) {
       const teachersArr = Array.isArray(result.teachers) ? result.teachers : [];
+      console.log('📊 All teachers:', teachersArr.length);
+      teachersArr.forEach(t => {
+        console.log(`  - ${t.name}: schoolYearId = ${t.schoolYearId}`);
+      });
       const transformedTeachers = teachersArr.map((teacher, idx) => {
         let subjectIdsList = [];
         if (Array.isArray(teacher.subjectIds)) {
@@ -283,7 +288,7 @@ const TeachersView = ({ currentUser, isReadOnly = false, schoolYear }) => {
     <div className="space-y-4">
       {/* ==================== HEADER ==================== */}
       <div className="flex justify-between items-center">
-       
+
         <h2 className="text-2xl font-bold">
           Quản lý Giáo viên
           {schoolYear && (
@@ -447,8 +452,8 @@ const TeachersView = ({ currentUser, isReadOnly = false, schoolYear }) => {
                             }
                           }}
                           className={`px-3 py-1.5 rounded-lg border-2 transition-all font-medium ${isSelected
-                              ? 'bg-blue-600 text-white border-blue-600'
-                              : 'bg-white text-gray-700 border-gray-300 hover:border-blue-400'
+                            ? 'bg-blue-600 text-white border-blue-600'
+                            : 'bg-white text-gray-700 border-gray-300 hover:border-blue-400'
                             }`}
                         >
                           {s.name}
@@ -545,8 +550,8 @@ const TeachersView = ({ currentUser, isReadOnly = false, schoolYear }) => {
                         }
                       }}
                       className={`px-3 py-1.5 rounded-lg border-2 transition-all font-medium ${isSelected
-                          ? 'bg-blue-600 text-white border-blue-600'
-                          : 'bg-white text-gray-700 border-gray-300 hover:border-blue-400'
+                        ? 'bg-blue-600 text-white border-blue-600'
+                        : 'bg-white text-gray-700 border-gray-300 hover:border-blue-400'
                         }`}
                     >
                       {s.name}

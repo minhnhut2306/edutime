@@ -5,11 +5,11 @@ export const useTeacher = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  const fetchTeachers = async () => {
+ const fetchTeachers = async (schoolYear = null) => {
     setLoading(true);
     setError(null);
     try {
-      const response = await teacherAPI.teachers();
+      const response = await teacherAPI.teachers(schoolYear);
       if (response.code === 200) {
         setLoading(false);
         return {
