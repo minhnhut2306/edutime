@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Trash2, Plus, Loader, X } from 'react-feather';
+import { Trash2, Plus, Loader, X, Eye } from 'lucide-react';
 import { useSubjects } from '../hooks/useSubjects';
 
-const SubjectsView = ({ currentUser }) => {
+const SubjectsView = ({ currentUser, isReadOnly = false }) => {
   const [subjects, setSubjects] = useState([]);
   const [showModal, setShowModal] = useState(false);
   const [subjectName, setSubjectName] = useState('');
@@ -11,6 +11,7 @@ const SubjectsView = ({ currentUser }) => {
 
   useEffect(() => {
     loadSubjects();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const loadSubjects = async () => {
@@ -21,6 +22,10 @@ const SubjectsView = ({ currentUser }) => {
   };
 
   const handleOpenModal = () => {
+    if (isReadOnly) {
+      alert('⚠️ Chế độ chỉ xem! Không thể thêm môn học vào năm học cũ.');
+      return;
+    }
     setSubjectName('');
     setShowModal(true);
   };
@@ -49,6 +54,11 @@ const SubjectsView = ({ currentUser }) => {
   };
 
   const handleDelete = async (subjectId) => {
+    if (isReadOnly) {
+      alert('⚠️ Chế độ chỉ xem! Không thể xóa môn học của năm học cũ.');
+      return;
+    }
+
     if (!confirm('Xóa môn học này?')) return;
 
     const result = await deleteSubject(subjectId);
@@ -75,8 +85,16 @@ const SubjectsView = ({ currentUser }) => {
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold">Quản lý Môn học</h2>
-        {isAdmin && (
+        <h2 className="text-2xl font-bold flex items-center gap-2">
+          Quản lý Môn học
+          {isReadOnly && (
+            <span className="flex items-center gap-2 text-sm font-normal text-orange-600 bg-orange-50 px-3 py-1 rounded-full">
+              <Eye size={16} />
+              Chế độ xem
+            </span>
+          )}
+        </h2>
+        {isAdmin && !isReadOnly && (
           <button
             onClick={handleOpenModal}
             disabled={loading}
@@ -87,6 +105,20 @@ const SubjectsView = ({ currentUser }) => {
           </button>
         )}
       </div>
+
+      {isReadOnly && (
+        <div className="bg-orange-50 border-l-4 border-orange-400 p-4 rounded-lg">
+          <div className="flex items-center gap-2">
+            <Eye size={20} className="text-orange-600" />
+            <div>
+              <p className="font-medium text-orange-900">Đang xem dữ liệu năm học cũ</p>
+              <p className="text-sm text-orange-700">
+                Dữ liệu chỉ được xem, không thể thêm hoặc xóa
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {error && (
         <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
@@ -100,13 +132,13 @@ const SubjectsView = ({ currentUser }) => {
             <tr>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Mã môn</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tên môn</th>
-              {isAdmin && <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Thao tác</th>}
+              {isAdmin && !isReadOnly && <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Thao tác</th>}
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200">
             {subjects.length === 0 ? (
               <tr>
-                <td colSpan={isAdmin ? 3 : 2} className="px-6 py-8 text-center text-gray-500">
+                <td colSpan={isAdmin && !isReadOnly ? 3 : 2} className="px-6 py-8 text-center text-gray-500">
                   Chưa có môn học nào
                 </td>
               </tr>
@@ -117,7 +149,7 @@ const SubjectsView = ({ currentUser }) => {
                     {generateSubjectCode(index)}
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-900">{subject.name}</td>
-                  {isAdmin && (
+                  {isAdmin && !isReadOnly && (
                     <td className="px-6 py-4 text-sm">
                       <button
                         onClick={() => handleDelete(subject._id)}
@@ -135,8 +167,8 @@ const SubjectsView = ({ currentUser }) => {
         </table>
       </div>
 
-      {}
-      {showModal && (
+      {/* Modal thêm môn học */}
+      {showModal && !isReadOnly && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl shadow-2xl w-full max-w-md mx-4">
             <div className="flex items-center justify-between px-6 py-4 border-b">

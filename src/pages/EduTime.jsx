@@ -1,6 +1,5 @@
 /* eslint-disable no-unused-vars */
 
-
 import React, { useState, useEffect } from 'react';
 import Header from '../components/Header';
 import Sidebar from '../components/Sidebar';
@@ -46,6 +45,7 @@ const EduTime = () => {
   const [users, setUsers] = useState([]);
   const [schoolYear, setSchoolYear] = useState(null);
   const [viewingYear, setViewingYear] = useState(null);
+  const [activeSchoolYear, setActiveSchoolYear] = useState(null); // ✅ Năm học đang active
   const [archivedYears, setArchivedYears] = useState([]);
 
   const [teachers, setTeachers] = useState([]);
@@ -54,6 +54,9 @@ const EduTime = () => {
   const [weeks, setWeeks] = useState([]);
   const [teachingRecords, setTeachingRecords] = useState([]);
   const [loading, setLoading] = useState(false);
+
+  // ✅ Xác định chế độ chỉ đọc
+  const isReadOnly = viewingYear !== activeSchoolYear;
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -127,9 +130,11 @@ const EduTime = () => {
   const loadAllData = async () => {
     setLoading(true);
     try {
+      // ✅ Lấy năm học active
       const activeYearResult = await getActiveSchoolYear();
       if (activeYearResult.success && activeYearResult.schoolYear) {
         setSchoolYear(activeYearResult.schoolYear);
+        setActiveSchoolYear(activeYearResult.schoolYear.year); // ✅ Lưu năm học active
         if (!viewingYear) {
           setViewingYear(activeYearResult.schoolYear.year);
         }
@@ -179,6 +184,12 @@ const EduTime = () => {
   };
 
   const saveAllData = async () => {
+    // ✅ Không cho lưu nếu đang xem năm cũ
+    if (isReadOnly) {
+      alert('⚠️ Không thể lưu dữ liệu năm học cũ!\n\nVui lòng chuyển về năm học hiện tại để lưu.');
+      return;
+    }
+
     const key = `edutime_year_${viewingYear}`;
     const success = await StorageService.saveData(key, {
       teachers,
@@ -191,9 +202,9 @@ const EduTime = () => {
     await StorageService.saveData('edutime_users', users);
 
     if (success) {
-      alert('Đã lưu dữ liệu thành công!');
+      alert('✅ Đã lưu dữ liệu thành công!');
     } else {
-      alert('Có lỗi khi lưu dữ liệu!');
+      alert('❌ Có lỗi khi lưu dữ liệu!');
     }
   };
 
@@ -208,11 +219,12 @@ const EduTime = () => {
 
     setSchoolYear({ year: newYear, isActive: true });
     setViewingYear(newYear);
+    setActiveSchoolYear(newYear); // ✅ Cập nhật năm học active mới
     setWeeks([]);
     setTeachingRecords([]);
     await loadAllData();
 
-    alert(`Đã kết thúc năm học ${schoolYear.year}!\nBắt đầu năm học mới: ${newYear}`);
+    alert(`✅ Đã kết thúc năm học ${schoolYear.year}!\n\n📚 Bắt đầu năm học mới: ${newYear}`);
   };
 
   const handleLogin = (user, token) => {
@@ -250,7 +262,17 @@ const EduTime = () => {
   const handleSchoolYearCreated = (newSchoolYear) => {
     setSchoolYear(newSchoolYear);
     setViewingYear(newSchoolYear.year);
+    setActiveSchoolYear(newSchoolYear.year); // ✅ Set năm học active
     setNeedsSchoolYearSetup(false);
+  };
+
+  // ✅ Xử lý khi đổi năm học
+  const handleChangeYear = (year) => {
+    if (year !== viewingYear) {
+      setViewingYear(year);
+      // Reload data cho năm học mới
+      loadAllData();
+    }
   };
 
   if (showRegister) {
@@ -304,7 +326,6 @@ const EduTime = () => {
 
   const isAdmin = currentUser.role === 'admin';
 
-
   const linkedTeacher = !isAdmin ? teachers.find(t => {
     const teacherUserId = t.userId?._id || t.userId;
     const currentUserId = currentUser._id || currentUser.id;
@@ -319,7 +340,8 @@ const EduTime = () => {
         onSave={saveAllData}
         schoolYear={viewingYear}
         archivedYears={archivedYears}
-        onChangeYear={setViewingYear}
+        onChangeYear={handleChangeYear}
+        isReadOnly={isReadOnly} // ✅ Truyền vào Header
       />
 
       <div className="max-w-7xl mx-auto px-6 py-8">
@@ -346,7 +368,8 @@ const EduTime = () => {
                   currentUser={currentUser}
                   onFinishYear={handleFinishYear}
                   archivedYears={archivedYears}
-                  onChangeYear={setViewingYear}
+                  onChangeYear={handleChangeYear}
+                  isReadOnly={isReadOnly} // ✅ Truyền prop
                 />
               )}
 
@@ -366,6 +389,7 @@ const EduTime = () => {
                   classes={classes}
                   subjects={subjects}
                   currentUser={currentUser}
+                  isReadOnly={isReadOnly} // ✅ Truyền prop
                 />
               )}
 
@@ -374,6 +398,7 @@ const EduTime = () => {
                   classes={classes}
                   setClasses={setClasses}
                   currentUser={currentUser}
+                  isReadOnly={isReadOnly} // ✅ Truyền prop
                 />
               )}
 
@@ -382,6 +407,7 @@ const EduTime = () => {
                   subjects={subjects}
                   setSubjects={setSubjects}
                   currentUser={currentUser}
+                  isReadOnly={isReadOnly} // ✅ Truyền prop
                 />
               )}
 
@@ -390,6 +416,8 @@ const EduTime = () => {
                   weeks={weeks}
                   setWeeks={setWeeks}
                   currentUser={currentUser}
+                  schoolYear={viewingYear}
+                  isReadOnly={isReadOnly} // ✅ Truyền prop
                 />
               )}
 
@@ -404,6 +432,7 @@ const EduTime = () => {
                   schoolYear={viewingYear}
                   currentUser={currentUser}
                   users={users}
+                  isReadOnly={isReadOnly} // ✅ Truyền prop
                 />
               )}
 
@@ -416,6 +445,7 @@ const EduTime = () => {
                   weeks={weeks}
                   schoolYear={schoolYear}
                   currentUser={currentUser}
+                  isReadOnly={isReadOnly} // ✅ Truyền prop (nếu cần)
                 />
               )}
 

@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar, Edit2, Trash2, Plus, Loader } from 'lucide-react';
+import { Calendar, Edit2, Trash2, Plus, Loader, Eye } from 'lucide-react';
 import { useWeeks } from '../hooks/useWeek';
 
 const MAX_WEEKS = 35;
 
-const WeeksView = ({ currentUser, schoolYear }) => {
+const WeeksView = ({ currentUser, schoolYear, isReadOnly = false }) => {
   const [weeks, setWeeks] = useState([]);
   const { fetchWeeks, addWeek, updateWeek, deleteWeek, loading, error } = useWeeks();
   const isAdmin = currentUser.role === 'admin';
@@ -29,6 +29,11 @@ const WeeksView = ({ currentUser, schoolYear }) => {
   };
 
   const handleAdd = async () => {
+    if (isReadOnly) {
+      alert('⚠️ Chế độ chỉ xem! Không thể thêm tuần học vào năm học cũ.');
+      return;
+    }
+
     if (!newWeek.startDate || !newWeek.endDate) {
       alert('Vui lòng chọn ngày bắt đầu và ngày kết thúc!');
       return;
@@ -77,6 +82,11 @@ const WeeksView = ({ currentUser, schoolYear }) => {
   };
 
   const handleDelete = async (weekId) => {
+    if (isReadOnly) {
+      alert('⚠️ Chế độ chỉ xem! Không thể xóa tuần học của năm học cũ.');
+      return;
+    }
+
     if (!confirm('Xóa tuần học này?')) return;
 
     const result = await deleteWeek(weekId);
@@ -98,6 +108,10 @@ const WeeksView = ({ currentUser, schoolYear }) => {
   };
 
   const handleEdit = (week) => {
+    if (isReadOnly) {
+      alert('⚠️ Chế độ chỉ xem! Không thể chỉnh sửa tuần học của năm học cũ.');
+      return;
+    }
     setEditingWeek({
       ...week,
       startDate: formatDateForInput(week.startDate),
@@ -159,10 +173,32 @@ const WeeksView = ({ currentUser, schoolYear }) => {
     <div className="space-y-4">
       <div className="flex justify-between items-center">
         <div>
-          <h2 className="text-2xl font-bold">Quản lý Tuần học</h2>
+          <h2 className="text-2xl font-bold flex items-center gap-2">
+            Quản lý Tuần học
+            {isReadOnly && (
+              <span className="flex items-center gap-2 text-sm font-normal text-orange-600 bg-orange-50 px-3 py-1 rounded-full">
+                <Eye size={16} />
+                Chế độ xem
+              </span>
+            )}
+          </h2>
           <p className="text-sm text-gray-500 mt-1">Năm học: {schoolYear} - Tổng: {weeks.length}/{MAX_WEEKS} tuần</p>
         </div>
       </div>
+
+      {isReadOnly && (
+        <div className="bg-orange-50 border-l-4 border-orange-400 p-4 rounded-lg">
+          <div className="flex items-center gap-2">
+            <Eye size={20} className="text-orange-600" />
+            <div>
+              <p className="font-medium text-orange-900">Đang xem dữ liệu năm học cũ</p>
+              <p className="text-sm text-orange-700">
+                Dữ liệu chỉ được xem, không thể thêm, sửa hoặc xóa
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {error && (
         <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
@@ -170,7 +206,7 @@ const WeeksView = ({ currentUser, schoolYear }) => {
         </div>
       )}
 
-      {isAdmin && (
+      {isAdmin && !isReadOnly && (
         <div className="bg-white rounded-xl shadow-lg p-6">
           <h3 className="text-lg font-semibold mb-4">Thêm tuần học mới</h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -208,7 +244,7 @@ const WeeksView = ({ currentUser, schoolYear }) => {
           {newWeek.startDate && newWeek.endDate && new Date(newWeek.startDate) < new Date(newWeek.endDate) && (
             <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-lg">
               <p className="text-sm text-green-700">
-                 Tuần này sẽ được đánh số: <strong>Tuần {weeks.length + 1}</strong>
+                ✓ Tuần này sẽ được đánh số: <strong>Tuần {weeks.length + 1}</strong>
                 {' '}({calculateDays(newWeek.startDate, newWeek.endDate)} ngày)
               </p>
             </div>
@@ -216,7 +252,7 @@ const WeeksView = ({ currentUser, schoolYear }) => {
         </div>
       )}
 
-      {editingWeek && (
+      {editingWeek && !isReadOnly && (
         <div className="bg-white rounded-xl shadow-lg p-6 border-2 border-blue-300">
           <h3 className="text-lg font-semibold mb-4">Chỉnh sửa Tuần {editingWeek.weekNumber}</h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -269,7 +305,7 @@ const WeeksView = ({ currentUser, schoolYear }) => {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Ngày bắt đầu</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Ngày kết thúc</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Số ngày</th>
-                {isAdmin && <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Thao tác</th>}
+                {isAdmin && !isReadOnly && <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Thao tác</th>}
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
@@ -296,7 +332,7 @@ const WeeksView = ({ currentUser, schoolYear }) => {
                         {end.toLocaleDateString('vi-VN', { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' })}
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-500">{days} ngày</td>
-                      {isAdmin && (
+                      {isAdmin && !isReadOnly && (
                         <td className="px-6 py-4 text-sm flex gap-2">
                           <button
                             onClick={() => handleEdit(week)}

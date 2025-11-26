@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { Edit2, Trash2, Plus, RefreshCw, X, Eye, EyeOff, Download, Upload } from 'react-feather';
+import { AlertTriangle } from 'lucide-react';
 import ExcelService from '../service/ExcelService';
 import { useTeacher } from '../hooks/useTeacher';
 import { useClasses } from '../hooks/useClasses';
 import { useSubjects } from '../hooks/useSubjects';
 
-const TeachersView = ({ currentUser }) => {
+const TeachersView = ({ currentUser, isReadOnly = false }) => {
   const isAdmin = currentUser?.role === 'admin';
   const [teachers, setTeachers] = useState([]);
   const [classes, setClasses] = useState([]);
@@ -27,6 +28,7 @@ const TeachersView = ({ currentUser }) => {
 
   useEffect(() => {
     loadAllData();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const loadAllData = async () => {
@@ -112,6 +114,10 @@ const TeachersView = ({ currentUser }) => {
   };
 
   const handleOpenAddModal = () => {
+    if (isReadOnly) {
+      alert('⚠️ Năm học đã kết thúc, không thể thêm giáo viên!');
+      return;
+    }
     setNewTeacher({
       name: '',
       phone: '',
@@ -170,11 +176,15 @@ const TeachersView = ({ currentUser }) => {
       loadTeachers();
     } else {
       const errorMsg = result.message || 'Không thể thêm giáo viên';
-      alert(' Lỗi: ' + errorMsg);
+      alert('❌ Lỗi: ' + errorMsg);
     }
   };
 
   const handleEdit = (teacher) => {
+    if (isReadOnly) {
+      alert('⚠️ Năm học đã kết thúc, không thể chỉnh sửa giáo viên!');
+      return;
+    }
     setEditingTeacher({ ...teacher });
   };
 
@@ -197,6 +207,10 @@ const TeachersView = ({ currentUser }) => {
   };
 
   const handleDelete = async (id) => {
+    if (isReadOnly) {
+      alert('⚠️ Năm học đã kết thúc, không thể xóa giáo viên!');
+      return;
+    }
     if (window.confirm('Xóa giáo viên này?')) {
       const result = await deleteTeacher(id);
       if (result.success) {
@@ -209,6 +223,12 @@ const TeachersView = ({ currentUser }) => {
   };
 
   const handleImport = async (e) => {
+    if (isReadOnly) {
+      alert('⚠️ Năm học đã kết thúc, không thể import giáo viên!');
+      e.target.value = '';
+      return;
+    }
+
     const file = e.target.files[0];
     if (!file) return;
 
@@ -257,13 +277,14 @@ const TeachersView = ({ currentUser }) => {
 
   return (
     <div className="space-y-4">
+      {/* ==================== HEADER ==================== */}
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold">Quản lý Giáo viên</h2>
-        {isAdmin && (
+        {isAdmin && !isReadOnly && (
           <div className="flex items-center gap-3">
             <button
               onClick={loadAllData}
-              className="flex items-center gap-2 bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700"
+              className="flex items-center gap-2 bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors"
               title="Tải lại danh sách"
             >
               <RefreshCw size={20} />
@@ -272,19 +293,22 @@ const TeachersView = ({ currentUser }) => {
 
             <button
               onClick={() => ExcelService.downloadTemplate('Teacher')}
-              className="flex items-center gap-2 bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700"
+              className="flex items-center gap-2 bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors"
             >
               <Download size={20} />
               Tải file mẫu
             </button>
 
-            <label className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 cursor-pointer">
+            <label className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 cursor-pointer transition-colors">
               <Upload size={20} />
               <span>Import</span>
               <input type="file" accept=".xlsx,.xls" onChange={handleImport} className="hidden" />
             </label>
 
-            <button onClick={handleOpenAddModal} className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">
+            <button 
+              onClick={handleOpenAddModal} 
+              className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+            >
               <Plus size={20} />
               Thêm
             </button>
@@ -292,14 +316,31 @@ const TeachersView = ({ currentUser }) => {
         )}
       </div>
 
-      {}
+      {/* ==================== READ-ONLY WARNING ==================== */}
+      {isReadOnly && (
+        <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-lg shadow-md">
+          <div className="flex items-center gap-3">
+            <AlertTriangle className="text-yellow-600 flex-shrink-0" size={24} />
+            <div>
+              <p className="text-sm font-medium text-yellow-800">
+                📚 Dữ liệu năm học đã kết thúc - Chỉ xem
+              </p>
+              <p className="text-xs text-yellow-700 mt-1">
+                Không thể thêm, sửa, xóa giáo viên. Chọn năm học active để chỉnh sửa dữ liệu.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ==================== IMPORT RESULT ==================== */}
       {importResult && (
         <div className="bg-white rounded-xl shadow-lg p-4">
           <div className="flex justify-between items-center mb-3">
             <h3 className="text-lg font-semibold">Kết quả Import</h3>
             <button
               onClick={() => setImportResult(null)}
-              className="text-gray-500 hover:text-gray-700"
+              className="text-gray-500 hover:text-gray-700 transition-colors"
             >
               <X size={20} />
             </button>
@@ -307,17 +348,17 @@ const TeachersView = ({ currentUser }) => {
 
           <div className="flex gap-4 mb-3">
             <span className="text-green-600 font-medium">
-               Thành công: {importResult.successCount}
+              ✅ Thành công: {importResult.successCount}
             </span>
             <span className="text-red-600 font-medium">
-               Thất bại: {importResult.failedCount}
+              ❌ Thất bại: {importResult.failedCount}
             </span>
           </div>
 
           {importResult.failed.length > 0 && (
             <div className="bg-red-50 border border-red-200 rounded-lg p-3">
               <p className="text-red-700 font-medium mb-2">Chi tiết lỗi:</p>
-              <ul className="text-sm text-red-600 space-y-1">
+              <ul className="text-sm text-red-600 space-y-1 max-h-40 overflow-y-auto">
                 {importResult.failed.map((f, idx) => (
                   <li key={idx}>• Dòng {f.row}: {f.reason}</li>
                 ))}
@@ -327,13 +368,16 @@ const TeachersView = ({ currentUser }) => {
         </div>
       )}
 
-      {}
-      {showAddModal && (
+      {/* ==================== ADD MODAL ==================== */}
+      {showAddModal && !isReadOnly && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl shadow-2xl p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-6">
               <h3 className="text-xl font-bold text-gray-800">Thêm giáo viên mới</h3>
-              <button onClick={handleCloseAddModal} className="text-gray-500 hover:text-gray-700 transition-colors">
+              <button 
+                onClick={handleCloseAddModal} 
+                className="text-gray-500 hover:text-gray-700 transition-colors"
+              >
                 <X size={24} />
               </button>
             </div>
@@ -390,17 +434,18 @@ const TeachersView = ({ currentUser }) => {
                               });
                             }
                           }}
-                          className={`px-3 py-1.5 rounded-lg border-2 transition-all font-medium ${isSelected
-                            ? 'bg-blue-600 text-white border-blue-600'
-                            : 'bg-white text-gray-700 border-gray-300 hover:border-blue-400'
-                            }`}
+                          className={`px-3 py-1.5 rounded-lg border-2 transition-all font-medium ${
+                            isSelected
+                              ? 'bg-blue-600 text-white border-blue-600'
+                              : 'bg-white text-gray-700 border-gray-300 hover:border-blue-400'
+                          }`}
                         >
                           {s.name}
                         </button>
                       );
                     })}
                   </div>
-                  <p className="text-xs text-gray-500 mt-1"> Click vào môn để chọn/bỏ chọn</p>
+                  <p className="text-xs text-gray-500 mt-1">💡 Click vào môn để chọn/bỏ chọn</p>
                 </div>
 
                 <div className="col-span-2">
@@ -441,8 +486,8 @@ const TeachersView = ({ currentUser }) => {
         </div>
       )}
 
-      {}
-      {editingTeacher && (
+      {/* ==================== EDIT FORM ==================== */}
+      {editingTeacher && !isReadOnly && (
         <div className="bg-white rounded-xl shadow-lg p-6">
           <h3 className="text-lg font-semibold mb-4">Chỉnh sửa giáo viên</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -488,17 +533,18 @@ const TeachersView = ({ currentUser }) => {
                           });
                         }
                       }}
-                      className={`px-3 py-1.5 rounded-lg border-2 transition-all font-medium ${isSelected
-                        ? 'bg-blue-600 text-white border-blue-600'
-                        : 'bg-white text-gray-700 border-gray-300 hover:border-blue-400'
-                        }`}
+                      className={`px-3 py-1.5 rounded-lg border-2 transition-all font-medium ${
+                        isSelected
+                          ? 'bg-blue-600 text-white border-blue-600'
+                          : 'bg-white text-gray-700 border-gray-300 hover:border-blue-400'
+                      }`}
                     >
                       {s.name}
                     </button>
                   );
                 })}
               </div>
-              <p className="text-xs text-gray-500 mt-1"> Click vào môn để chọn/bỏ chọn</p>
+              <p className="text-xs text-gray-500 mt-1">💡 Click vào môn để chọn/bỏ chọn</p>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Lớp chủ nhiệm</label>
@@ -515,17 +561,23 @@ const TeachersView = ({ currentUser }) => {
             </div>
           </div>
           <div className="flex gap-2 mt-4">
-            <button onClick={handleSaveEdit} className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">
+            <button 
+              onClick={handleSaveEdit} 
+              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+            >
               Lưu
             </button>
-            <button onClick={() => setEditingTeacher(null)} className="bg-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-400">
+            <button 
+              onClick={() => setEditingTeacher(null)} 
+              className="bg-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-400 transition-colors"
+            >
               Hủy
             </button>
           </div>
         </div>
       )}
 
-      {}
+      {/* ==================== TABLE ==================== */}
       <div className="bg-white rounded-xl shadow-lg overflow-hidden">
         <table className="w-full">
           <thead className="bg-gray-50 border-b">
@@ -536,13 +588,15 @@ const TeachersView = ({ currentUser }) => {
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">SĐT</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Môn dạy</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Lớp CN</th>
-              {isAdmin && <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Thao tác</th>}
+              {isAdmin && !isReadOnly && (
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Thao tác</th>
+              )}
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200">
             {teachers.length === 0 ? (
               <tr>
-                <td colSpan={isAdmin ? 7 : 6} className="px-6 py-8 text-center text-gray-500">
+                <td colSpan={isAdmin && !isReadOnly ? 7 : 6} className="px-6 py-8 text-center text-gray-500">
                   Chưa có giáo viên nào
                 </td>
               </tr>
@@ -559,7 +613,7 @@ const TeachersView = ({ currentUser }) => {
                 const phoneVisible = isVisible(teacher.id, 'phone');
 
                 return (
-                  <tr key={teacher.id || idx} className="hover:bg-gray-50">
+                  <tr key={teacher.id || idx} className="hover:bg-gray-50 transition-colors">
                     <td className="px-6 py-4 text-sm font-medium text-gray-900">{displayCode}</td>
                     <td className="px-6 py-4 text-sm text-gray-900">{teacher.name}</td>
                     <td className="px-6 py-4 text-sm text-gray-500">
@@ -592,12 +646,20 @@ const TeachersView = ({ currentUser }) => {
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-500">{teacherSubjects}</td>
                     <td className="px-6 py-4 text-sm text-gray-500">{teacher.mainClassName || mainClass?.name || '-'}</td>
-                    {isAdmin && (
+                    {isAdmin && !isReadOnly && (
                       <td className="px-6 py-4 text-sm flex gap-2">
-                        <button onClick={() => handleEdit(teacher)} className="text-blue-600 hover:text-blue-800">
+                        <button 
+                          onClick={() => handleEdit(teacher)} 
+                          className="text-blue-600 hover:text-blue-800 transition-colors"
+                          title="Chỉnh sửa"
+                        >
                           <Edit2 size={16} />
                         </button>
-                        <button onClick={() => handleDelete(teacher.id)} className="text-red-600 hover:text-red-800">
+                        <button 
+                          onClick={() => handleDelete(teacher.id)} 
+                          className="text-red-600 hover:text-red-800 transition-colors"
+                          title="Xóa"
+                        >
                           <Trash2 size={16} />
                         </button>
                       </td>

@@ -5,27 +5,39 @@ export const useTeachingRecord = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-
-  const fetchTeachingRecords = async (teacherId) => {
+  const fetchTeachingRecords = async (teacherId, schoolYear = null) => {
     setLoading(true);
     setError(null);
     try {
-      const response = await teachingrecordsAPI.teachingRecords(teacherId);
+      // ✅ TRUYỀN CẢ teacherId VÀ schoolYear
+      const response = await teachingrecordsAPI.teachingRecords(
+        teacherId,
+        schoolYear
+      );
 
       if (response.code === 200 || response.success) {
         setLoading(false);
 
-        const teachingRecords = response.data || response.teachingRecords || response;
+        const teachingRecords =
+          response.data || response.teachingRecords || response;
         return {
           success: true,
-          teachingRecords: teachingRecords.teachingRecords || teachingRecords || [],
+          teachingRecords:
+            teachingRecords.teachingRecords || teachingRecords || [],
         };
       } else {
-        throw new Error(response.msg || response.message || "Lấy danh sách hồ sơ giảng dạy thất bại");
+        throw new Error(
+          response.msg ||
+            response.message ||
+            "Lấy danh sách hồ sơ giảng dạy thất bại"
+        );
       }
     } catch (error) {
       const errorMessage =
-        error.response?.data?.msg || error.response?.data?.message || error.message || "Có lỗi xảy ra";
+        error.response?.data?.msg ||
+        error.response?.data?.message ||
+        error.message ||
+        "Có lỗi xảy ra";
       setError(errorMessage);
       setLoading(false);
       return {
@@ -48,11 +60,16 @@ export const useTeachingRecord = () => {
           teachingRecord: response.data,
         };
       } else {
-        throw new Error(response.msg || response.message || "Thêm hồ sơ giảng dạy thất bại");
+        throw new Error(
+          response.msg || response.message || "Thêm hồ sơ giảng dạy thất bại"
+        );
       }
     } catch (error) {
       const errorMessage =
-        error.response?.data?.msg || error.response?.data?.message || error.message || "Có lỗi xảy ra";
+        error.response?.data?.msg ||
+        error.response?.data?.message ||
+        error.message ||
+        "Có lỗi xảy ra";
       setError(errorMessage);
       setLoading(false);
       return {
@@ -66,7 +83,10 @@ export const useTeachingRecord = () => {
     setLoading(true);
     setError(null);
     try {
-      const response = await teachingrecordsAPI.updateTeachingRecord(recordId, recordData);
+      const response = await teachingrecordsAPI.updateTeachingRecord(
+        recordId,
+        recordData
+      );
       setLoading(false);
       if (response.code === 200 || response.success) {
         return { success: true, teachingRecord: response.data };
@@ -74,7 +94,10 @@ export const useTeachingRecord = () => {
       throw new Error(response.msg || response.message || "Cập nhật thất bại");
     } catch (error) {
       const errorMessage =
-        error.response?.data?.msg || error.response?.data?.message || error.message || "Có lỗi xảy ra";
+        error.response?.data?.msg ||
+        error.response?.data?.message ||
+        error.message ||
+        "Có lỗi xảy ra";
       setError(errorMessage);
       setLoading(false);
       return { success: false, message: errorMessage };
@@ -93,11 +116,16 @@ export const useTeachingRecord = () => {
           message: "Xóa hồ sơ giảng dạy thành công",
         };
       } else {
-        throw new Error(response.msg || response.message || "Xóa hồ sơ giảng dạy thất bại");
+        throw new Error(
+          response.msg || response.message || "Xóa hồ sơ giảng dạy thất bại"
+        );
       }
     } catch (error) {
       const errorMessage =
-        error.response?.data?.msg || error.response?.data?.message || error.message || "Có lỗi xảy ra";
+        error.response?.data?.msg ||
+        error.response?.data?.message ||
+        error.message ||
+        "Có lỗi xảy ra";
       setError(errorMessage);
       setLoading(false);
       return {

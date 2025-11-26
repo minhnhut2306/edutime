@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { Trash2, Plus, Loader, X } from 'lucide-react';
+import { Trash2, Plus, Loader, X, Eye } from 'lucide-react';
 import { useClasses } from '../hooks/useClasses';
 
-const ClassesView = ({ currentUser }) => {
+const ClassesView = ({ currentUser, isReadOnly = false }) => {
   const [classes, setClasses] = useState([]);
   const { loading, error, fetchClasses, addClass, deleteClass } = useClasses();
   const [isLoading, setIsLoading] = useState(false);
@@ -37,6 +37,10 @@ const ClassesView = ({ currentUser }) => {
   };
 
   const handleOpenModal = () => {
+    if (isReadOnly) {
+      alert('⚠️ Chế độ chỉ xem! Không thể thêm lớp học vào năm học cũ.');
+      return;
+    }
     setClassName('');
     setStudentCount('');
     setShowModal(true);
@@ -75,6 +79,11 @@ const ClassesView = ({ currentUser }) => {
   };
 
   const handleDelete = async (classId) => {
+    if (isReadOnly) {
+      alert('⚠️ Chế độ chỉ xem! Không thể xóa lớp học của năm học cũ.');
+      return;
+    }
+
     if (!classId) {
       alert('Không tìm thấy ID của lớp học');
       return;
@@ -108,8 +117,16 @@ const ClassesView = ({ currentUser }) => {
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold">Quản lý Lớp học</h2>
-        {isAdmin && (
+        <h2 className="text-2xl font-bold flex items-center gap-2">
+          Quản lý Lớp học
+          {isReadOnly && (
+            <span className="flex items-center gap-2 text-sm font-normal text-orange-600 bg-orange-50 px-3 py-1 rounded-full">
+              <Eye size={16} />
+              Chế độ xem
+            </span>
+          )}
+        </h2>
+        {isAdmin && !isReadOnly && (
           <button
             onClick={handleOpenModal}
             disabled={loading}
@@ -120,6 +137,20 @@ const ClassesView = ({ currentUser }) => {
           </button>
         )}
       </div>
+
+      {isReadOnly && (
+        <div className="bg-orange-50 border-l-4 border-orange-400 p-4 rounded-lg">
+          <div className="flex items-center gap-2">
+            <Eye size={20} className="text-orange-600" />
+            <div>
+              <p className="font-medium text-orange-900">Đang xem dữ liệu năm học cũ</p>
+              <p className="text-sm text-orange-700">
+                Dữ liệu chỉ được xem, không thể thêm hoặc xóa
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {error && (
         <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
@@ -135,13 +166,13 @@ const ClassesView = ({ currentUser }) => {
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tên lớp</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Khối</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Sĩ số</th>
-              {isAdmin && <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Thao tác</th>}
+              {isAdmin && !isReadOnly && <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Thao tác</th>}
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200">
             {classes.length === 0 ? (
               <tr key="empty-row">
-                <td colSpan={isAdmin ? 5 : 4} className="px-6 py-8 text-center text-gray-500">
+                <td colSpan={isAdmin && !isReadOnly ? 5 : 4} className="px-6 py-8 text-center text-gray-500">
                   Chưa có lớp học nào
                 </td>
               </tr>
@@ -152,7 +183,7 @@ const ClassesView = ({ currentUser }) => {
                   <td className="px-6 py-4 text-sm text-gray-900">{cls.name}</td>
                   <td className="px-6 py-4 text-sm text-gray-500">{cls.grade}</td>
                   <td className="px-6 py-4 text-sm text-gray-500">{cls.studentCount}</td>
-                  {isAdmin && (
+                  {isAdmin && !isReadOnly && (
                     <td className="px-6 py-4 text-sm">
                       <button
                         onClick={() => handleDelete(cls.id)}
@@ -170,8 +201,8 @@ const ClassesView = ({ currentUser }) => {
         </table>
       </div>
 
-      {}
-      {showModal && (
+      {/* Modal thêm lớp */}
+      {showModal && !isReadOnly && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl shadow-2xl w-full max-w-md mx-4">
             <div className="flex items-center justify-between px-6 py-4 border-b">
