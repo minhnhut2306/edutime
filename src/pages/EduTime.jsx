@@ -389,7 +389,8 @@ const EduTime = () => {
                   classes={classes}
                   subjects={subjects}
                   currentUser={currentUser}
-                  isReadOnly={isReadOnly} // ✅ Truyền prop
+                  isReadOnly={isReadOnly}
+                  schoolYear={viewingYear}
                 />
               )}
 
@@ -399,6 +400,7 @@ const EduTime = () => {
                   setClasses={setClasses}
                   currentUser={currentUser}
                   isReadOnly={isReadOnly} // ✅ Truyền prop
+                   schoolYear={viewingYear} 
                 />
               )}
 
@@ -408,6 +410,7 @@ const EduTime = () => {
                   setSubjects={setSubjects}
                   currentUser={currentUser}
                   isReadOnly={isReadOnly} // ✅ Truyền prop
+                   schoolYear={viewingYear} 
                 />
               )}
 
@@ -418,6 +421,7 @@ const EduTime = () => {
                   currentUser={currentUser}
                   schoolYear={viewingYear}
                   isReadOnly={isReadOnly} // ✅ Truyền prop
+                  
                 />
               )}
 

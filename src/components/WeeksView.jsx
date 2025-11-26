@@ -16,7 +16,7 @@ const WeeksView = ({ currentUser, schoolYear, isReadOnly = false }) => {
 
   useEffect(() => {
     loadWeeks();
-  }, []);
+  }, [schoolYear]);
 
   const loadWeeks = async () => {
     const result = await fetchWeeks();

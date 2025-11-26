@@ -6,7 +6,7 @@ import { useTeacher } from '../hooks/useTeacher';
 import { useClasses } from '../hooks/useClasses';
 import { useSubjects } from '../hooks/useSubjects';
 
-const TeachersView = ({ currentUser, isReadOnly = false }) => {
+const TeachersView = ({ currentUser, isReadOnly = false, schoolYear }) => {
   const isAdmin = currentUser?.role === 'admin';
   const [teachers, setTeachers] = useState([]);
   const [classes, setClasses] = useState([]);
@@ -28,7 +28,11 @@ const TeachersView = ({ currentUser, isReadOnly = false }) => {
 
   useEffect(() => {
     loadAllData();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [schoolYear]);
+
+  useEffect(() => {
+    loadAllData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const loadAllData = async () => {
@@ -279,7 +283,15 @@ const TeachersView = ({ currentUser, isReadOnly = false }) => {
     <div className="space-y-4">
       {/* ==================== HEADER ==================== */}
       <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold">Quản lý Giáo viên</h2>
+       
+        <h2 className="text-2xl font-bold">
+          Quản lý Giáo viên
+          {schoolYear && (
+            <span className="text-sm font-normal text-gray-600 ml-3">
+              (Năm học: {schoolYear})
+            </span>
+          )}
+        </h2>
         {isAdmin && !isReadOnly && (
           <div className="flex items-center gap-3">
             <button
@@ -305,8 +317,8 @@ const TeachersView = ({ currentUser, isReadOnly = false }) => {
               <input type="file" accept=".xlsx,.xls" onChange={handleImport} className="hidden" />
             </label>
 
-            <button 
-              onClick={handleOpenAddModal} 
+            <button
+              onClick={handleOpenAddModal}
               className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
             >
               <Plus size={20} />
@@ -374,8 +386,8 @@ const TeachersView = ({ currentUser, isReadOnly = false }) => {
           <div className="bg-white rounded-xl shadow-2xl p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-6">
               <h3 className="text-xl font-bold text-gray-800">Thêm giáo viên mới</h3>
-              <button 
-                onClick={handleCloseAddModal} 
+              <button
+                onClick={handleCloseAddModal}
                 className="text-gray-500 hover:text-gray-700 transition-colors"
               >
                 <X size={24} />
@@ -434,11 +446,10 @@ const TeachersView = ({ currentUser, isReadOnly = false }) => {
                               });
                             }
                           }}
-                          className={`px-3 py-1.5 rounded-lg border-2 transition-all font-medium ${
-                            isSelected
+                          className={`px-3 py-1.5 rounded-lg border-2 transition-all font-medium ${isSelected
                               ? 'bg-blue-600 text-white border-blue-600'
                               : 'bg-white text-gray-700 border-gray-300 hover:border-blue-400'
-                          }`}
+                            }`}
                         >
                           {s.name}
                         </button>
@@ -533,11 +544,10 @@ const TeachersView = ({ currentUser, isReadOnly = false }) => {
                           });
                         }
                       }}
-                      className={`px-3 py-1.5 rounded-lg border-2 transition-all font-medium ${
-                        isSelected
+                      className={`px-3 py-1.5 rounded-lg border-2 transition-all font-medium ${isSelected
                           ? 'bg-blue-600 text-white border-blue-600'
                           : 'bg-white text-gray-700 border-gray-300 hover:border-blue-400'
-                      }`}
+                        }`}
                     >
                       {s.name}
                     </button>
@@ -561,14 +571,14 @@ const TeachersView = ({ currentUser, isReadOnly = false }) => {
             </div>
           </div>
           <div className="flex gap-2 mt-4">
-            <button 
-              onClick={handleSaveEdit} 
+            <button
+              onClick={handleSaveEdit}
               className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
             >
               Lưu
             </button>
-            <button 
-              onClick={() => setEditingTeacher(null)} 
+            <button
+              onClick={() => setEditingTeacher(null)}
               className="bg-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-400 transition-colors"
             >
               Hủy
@@ -648,15 +658,15 @@ const TeachersView = ({ currentUser, isReadOnly = false }) => {
                     <td className="px-6 py-4 text-sm text-gray-500">{teacher.mainClassName || mainClass?.name || '-'}</td>
                     {isAdmin && !isReadOnly && (
                       <td className="px-6 py-4 text-sm flex gap-2">
-                        <button 
-                          onClick={() => handleEdit(teacher)} 
+                        <button
+                          onClick={() => handleEdit(teacher)}
                           className="text-blue-600 hover:text-blue-800 transition-colors"
                           title="Chỉnh sửa"
                         >
                           <Edit2 size={16} />
                         </button>
-                        <button 
-                          onClick={() => handleDelete(teacher.id)} 
+                        <button
+                          onClick={() => handleDelete(teacher.id)}
                           className="text-red-600 hover:text-red-800 transition-colors"
                           title="Xóa"
                         >

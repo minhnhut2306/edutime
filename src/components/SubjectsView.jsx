@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Trash2, Plus, Loader, X, Eye } from 'lucide-react';
 import { useSubjects } from '../hooks/useSubjects';
 
-const SubjectsView = ({ currentUser, isReadOnly = false }) => {
+const SubjectsView = ({ currentUser, isReadOnly = false, schoolYear }) => {
   const [subjects, setSubjects] = useState([]);
   const [showModal, setShowModal] = useState(false);
   const [subjectName, setSubjectName] = useState('');
@@ -12,7 +12,7 @@ const SubjectsView = ({ currentUser, isReadOnly = false }) => {
   useEffect(() => {
     loadSubjects();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [schoolYear]);
 
   const loadSubjects = async () => {
     const result = await fetchSubjects();

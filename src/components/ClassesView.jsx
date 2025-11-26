@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Trash2, Plus, Loader, X, Eye } from 'lucide-react';
 import { useClasses } from '../hooks/useClasses';
 
-const ClassesView = ({ currentUser, isReadOnly = false }) => {
+const ClassesView = ({ currentUser, isReadOnly = false, schoolYear }) => {
   const [classes, setClasses] = useState([]);
   const { loading, error, fetchClasses, addClass, deleteClass } = useClasses();
   const [isLoading, setIsLoading] = useState(false);
@@ -18,7 +18,7 @@ const ClassesView = ({ currentUser, isReadOnly = false }) => {
 
   useEffect(() => {
     loadClasses();
-  }, []);
+  }, [schoolYear]);
 
   const loadClasses = async () => {
     setIsLoading(true);
