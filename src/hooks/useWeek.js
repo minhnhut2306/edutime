@@ -4,11 +4,12 @@ import { weeksAPI } from "../api/weeksAPI";
 export const useWeeks = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const fetchWeeks = async () => {
+  const fetchWeeks = async (schoolYear = null) => {
     setLoading(true);
     setError(null);
     try {
-      const response = await weeksAPI.weeks();
+      // ✅ TRUYỀN schoolYear vào API
+      const response = await weeksAPI.weeks(schoolYear);
       if (response.code === 200) {
         setLoading(false);
         return {

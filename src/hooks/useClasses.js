@@ -4,11 +4,12 @@ import { classesAPI } from "../api/classesAPI";
 export const useClasses = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const fetchClasses = async () => {
+   const fetchClasses = async (schoolYear = null) => {
     setLoading(true);
     setError(null);
     try {
-      const response = await classesAPI.classes();
+      // ✅ TRUYỀN schoolYear vào API
+      const response = await classesAPI.classes(schoolYear);
       if (response.code === 200) {
         setLoading(false);
         return {

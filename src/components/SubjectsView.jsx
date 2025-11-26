@@ -15,7 +15,7 @@ const SubjectsView = ({ currentUser, isReadOnly = false, schoolYear }) => {
   }, [schoolYear]);
 
   const loadSubjects = async () => {
-    const result = await fetchSubjects();
+     const result = await fetchSubjects(schoolYear);
     if (result.success) {
       setSubjects(result.subjects);
     }

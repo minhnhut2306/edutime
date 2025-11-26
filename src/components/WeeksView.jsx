@@ -19,7 +19,7 @@ const WeeksView = ({ currentUser, schoolYear, isReadOnly = false }) => {
   }, [schoolYear]);
 
   const loadWeeks = async () => {
-    const result = await fetchWeeks();
+    const result = await fetchWeeks(schoolYear);
     if (result.success) {
       const sortedWeeks = result.weeks
         .sort((a, b) => new Date(a.startDate) - new Date(b.startDate))

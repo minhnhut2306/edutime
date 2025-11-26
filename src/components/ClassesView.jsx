@@ -22,7 +22,7 @@ const ClassesView = ({ currentUser, isReadOnly = false, schoolYear }) => {
 
   const loadClasses = async () => {
     setIsLoading(true);
-    const result = await fetchClasses();
+   const result = await fetchClasses(schoolYear);
     if (result.success) {
       const normalizedClasses = result.classes.map((cls, index) => ({
         ...cls,
