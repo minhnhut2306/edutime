@@ -1,4 +1,3 @@
-/* eslint-disable no-unused-vars */
 import React, { useState, useEffect } from "react";
 import { Lock, Trash2, Edit3, Check, X } from "react-feather";
 import { useTeachingRecord } from "../hooks/useTeachingRecord";
@@ -7,7 +6,7 @@ import { useSubjects } from "../hooks/useSubjects";
 import { useTeacher } from "../hooks/useTeacher";
 import { useWeeks } from "../hooks/useWeek";
 
-const TeachingInputView = ({ initialTeachingRecords = [], schoolYear }) => {
+const TeachingInputView = ({ initialTeachingRecords = [], schoolYear, isReadOnly = false }) => {
   const { fetchTeachers } = useTeacher();
   const { fetchClasses } = useClasses();
   const { fetchSubjects } = useSubjects();
@@ -54,17 +53,17 @@ const TeachingInputView = ({ initialTeachingRecords = [], schoolYear }) => {
     const getId = (val) => {
       if (!val) return "";
       if (typeof val === "string") return val;
-      if (val._id) return val._id.toString();
+      if (val._id) return val.__id?.toString() || val._id || val.id;
       if (val.id) return val.id;
       return "";
     };
 
     return {
       id: r._id?.toString() || r.id || `TR${Date.now()}`,
-      teacherId: getId(r.teacherId),
-      weekId: getId(r.weekId),
-      classId: getId(r.classId),
-      subjectId: getId(r.subjectId),
+      teacherId: (r.teacherId && (typeof r.teacherId === "string" ? r.teacherId : r.teacherId._id || r.teacherId.id)) || "",
+      weekId: (r.weekId && (typeof r.weekId === "string" ? r.weekId : r.weekId._id || r.weekId.id)) || "",
+      classId: (r.classId && (typeof r.classId === "string" ? r.classId : r.classId._id || r.classId.id)) || "",
+      subjectId: (r.subjectId && (typeof r.subjectId === "string" ? r.subjectId : r.subjectId._id || r.subjectId.id)) || "",
       periods: r.periods,
       recordType: r.recordType || 'teaching',
       notes: r.notes || '',
@@ -209,6 +208,10 @@ const TeachingInputView = ({ initialTeachingRecords = [], schoolYear }) => {
   };
 
   const startEdit = (record) => {
+    if (isReadOnly) {
+      alert('⚠️ Năm học đang ở chế độ chỉ xem. Không thể chỉnh sửa bản ghi.');
+      return;
+    }
     setIsEditing(true);
     setEditingRecordId(record.id);
     setSelectedTeacherId(record.teacherId);
@@ -226,6 +229,10 @@ const TeachingInputView = ({ initialTeachingRecords = [], schoolYear }) => {
   };
 
   const handleSave = async () => {
+    if (isReadOnly) {
+      alert('⚠️ Năm học đang ở chế độ chỉ xem. Không thể lưu thay đổi.');
+      return;
+    }
     if (!editingRecordId) return;
     if (!selectedWeekId || !selectedClassId || !selectedSubjectId || !periods) {
       alert("Vui lòng nhập đầy đủ thông tin!");
@@ -255,6 +262,10 @@ const TeachingInputView = ({ initialTeachingRecords = [], schoolYear }) => {
   };
 
   const handleAdd = async () => {
+    if (isReadOnly) {
+      alert('⚠️ Năm học đang ở chế độ chỉ xem. Không thể thêm bản ghi.');
+      return;
+    }
     if (isEditing) {
       await handleSave();
       return;
@@ -303,6 +314,10 @@ const TeachingInputView = ({ initialTeachingRecords = [], schoolYear }) => {
   };
 
   const handleDelete = async (recordId) => {
+    if (isReadOnly) {
+      alert('⚠️ Năm học đang ở chế độ chỉ xem. Không thể xóa bản ghi.');
+      return;
+    }
     const record = teachingRecords.find((r) => r.id === recordId);
     if (!record) return;
 
@@ -338,6 +353,20 @@ const TeachingInputView = ({ initialTeachingRecords = [], schoolYear }) => {
     <div className="space-y-4">
       <h2 className="text-2xl font-bold">{isEditing ? "Chỉnh sửa bản ghi" : "Nhập tiết dạy"}</h2>
 
+      {isReadOnly && (
+        <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-lg">
+          <div className="flex items-center gap-2">
+            <Lock size={20} className="text-yellow-600" />
+            <div>
+              <p className="font-medium text-yellow-800">📚 Chế độ chỉ xem (Read-only)</p>
+              <p className="text-sm text-yellow-700">
+                Năm học đang ở chế độ chỉ xem — không thể thêm, sửa hoặc xóa bản ghi.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {hasGradeRestriction && (
         <div className="bg-blue-50 border-l-4 border-blue-400 p-4 rounded-lg">
           <div className="flex items-center gap-2">
@@ -358,148 +387,151 @@ const TeachingInputView = ({ initialTeachingRecords = [], schoolYear }) => {
         </div>
       )}
 
-      <div className="bg-white rounded-xl shadow-lg p-6">
-        <h3 className="text-lg font-semibold mb-4">{isEditing ? "Sửa bản ghi" : "Thêm bản ghi mới"}</h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {isAdmin && (
+      {/* INPUT FORM: hidden when isReadOnly */}
+      {!isReadOnly && (
+        <div className="bg-white rounded-xl shadow-lg p-6">
+          <h3 className="text-lg font-semibold mb-4">{isEditing ? "Sửa bản ghi" : "Thêm bản ghi mới"}</h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {isAdmin && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Giáo viên</label>
+                <select
+                  value={selectedTeacherId}
+                  onChange={(e) => setSelectedTeacherId(e.target.value)}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">-- Chọn giáo viên --</option>
+                  {teachers.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Giáo viên</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Tuần học</label>
               <select
-                value={selectedTeacherId}
-                onChange={(e) => setSelectedTeacherId(e.target.value)}
+                value={selectedWeekId}
+                onChange={(e) => setSelectedWeekId(e.target.value)}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
               >
-                <option value="">-- Chọn giáo viên --</option>
-                {teachers.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.name}
+                <option value="">-- Chọn tuần --</option>
+                {weeks.map((w) => (
+                  <option key={w.id} value={w.id}>
+                    Tuần {w.weekNumber} ({new Date(w.startDate).toLocaleDateString("vi-VN")} -{" "}
+                    {new Date(w.endDate).toLocaleDateString("vi-VN")})
                   </option>
                 ))}
               </select>
             </div>
-          )}
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Tuần học</label>
-            <select
-              value={selectedWeekId}
-              onChange={(e) => setSelectedWeekId(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="">-- Chọn tuần --</option>
-              {weeks.map((w) => (
-                <option key={w.id} value={w.id}>
-                  Tuần {w.weekNumber} ({new Date(w.startDate).toLocaleDateString("vi-VN")} -{" "}
-                  {new Date(w.endDate).toLocaleDateString("vi-VN")})
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Loại tiết dạy
-            </label>
-            <select
-              value={recordType}
-              onChange={(e) => setRecordType(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="teaching">Giảng dạy (Khối 10, 11, 12)</option>
-              <option value="tn-hn1">TN-HN 1</option>
-              <option value="tn-hn2">TN-HN 2</option>
-              <option value="tn-hn3">TN-HN 3</option>
-              <option value="extra">Kiêm nhiệm</option>
-              <option value="exam">Coi thi</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Lớp {hasGradeRestriction && <span className="text-blue-600">(Khối: {allowedGrades.join(", ")})</span>}
-            </label>
-            <select
-              value={selectedClassId}
-              onChange={(e) => setSelectedClassId(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="">-- Chọn lớp --</option>
-              {availableClasses.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name} (Khối {c.grade})
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="md:col-span-3">
-            <label className="block text-sm font-medium text-gray-700 mb-2">Môn học</label>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              {subjects.length === 0 && <div className="text-sm text-gray-500">Không có môn</div>}
-              {subjects.map((s) => {
-                const isTeacherSubject = subjectBelongsToSelectedTeacher(s.id);
-                const isSelected = s.id === selectedSubjectId;
-                return (
-                  <button
-                    key={s.id}
-                    onClick={() => setSelectedSubjectId(s.id)}
-                    className={`px-3 py-2 border rounded-lg text-left transition-colors ${isSelected ? "bg-blue-50 border-blue-400" : isTeacherSubject ? "bg-white border-blue-200" : "bg-white border-gray-200"
-                      }`}
-                    title={isTeacherSubject ? "Môn thuộc giáo viên đã chọn" : ""}
-                  >
-                    <div className="font-medium">{s.name}</div>
-                    <div className="text-xs text-gray-400">{s.code || ""}</div>
-                  </button>
-                );
-              })}
-            </div>
-            <p className="text-xs text-gray-400 mt-1">Khi chọn giáo viên, môn của giáo viên sẽ tự động sáng lên và auto chọn môn đầu tiên nếu có.</p>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Số tiết</label>
-            <input
-              type="number"
-              min="1"
-              value={periods}
-              onChange={(e) => setPeriods(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-
-          <div className="md:col-span-2">
-            <label className="block text-sm font-medium text-gray-700 mb-2">Ghi chú (tùy chọn)</label>
-            <input
-              type="text"
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder="VD: Dạy thay, thi giữa kỳ..."
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-
-          <div className="flex items-end space-x-2">
-            <button
-              onClick={handleAdd}
-              className="inline-flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition"
-              title={isEditing ? "Lưu thay đổi" : "Thêm bản ghi"}
-            >
-              <Check size={16} />
-              <span className="text-sm">{isEditing ? "Lưu" : "Thêm"}</span>
-            </button>
-            {isEditing && (
-              <button
-                onClick={cancelEdit}
-                className="inline-flex items-center gap-2 bg-gray-100 text-gray-800 px-4 py-2 rounded-lg hover:bg-gray-200 transition"
-                title="Hủy chỉnh sửa"
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Loại tiết dạy
+              </label>
+              <select
+                value={recordType}
+                onChange={(e) => setRecordType(e.target.value)}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
               >
-                <X size={16} />
-                <span className="text-sm">Hủy</span>
+                <option value="teaching">Giảng dạy (Khối 10, 11, 12)</option>
+                <option value="tn-hn1">TN-HN 1</option>
+                <option value="tn-hn2">TN-HN 2</option>
+                <option value="tn-hn3">TN-HN 3</option>
+                <option value="extra">Kiêm nhiệm</option>
+                <option value="exam">Coi thi</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Lớp {hasGradeRestriction && <span className="text-blue-600">(Khối: {allowedGrades.join(", ")})</span>}
+              </label>
+              <select
+                value={selectedClassId}
+                onChange={(e) => setSelectedClassId(e.target.value)}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">-- Chọn lớp --</option>
+                {availableClasses.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name} (Khối {c.grade})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="md:col-span-3">
+              <label className="block text-sm font-medium text-gray-700 mb-2">Môn học</label>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                {subjects.length === 0 && <div className="text-sm text-gray-500">Không có môn</div>}
+                {subjects.map((s) => {
+                  const isTeacherSubject = subjectBelongsToSelectedTeacher(s.id);
+                  const isSelected = s.id === selectedSubjectId;
+                  return (
+                    <button
+                      key={s.id}
+                      onClick={() => setSelectedSubjectId(s.id)}
+                      className={`px-3 py-2 border rounded-lg text-left transition-colors ${isSelected ? "bg-blue-50 border-blue-400" : isTeacherSubject ? "bg-white border-blue-200" : "bg-white border-gray-200"
+                        }`}
+                      title={isTeacherSubject ? "Môn thuộc giáo viên đã chọn" : ""}
+                    >
+                      <div className="font-medium">{s.name}</div>
+                      <div className="text-xs text-gray-400">{s.code || ""}</div>
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="text-xs text-gray-400 mt-1">Khi chọn giáo viên, môn của giáo viên sẽ tự động sáng lên và auto chọn môn đầu tiên nếu có.</p>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Số tiết</label>
+              <input
+                type="number"
+                min="1"
+                value={periods}
+                onChange={(e) => setPeriods(e.target.value)}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-gray-700 mb-2">Ghi chú (tùy chọn)</label>
+              <input
+                type="text"
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder="VD: Dạy thay, thi giữa kỳ..."
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+
+            <div className="flex items-end space-x-2">
+              <button
+                onClick={handleAdd}
+                className="inline-flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition"
+                title={isEditing ? "Lưu thay đổi" : "Thêm bản ghi"}
+              >
+                <Check size={16} />
+                <span className="text-sm">{isEditing ? "Lưu" : "Thêm"}</span>
               </button>
-            )}
+              {isEditing && (
+                <button
+                  onClick={cancelEdit}
+                  className="inline-flex items-center gap-2 bg-gray-100 text-gray-800 px-4 py-2 rounded-lg hover:bg-gray-200 transition"
+                  title="Hủy chỉnh sửa"
+                >
+                  <X size={16} />
+                  <span className="text-sm">Hủy</span>
+                </button>
+              )}
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       <div className="bg-white rounded-xl shadow-lg overflow-hidden">
         <div className="px-6 py-4 bg-gray-50 border-b flex items-center justify-between">
@@ -519,7 +551,9 @@ const TeachingInputView = ({ initialTeachingRecords = [], schoolYear }) => {
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Môn</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Số tiết</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Ghi chú</th>
-                <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Thao tác</th>
+                {!isReadOnly && (
+                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Thao tác</th>
+                )}
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
@@ -579,29 +613,32 @@ const TeachingInputView = ({ initialTeachingRecords = [], schoolYear }) => {
                       <td className="px-4 py-3 text-sm text-gray-400 italic">
                         {record.notes || '-'}
                       </td>
-                      <td className="px-4 py-3 text-sm text-right">
-                        <div className="inline-flex items-center justify-end gap-2">
-                          <button
-                            onClick={() => handleDelete(record.id)}
-                            className="p-2 rounded-md bg-red-50 text-red-600 hover:bg-red-100 transition"
-                            title="Xóa"
-                          >
-                            <Trash2 size={16} />
-                          </button>
-                          <button
-                            onClick={() => startEdit(record)}
-                            disabled={!canEdit}
-                            className={`p-2 rounded-md ${
-                              !canEdit 
-                                ? "opacity-40 cursor-not-allowed" 
-                                : "bg-gray-50 hover:bg-blue-50 text-blue-600"
-                            } transition`}
-                            title={canEdit ? "Sửa" : "Bạn không có quyền sửa"}
-                          >
-                            <Edit3 size={16} />
-                          </button>
-                        </div>
-                      </td>
+
+                      {!isReadOnly && (
+                        <td className="px-4 py-3 text-sm text-right">
+                          <div className="inline-flex items-center justify-end gap-2">
+                            <button
+                              onClick={() => handleDelete(record.id)}
+                              className="p-2 rounded-md bg-red-50 text-red-600 hover:bg-red-100 transition"
+                              title="Xóa"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                            <button
+                              onClick={() => startEdit(record)}
+                              disabled={!canEdit}
+                              className={`p-2 rounded-md ${
+                                !canEdit 
+                                  ? "opacity-40 cursor-not-allowed" 
+                                  : "bg-gray-50 hover:bg-blue-50 text-blue-600"
+                              } transition`}
+                              title={canEdit ? "Sửa" : "Bạn không có quyền sửa"}
+                            >
+                              <Edit3 size={16} />
+                            </button>
+                          </div>
+                        </td>
+                      )}
                     </tr>
                   );
                 })}
