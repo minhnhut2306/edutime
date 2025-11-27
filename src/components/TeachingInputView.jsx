@@ -49,7 +49,7 @@ const TeachingInputView = ({ initialTeachingRecords = [], schoolYear, isReadOnly
 
   const normalizeRecord = (r) => {
     if (!r) return null;
-    const id = r._id || r.id;
+
     const getId = (val) => {
       if (!val) return "";
       if (typeof val === "string") return val;
@@ -57,8 +57,26 @@ const TeachingInputView = ({ initialTeachingRecords = [], schoolYear, isReadOnly
       if (val.id) return val.id;
       return "";
     };
-    return {
-      id: id ? id.toString() : `TR${Date.now()}`,
+
+    // 🔍 DEBUG LOG - Kiểm tra input
+    console.log('🔄 [Normalize] Input record:', {
+      _id: r._id,
+      teacherId: typeof r.teacherId === 'object' ?
+        { _id: r.teacherId?._id, name: r.teacherId?.name } :
+        r.teacherId,
+      weekId: typeof r.weekId === 'object' ?
+        { _id: r.weekId?._id, weekNumber: r.weekId?.weekNumber } :
+        r.weekId,
+      classId: typeof r.classId === 'object' ?
+        { _id: r.classId?._id, name: r.classId?.name } :
+        r.classId,
+      subjectId: typeof r.subjectId === 'object' ?
+        { _id: r.subjectId?._id, name: r.subjectId?.name } :
+        r.subjectId
+    });
+
+    const normalized = {
+      id: r._id?.toString() || r.id || `TR${Date.now()}`,
       teacherId: getId(r.teacherId),
       weekId: getId(r.weekId),
       classId: getId(r.classId),
@@ -69,7 +87,19 @@ const TeachingInputView = ({ initialTeachingRecords = [], schoolYear, isReadOnly
       schoolYear: r.schoolYear,
       createdAt: r.createdAt,
     };
+
+    // 🔍 DEBUG LOG - Kiểm tra output
+    console.log('✅ [Normalize] Output record:', {
+      id: normalized.id,
+      teacherId: normalized.teacherId,
+      weekId: normalized.weekId,
+      classId: normalized.classId,
+      subjectId: normalized.subjectId
+    });
+
+    return normalized;
   };
+
 
   useEffect(() => {
     (async () => {
@@ -132,28 +162,50 @@ const TeachingInputView = ({ initialTeachingRecords = [], schoolYear, isReadOnly
 
   const loadTeachingRecords = async (teacherId, currentSchoolYear) => {
     try {
-      // ✅ TRUYỀN CẢ teacherId VÀ schoolYear
+      console.log('📥 [TeachingInput] Fetching:', { teacherId, schoolYear: currentSchoolYear });
+
       const res = await fetchTeachingRecords(teacherId, currentSchoolYear);
-      if (!res) return;
+
+      if (!res) {
+        console.log('⚠️ [TeachingInput] No response');
+        return;
+      }
+
       let raw = [];
       if (res.success && Array.isArray(res.teachingRecords)) raw = res.teachingRecords;
       else if (res.success && Array.isArray(res.data)) raw = res.data;
       else if (res.success && res.data && Array.isArray(res.data.teachingRecords)) raw = res.data.teachingRecords;
       else if (Array.isArray(res)) raw = res;
+
+      console.log('📊 [TeachingInput] Raw records:', {
+        count: raw.length,
+        firstRecord: raw[0] ? {
+          teacherId: raw[0].teacherId?.name || raw[0].teacherId,
+          weekId: raw[0].weekId?.weekNumber || raw[0].weekId,
+          subjectId: raw[0].subjectId?.name || raw[0].subjectId,
+          classId: raw[0].classId?.name || raw[0].classId
+        } : null
+      });
+
       const norm = raw.map(normalizeRecord).filter(Boolean);
+      console.log('✅ [TeachingInput] Normalized records:', norm.length);
       setTeachingRecords(norm);
     } catch (err) {
+      console.error('❌ [TeachingInput] Error:', err);
       setTeachingRecords([]);
     }
   };
 
   useEffect(() => {
-    // Lấy year string từ schoolYear object hoặc string
     const currentSchoolYear = typeof schoolYear === 'object' ? schoolYear?.year : schoolYear;
-
     const teacherIdToFetch = isAdmin ? (selectedTeacherId || undefined) : selectedTeacherId || undefined;
 
-    // ✅ TRUYỀN CẢ teacherIdToFetch VÀ currentSchoolYear
+    console.log('🔄 [TeachingInput] Loading records:', {
+      teacherId: teacherIdToFetch,
+      schoolYear: currentSchoolYear,
+      isAdmin
+    });
+
     loadTeachingRecords(teacherIdToFetch, currentSchoolYear);
   }, [selectedTeacherId, isAdmin, schoolYear]);
 
@@ -558,12 +610,59 @@ const TeachingInputView = ({ initialTeachingRecords = [], schoolYear, isReadOnly
                   return (weekB?.weekNumber || 0) - (weekA?.weekNumber || 0);
                 })
                 .map((record) => {
-                  const recordTeacher = teachers.find((t) => t.id === record.teacherId);
-                  const week = weeks.find((w) => w.id === record.weekId);
-                  const cls = classes.find((c) => c.id === record.classId);
-                  const subject = subjects.find((s) => s.id === record.subjectId);
+                  const recordTeacher = teachers.find((t) => {
+                    const tId = t.id || t._id;
+                    return tId === record.teacherId || tId?.toString() === record.teacherId?.toString();
+                  });
+
+                  const week = weeks.find((w) => {
+                    const wId = w.id || w._id;
+                    return wId === record.weekId || wId?.toString() === record.weekId?.toString();
+                  });
+
+                  const cls = classes.find((c) => {
+                    const cId = c.id || c._id;
+                    return cId === record.classId || cId?.toString() === record.classId?.toString();
+                  });
+
+                  const subject = subjects.find((s) => {
+                    const sId = s.id || s._id;
+                    return sId === record.subjectId || sId?.toString() === record.subjectId?.toString();
+                  });
+
+                  if (record === myRecords[0]) {
+                    console.log('🔍 [Render] First record lookup:', {
+                      recordTeacherId: record.teacherId,
+                      foundTeacher: recordTeacher ?
+                        { id: recordTeacher.id || recordTeacher._id, name: recordTeacher.name } :
+                        'NOT FOUND',
+                      recordWeekId: record.weekId,
+                      foundWeek: week ?
+                        { id: week.id || week._id, weekNumber: week.weekNumber } :
+                        'NOT FOUND',
+                      recordClassId: record.classId,
+                      foundClass: cls ?
+                        { id: cls.id || cls._id, name: cls.name } :
+                        'NOT FOUND',
+                      recordSubjectId: record.subjectId,
+                      foundSubject: subject ?
+                        { id: subject.id || subject._id, name: subject.name } :
+                        'NOT FOUND'
+                    });
+                  }
+
 
                   const canEdit = !isReadOnly && (isAdmin || (!isAdmin && record.teacherId === selectedTeacherId));
+                  if (record === myRecords[0]) {
+                    console.log('🔍 [Render] First record debug:', {
+                      recordTeacherId: record.teacherId,
+                      foundTeacher: recordTeacher?.name || 'NOT FOUND',
+                      recordWeekId: record.weekId,
+                      foundWeek: week?.weekNumber || 'NOT FOUND',
+                      recordSubjectId: record.subjectId,
+                      foundSubject: subject?.name || 'NOT FOUND'
+                    });
+                  }
 
                   return (
                     <tr key={record.id} className="hover:bg-gray-50">
@@ -578,10 +677,18 @@ const TeachingInputView = ({ initialTeachingRecords = [], schoolYear, isReadOnly
                           {recordTypeLabels[record.recordType] || 'Giảng dạy'}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-sm text-gray-900">{cls?.name || record.classId}</td>
-                      <td className="px-4 py-3 text-sm text-gray-500">{subject?.name || "-"}</td>
+                      <td className="px-4 py-3 text-sm text-gray-900">
+                        {cls?.name || record.classId || '-'}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-500">
+                        {subject?.name || record.subjectId || '-'}
+                      </td>
+
                       <td className="px-4 py-3 text-sm text-gray-500">{record.periods}</td>
-                      <td className="px-4 py-3 text-sm text-gray-400 italic">{record.notes || '-'}</td>
+
+                      <td className="px-4 py-3 text-sm text-gray-400 italic">
+                        {record.notes || '-'}
+                      </td>
                       {!isReadOnly && (
                         <td className="px-4 py-3 text-sm text-right">
                           <div className="inline-flex items-center justify-end gap-2">

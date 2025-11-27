@@ -38,26 +38,26 @@ const ReportView = ({ teachers = [], classes = [], subjects = [], teachingRecord
     semester: 1,
   });
 
-  // ✅ FIX 1: Thêm currentSchoolYear vào dependency để reload khi đổi năm học
   useEffect(() => {
     if (!selectedTeacherId || !currentSchoolYear) {
       console.log('⚠️ [ReportView] Missing data:', { selectedTeacherId, currentSchoolYear });
       setTeachingRecords([]);
       return;
     }
-    
+
     console.log('🔄 [ReportView] School year changed, reloading records:', currentSchoolYear);
     loadTeacherRecords();
-  }, [selectedTeacherId, currentSchoolYear]); // ✅ THÊM currentSchoolYear
+  }, [selectedTeacherId, currentSchoolYear]);
 
   const loadTeacherRecords = async () => {
     setLoadingRecords(true);
     try {
-      console.log('📥 [ReportView] Loading records for:', { 
-        teacherId: selectedTeacherId, 
-        schoolYear: currentSchoolYear 
+      console.log('📥 [ReportView] Loading records for:', {
+        teacherId: selectedTeacherId,
+        schoolYear: currentSchoolYear
       });
 
+      // ✅ FIX 3: Truyền đúng tham số
       const result = await fetchTeachingRecords(selectedTeacherId, currentSchoolYear);
 
       console.log('📊 [ReportView] Fetch result:', {
@@ -69,13 +69,21 @@ const ReportView = ({ teachers = [], classes = [], subjects = [], teachingRecord
       if (result.success) {
         const records = result.teachingRecords || [];
         console.log('✅ [ReportView] Loaded records:', records.length);
-        
+
         // ✅ Debug: Kiểm tra schoolYear của records
         if (records.length > 0) {
-          const schoolYears = [...new Set(records.map(r => r.schoolYear))];
+          const schoolYears = [...new Set(records.map(r => {
+            // Lấy year từ weekId.schoolYearId nếu có
+            if (r.weekId?.schoolYearId) {
+              return typeof r.weekId.schoolYearId === 'object'
+                ? r.weekId.schoolYearId.year
+                : r.weekId.schoolYearId;
+            }
+            return r.schoolYear || 'UNKNOWN';
+          }))];
           console.log('📅 [ReportView] Năm học trong records:', schoolYears);
         }
-        
+
         setTeachingRecords(records);
       } else {
         console.log('⚠️ [ReportView] No records found');
@@ -359,6 +367,7 @@ const ReportView = ({ teachers = [], classes = [], subjects = [], teachingRecord
           </div>
         </div>
       )}
+
 
       {/* ✅ THÊM: Thông báo không có dữ liệu */}
       {!loadingRecords && selectedTeacherId && teachingRecords.length === 0 && (

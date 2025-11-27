@@ -134,7 +134,7 @@ const EduTime = () => {
       const activeYearResult = await getActiveSchoolYear();
       if (activeYearResult.success && activeYearResult.schoolYear) {
         setSchoolYear(activeYearResult.schoolYear);
-        setActiveSchoolYear(activeYearResult.schoolYear.year); // ✅ Lưu năm học active
+        setActiveSchoolYear(activeYearResult.schoolYear.year);
         if (!viewingYear) {
           setViewingYear(activeYearResult.schoolYear.year);
         }
@@ -145,32 +145,41 @@ const EduTime = () => {
         setArchivedYears(yearsResult.schoolYears.map(y => y.year));
       }
 
-      const teachersResult = await fetchTeachers();
+      // ✅ FIX 1: Truyền STRING thay vì OBJECT
+      const teachersResult = await fetchTeachers(viewingYear); // ✅ Truyền trực tiếp string
       if (teachersResult.success) {
         setTeachers(teachersResult.teachers);
       }
 
-      const classesResult = await fetchClasses();
+      // ✅ FIX 2: Truyền STRING
+      const classesResult = await fetchClasses(viewingYear); // ✅ Không dùng { schoolYear: ... }
       if (classesResult.success) {
         setClasses(classesResult.classes);
       }
 
-      const subjectsResult = await fetchSubjects();
+      // ✅ FIX 3: Truyền STRING
+      const subjectsResult = await fetchSubjects(viewingYear); // ✅ Không dùng object
       if (subjectsResult.success) {
         setSubjects(subjectsResult.subjects);
       }
 
-      const weeksResult = await fetchWeeks({ schoolYear: viewingYear });
+      // ✅ FIX 4: Truyền STRING cho weeks
+      const weeksResult = await fetchWeeks(viewingYear); // ❌ KHÔNG DÙNG { schoolYear: viewingYear }
       if (weeksResult.success) {
         setWeeks(weeksResult.weeks);
       }
 
-      const recordsResult = await fetchTeachingRecords({ schoolYear: viewingYear });
+      // ✅ FIX 5: Truyền teacherId và schoolYear riêng biệt
+      const recordsResult = await fetchTeachingRecords(
+        undefined, // teacherId = undefined (admin lấy tất cả)
+        viewingYear // schoolYear = string "2025-2026"
+      );
       if (recordsResult.success) {
-        setTeachingRecords(recordsResult.records);
+        setTeachingRecords(recordsResult.teachingRecords || []);
       }
 
-      console.log('📊 Loaded data for year:', viewingYear)
+      console.log('📊 Loaded data for year:', viewingYear);
+
       if (currentUser?.role === 'admin') {
         const usersData = await StorageService.loadData('edutime_users');
         if (usersData) {
@@ -178,6 +187,7 @@ const EduTime = () => {
         }
       }
     } catch (error) {
+      console.error('❌ loadAllData error:', error);
       alert('Có lỗi khi tải dữ liệu!');
     } finally {
       setLoading(false);
