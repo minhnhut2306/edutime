@@ -11,6 +11,7 @@ const ReportView = ({ teachers = [], classes = [], subjects = [], teachingRecord
   const [teachingRecords, setTeachingRecords] = useState(initialRecords || []);
   const [loadingRecords, setLoadingRecords] = useState(false);
 
+  // ✅ FIX: Lấy year string từ schoolYear (có thể là object hoặc string)
   const currentSchoolYear = typeof schoolYear === 'object' ? schoolYear?.year : schoolYear;
 
   const linkedTeacher = teachers.find(t => {
@@ -37,15 +38,17 @@ const ReportView = ({ teachers = [], classes = [], subjects = [], teachingRecord
     semester: 1,
   });
 
-  // ✅ FIX: Reload records khi đổi teacher HOẶC schoolYear
+  // ✅ FIX 1: Thêm currentSchoolYear vào dependency để reload khi đổi năm học
   useEffect(() => {
     if (!selectedTeacherId || !currentSchoolYear) {
-      console.log('⚠️ Không có teacherId hoặc schoolYear:', { selectedTeacherId, currentSchoolYear });
+      console.log('⚠️ [ReportView] Missing data:', { selectedTeacherId, currentSchoolYear });
       setTeachingRecords([]);
       return;
     }
+    
+    console.log('🔄 [ReportView] School year changed, reloading records:', currentSchoolYear);
     loadTeacherRecords();
-  }, [selectedTeacherId, currentSchoolYear]);
+  }, [selectedTeacherId, currentSchoolYear]); // ✅ THÊM currentSchoolYear
 
   const loadTeacherRecords = async () => {
     setLoadingRecords(true);
