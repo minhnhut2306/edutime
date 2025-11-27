@@ -170,6 +170,7 @@ const EduTime = () => {
         setTeachingRecords(recordsResult.records);
       }
 
+      console.log('📊 Loaded data for year:', viewingYear)
       if (currentUser?.role === 'admin') {
         const usersData = await StorageService.loadData('edutime_users');
         if (usersData) {
@@ -269,6 +270,7 @@ const EduTime = () => {
   // ✅ Xử lý khi đổi năm học
   const handleChangeYear = (year) => {
     if (year !== viewingYear) {
+      console.log('🔄 Chuyển sang năm học:', year);
       setViewingYear(year);
       // Reload data cho năm học mới
       loadAllData();
@@ -400,7 +402,7 @@ const EduTime = () => {
                   setClasses={setClasses}
                   currentUser={currentUser}
                   isReadOnly={isReadOnly} // ✅ Truyền prop
-                   schoolYear={viewingYear} 
+                  schoolYear={viewingYear}
                 />
               )}
 
@@ -410,7 +412,7 @@ const EduTime = () => {
                   setSubjects={setSubjects}
                   currentUser={currentUser}
                   isReadOnly={isReadOnly} // ✅ Truyền prop
-                   schoolYear={viewingYear} 
+                  schoolYear={viewingYear}
                 />
               )}
 
@@ -421,7 +423,7 @@ const EduTime = () => {
                   currentUser={currentUser}
                   schoolYear={viewingYear}
                   isReadOnly={isReadOnly} // ✅ Truyền prop
-                  
+
                 />
               )}
 
@@ -447,12 +449,12 @@ const EduTime = () => {
                   subjects={subjects}
                   teachingRecords={teachingRecords}
                   weeks={weeks}
-                  schoolYear={schoolYear}
+                  schoolYear={viewingYear}  // ✅ Năm học đang xem (để xuất Excel)
+                  activeSchoolYear={activeSchoolYear}  // ✅ Năm học active (để hiển thị)
                   currentUser={currentUser}
-                  isReadOnly={isReadOnly} // ✅ Truyền prop (nếu cần)
+                  isReadOnly={isReadOnly}
                 />
               )}
-
               {currentView === 'users' && isAdmin && (
                 <UserManagementView
                   users={users}
