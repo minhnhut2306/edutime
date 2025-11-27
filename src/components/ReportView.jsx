@@ -1,7 +1,7 @@
 /* eslint-disable no-unused-vars */
 
 import React, { useState, useEffect } from 'react';
-import { Download, BarChart3, Mail, Users, RefreshCw } from 'lucide-react';
+import { Download, BarChart3, Mail, Users, RefreshCw, AlertCircle } from 'lucide-react';
 import { useReports } from '../hooks/useReports';
 import { useTeachingRecord } from '../hooks/useTeachingRecord';
 
@@ -37,37 +37,49 @@ const ReportView = ({ teachers = [], classes = [], subjects = [], teachingRecord
     semester: 1,
   });
 
-  // ✅ FIX: Load records khi đổi teacher HOẶC schoolYear
+  // ✅ FIX: Reload records khi đổi teacher HOẶC schoolYear
   useEffect(() => {
     if (!selectedTeacherId || !currentSchoolYear) {
+      console.log('⚠️ Không có teacherId hoặc schoolYear:', { selectedTeacherId, currentSchoolYear });
       setTeachingRecords([]);
       return;
     }
     loadTeacherRecords();
-  }, [selectedTeacherId, currentSchoolYear]); // ✅ Thêm currentSchoolYear vào dependency
+  }, [selectedTeacherId, currentSchoolYear]);
 
   const loadTeacherRecords = async () => {
     setLoadingRecords(true);
     try {
-      console.log('🔍 Loading records for:', { 
+      console.log('📥 [ReportView] Loading records for:', { 
         teacherId: selectedTeacherId, 
         schoolYear: currentSchoolYear 
       });
 
-      // ✅ FIX: Truyền schoolYear vào fetchTeachingRecords
-      const result = await fetchTeachingRecords(selectedTeacherId, { 
-        schoolYear: currentSchoolYear 
+      const result = await fetchTeachingRecords(selectedTeacherId, currentSchoolYear);
+
+      console.log('📊 [ReportView] Fetch result:', {
+        success: result.success,
+        recordsCount: result.teachingRecords?.length || 0,
+        firstRecord: result.teachingRecords?.[0]
       });
 
       if (result.success) {
-        console.log('✅ Loaded records:', result.teachingRecords?.length || 0);
-        setTeachingRecords(result.teachingRecords || []);
+        const records = result.teachingRecords || [];
+        console.log('✅ [ReportView] Loaded records:', records.length);
+        
+        // ✅ Debug: Kiểm tra schoolYear của records
+        if (records.length > 0) {
+          const schoolYears = [...new Set(records.map(r => r.schoolYear))];
+          console.log('📅 [ReportView] Năm học trong records:', schoolYears);
+        }
+        
+        setTeachingRecords(records);
       } else {
-        console.log('⚠️ No records found');
+        console.log('⚠️ [ReportView] No records found');
         setTeachingRecords([]);
       }
     } catch (error) {
-      console.error('❌ Load records error:', error);
+      console.error('❌ [ReportView] Load records error:', error);
       setTeachingRecords([]);
     } finally {
       setLoadingRecords(false);
@@ -127,6 +139,13 @@ const ReportView = ({ teachers = [], classes = [], subjects = [], teachingRecord
         return;
       }
 
+      console.log('📤 [ReportView] Exporting with:', {
+        teacherIds: teacherIdsToExport,
+        schoolYear: currentSchoolYear,
+        type: exportType,
+        params: exportParams
+      });
+
       const options = {
         teacherIds: exportMode === 'multiple' ? teacherIdsToExport : selectedTeacherId,
         schoolYear: currentSchoolYear,
@@ -150,18 +169,17 @@ const ReportView = ({ teachers = [], classes = [], subjects = [], teachingRecord
         options.semester = exportParams.semester;
       }
 
-      console.log('📤 Exporting with options:', options);
-
       const result = await exportReport(options);
 
       if (result.success) {
         const count = exportMode === 'multiple' ? teacherIdsToExport.length : 1;
         alert(`✅ Xuất báo cáo Excel thành công!\n\n📅 Năm học: ${currentSchoolYear}\n👥 Số giáo viên: ${count}\n📄 File đã được tải về!`);
       } else {
+        console.error('❌ [ReportView] Export failed:', result.message);
         alert(`❌ ${result.message || 'Không thể xuất báo cáo'}`);
       }
     } catch (err) {
-      console.error("Export error:", err);
+      console.error("❌ [ReportView] Export error:", err);
       alert(`❌ Có lỗi xảy ra khi xuất báo cáo!\n\n${err.message || 'Vui lòng thử lại sau.'}`);
     }
   };
@@ -322,7 +340,35 @@ const ReportView = ({ teachers = [], classes = [], subjects = [], teachingRecord
 
       {reportError && (
         <div className="bg-red-50 border-l-4 border-red-400 p-4 rounded-lg">
-          <p className="text-red-700">{reportError}</p>
+          <div className="flex items-center gap-2">
+            <AlertCircle size={20} className="text-red-600" />
+            <p className="text-red-700">{reportError}</p>
+          </div>
+        </div>
+      )}
+
+      {/* ✅ THÊM: Thông báo khi đang load */}
+      {loadingRecords && (
+        <div className="bg-blue-50 border-l-4 border-blue-400 p-4 rounded-lg">
+          <div className="flex items-center gap-2">
+            <RefreshCw className="animate-spin text-blue-600" size={20} />
+            <p className="text-blue-700">Đang tải dữ liệu năm học {currentSchoolYear}...</p>
+          </div>
+        </div>
+      )}
+
+      {/* ✅ THÊM: Thông báo không có dữ liệu */}
+      {!loadingRecords && selectedTeacherId && teachingRecords.length === 0 && (
+        <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-lg">
+          <div className="flex items-center gap-2">
+            <AlertCircle size={20} className="text-yellow-600" />
+            <div>
+              <p className="font-medium text-yellow-900">Không có dữ liệu giảng dạy</p>
+              <p className="text-sm text-yellow-700 mt-1">
+                Giáo viên chưa nhập tiết dạy cho năm học {currentSchoolYear}
+              </p>
+            </div>
+          </div>
         </div>
       )}
 
@@ -401,17 +447,10 @@ const ReportView = ({ teachers = [], classes = [], subjects = [], teachingRecord
               {renderExportParams()}
             </div>
           </div>
-
-          {loadingRecords && (
-            <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg flex items-center gap-2">
-              <RefreshCw className="animate-spin" size={20} />
-              <p className="text-sm text-blue-700">Đang tải dữ liệu năm học {currentSchoolYear}...</p>
-            </div>
-          )}
         </div>
       )}
 
-      {selectedTeacherId && !loadingRecords && (
+      {selectedTeacherId && !loadingRecords && myRecords.length > 0 && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl p-6 text-white shadow-lg">
             <p className="text-blue-100 text-sm">Tổng số tiết</p>
