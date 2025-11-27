@@ -5,16 +5,13 @@ import { Download, BarChart3, Mail, Users, RefreshCw } from 'lucide-react';
 import { useReports } from '../hooks/useReports';
 import { useTeachingRecord } from '../hooks/useTeachingRecord';
 
-// eslint-disable-next-line no-unused-vars
 const ReportView = ({ teachers = [], classes = [], subjects = [], teachingRecords: initialRecords = [], weeks = [], schoolYear, activeSchoolYear, currentUser }) => {
   const isAdmin = currentUser?.role === 'admin';
 
   const [teachingRecords, setTeachingRecords] = useState(initialRecords || []);
   const [loadingRecords, setLoadingRecords] = useState(false);
 
-
   const currentSchoolYear = typeof schoolYear === 'object' ? schoolYear?.year : schoolYear;
-
 
   const linkedTeacher = teachers.find(t => {
     if (!t.userId) return false;
@@ -28,7 +25,6 @@ const ReportView = ({ teachers = [], classes = [], subjects = [], teachingRecord
   const { exportReport, loading: reportLoading, error: reportError } = useReports();
   const { fetchTeachingRecords } = useTeachingRecord();
 
-
   const [selectedTeacherId, setSelectedTeacherId] = useState(isAdmin ? '' : (linkedTeacher?.id || linkedTeacher?._id || ''));
   const [selectedTeacherIds, setSelectedTeacherIds] = useState([]);
   const [exportMode, setExportMode] = useState('single');
@@ -41,38 +37,48 @@ const ReportView = ({ teachers = [], classes = [], subjects = [], teachingRecord
     semester: 1,
   });
 
-
+  // ✅ FIX: Load records khi đổi teacher HOẶC schoolYear
   useEffect(() => {
-    if (!selectedTeacherId) {
+    if (!selectedTeacherId || !currentSchoolYear) {
       setTeachingRecords([]);
       return;
     }
     loadTeacherRecords();
-  }, [selectedTeacherId]);
+  }, [selectedTeacherId, currentSchoolYear]); // ✅ Thêm currentSchoolYear vào dependency
 
   const loadTeacherRecords = async () => {
     setLoadingRecords(true);
     try {
-      const result = await fetchTeachingRecords(selectedTeacherId);
+      console.log('🔍 Loading records for:', { 
+        teacherId: selectedTeacherId, 
+        schoolYear: currentSchoolYear 
+      });
+
+      // ✅ FIX: Truyền schoolYear vào fetchTeachingRecords
+      const result = await fetchTeachingRecords(selectedTeacherId, { 
+        schoolYear: currentSchoolYear 
+      });
+
       if (result.success) {
+        console.log('✅ Loaded records:', result.teachingRecords?.length || 0);
         setTeachingRecords(result.teachingRecords || []);
       } else {
+        console.log('⚠️ No records found');
         setTeachingRecords([]);
       }
     } catch (error) {
+      console.error('❌ Load records error:', error);
       setTeachingRecords([]);
     } finally {
       setLoadingRecords(false);
     }
   };
 
-
   useEffect(() => {
     if (!isAdmin && linkedTeacher && !selectedTeacherId) {
       setSelectedTeacherId(linkedTeacher.id || linkedTeacher._id);
     }
   }, [linkedTeacher, isAdmin, selectedTeacherId]);
-
 
   if (!isAdmin && !linkedTeacher) {
     return (
@@ -93,7 +99,6 @@ const ReportView = ({ teachers = [], classes = [], subjects = [], teachingRecord
     );
   }
 
-
   const toggleTeacherSelection = (teacherId) => {
     setSelectedTeacherIds(prev =>
       prev.includes(teacherId) ? prev.filter(id => id !== teacherId) : [...prev, teacherId]
@@ -106,19 +111,19 @@ const ReportView = ({ teachers = [], classes = [], subjects = [], teachingRecord
   const handleExport = async () => {
     try {
       if (!isAdmin) {
-        alert(' Chỉ Admin mới có quyền xuất báo cáo Excel!');
+        alert('⚠️ Chỉ Admin mới có quyền xuất báo cáo Excel!');
         return;
       }
 
       const teacherIdsToExport = exportMode === 'multiple' ? selectedTeacherIds : [selectedTeacherId];
 
       if (teacherIdsToExport.length === 0 || (exportMode === 'single' && !selectedTeacherId)) {
-        alert(' Vui lòng chọn giáo viên!');
+        alert('⚠️ Vui lòng chọn giáo viên!');
         return;
       }
 
       if (!currentSchoolYear) {
-        alert(' Không tìm thấy năm học hiện tại!\n\nVui lòng kiểm tra lại hệ thống.');
+        alert('⚠️ Không tìm thấy năm học hiện tại!\n\nVui lòng kiểm tra lại hệ thống.');
         return;
       }
 
@@ -127,7 +132,6 @@ const ReportView = ({ teachers = [], classes = [], subjects = [], teachingRecord
         schoolYear: currentSchoolYear,
         type: exportType,
       };
-
 
       if (exportType === 'bc' && exportParams.bcNumber) {
         options.bcNumber = exportParams.bcNumber;
@@ -138,7 +142,7 @@ const ReportView = ({ teachers = [], classes = [], subjects = [], teachingRecord
         } else if (exportParams.weekId) {
           options.weekId = exportParams.weekId;
         } else {
-          alert(' Vui lòng chọn tuần!');
+          alert('⚠️ Vui lòng chọn tuần!');
           return;
         }
       }
@@ -146,23 +150,21 @@ const ReportView = ({ teachers = [], classes = [], subjects = [], teachingRecord
         options.semester = exportParams.semester;
       }
 
+      console.log('📤 Exporting with options:', options);
+
       const result = await exportReport(options);
 
       if (result.success) {
         const count = exportMode === 'multiple' ? teacherIdsToExport.length : 1;
-
-        alert(` Xuất báo cáo Excel thành công!\n\n Năm học: ${currentSchoolYear}\n Số giáo viên: ${count}\n File đã được tải về!`);
+        alert(`✅ Xuất báo cáo Excel thành công!\n\n📅 Năm học: ${currentSchoolYear}\n👥 Số giáo viên: ${count}\n📄 File đã được tải về!`);
       } else {
-
-        alert(` ${result.message || 'Không thể xuất báo cáo'}`);
+        alert(`❌ ${result.message || 'Không thể xuất báo cáo'}`);
       }
     } catch (err) {
       console.error("Export error:", err);
-
-      alert(` Có lỗi xảy ra khi xuất báo cáo!\n\n${err.message || 'Vui lòng thử lại sau.'}`);
+      alert(`❌ Có lỗi xảy ra khi xuất báo cáo!\n\n${err.message || 'Vui lòng thử lại sau.'}`);
     }
   };
-
 
   const renderExportParams = () => {
     switch (exportType) {
@@ -287,7 +289,6 @@ const ReportView = ({ teachers = [], classes = [], subjects = [], teachingRecord
     }
   };
 
-
   const myRecords = selectedTeacherId ? teachingRecords.filter(r => {
     const rTeacherId = r.teacherId?._id || r.teacherId;
     return rTeacherId === selectedTeacherId || rTeacherId?.toString() === selectedTeacherId?.toString();
@@ -300,7 +301,6 @@ const ReportView = ({ teachers = [], classes = [], subjects = [], teachingRecord
       <div className="flex justify-between items-center">
         <div>
           <h2 className="text-2xl font-bold">Báo cáo & Xuất Excel</h2>
-          { }
           <p className="text-sm text-gray-500 mt-1">
             Năm học: <span className="font-semibold text-blue-600">{currentSchoolYear || 'Chưa xác định'}</span>
             {activeSchoolYear && currentSchoolYear !== activeSchoolYear && (
@@ -330,7 +330,6 @@ const ReportView = ({ teachers = [], classes = [], subjects = [], teachingRecord
         <div className="bg-white rounded-xl shadow-lg p-6">
           <h3 className="text-lg font-semibold mb-4">Cài đặt xuất báo cáo</h3>
 
-          { }
           <div className="mb-4">
             <label className="block text-sm font-medium text-gray-700 mb-2">Chế độ xuất</label>
             <div className="flex gap-4">
@@ -346,7 +345,6 @@ const ReportView = ({ teachers = [], classes = [], subjects = [], teachingRecord
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            { }
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Giáo viên</label>
 
@@ -381,7 +379,6 @@ const ReportView = ({ teachers = [], classes = [], subjects = [], teachingRecord
               )}
             </div>
 
-            { }
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Loại báo cáo</label>
               <select
@@ -399,7 +396,6 @@ const ReportView = ({ teachers = [], classes = [], subjects = [], teachingRecord
               </p>
             </div>
 
-            { }
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Tham số</label>
               {renderExportParams()}
@@ -409,13 +405,12 @@ const ReportView = ({ teachers = [], classes = [], subjects = [], teachingRecord
           {loadingRecords && (
             <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg flex items-center gap-2">
               <RefreshCw className="animate-spin" size={20} />
-              <p className="text-sm text-blue-700">Đang tải dữ liệu...</p>
+              <p className="text-sm text-blue-700">Đang tải dữ liệu năm học {currentSchoolYear}...</p>
             </div>
           )}
         </div>
       )}
 
-      { }
       {selectedTeacherId && !loadingRecords && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl p-6 text-white shadow-lg">
