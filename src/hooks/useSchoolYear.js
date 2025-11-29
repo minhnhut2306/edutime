@@ -44,7 +44,6 @@ export const useSchoolYear = () => {
           schoolYear: response.data,
         };
       } else {
-
         setLoading(false);
         return {
           success: false,
@@ -176,7 +175,7 @@ export const useSchoolYear = () => {
     getActiveSchoolYear,
     getSchoolYearData,
     createSchoolYear,
-    finishSchoolYear,
+    finishSchoolYear, // ✅ ĐÃ THÊM VÀO RETURN
     deleteSchoolYear,
     loading,
     error,

@@ -69,7 +69,7 @@ const TeachingInputView = ({ initialTeachingRecords = [], schoolYear, isReadOnly
       notes: r.notes || '',
       schoolYear: r.schoolYear,
       createdAt: r.createdAt,
-      
+
       // ✅ LƯU THÔNG TIN ĐÃ POPULATE
       teacherData: r.teacherId && typeof r.teacherId === 'object' ? {
         name: r.teacherId.name,
@@ -153,22 +153,38 @@ const TeachingInputView = ({ initialTeachingRecords = [], schoolYear, isReadOnly
 
   const loadTeachingRecords = async (teacherId) => {
     try {
-      const res = await fetchTeachingRecords(teacherId);
+      // ✅ FIX: Truyền schoolYear vào để filter theo năm học hiện tại
+      const res = await fetchTeachingRecords(teacherId, schoolYear);
       if (!res) return;
       let raw = [];
       if (res.success && Array.isArray(res.teachingRecords)) raw = res.teachingRecords;
       else if (res.success && Array.isArray(res.data)) raw = res.data;
       else if (res.success && res.data && Array.isArray(res.data.teachingRecords)) raw = res.data.teachingRecords;
       else if (Array.isArray(res)) raw = res;
-      const norm = raw.map(normalizeRecord).filter(Boolean);
-      
-      console.log('✅ Normalized first record:', norm[0]); // Debug log
-      
+
+      // ✅ FIX: Filter theo năm học hiện tại (double-check)
+      const filtered = raw.filter(r => {
+        if (r.schoolYear) {
+          return r.schoolYear === schoolYear;
+        }
+        return true;
+      });
+
+      const norm = filtered.map(normalizeRecord).filter(Boolean);
+
+      console.log('✅ Loaded records for year:', schoolYear, '| Count:', norm.length);
+
       setTeachingRecords(norm);
     } catch (err) {
       setTeachingRecords([]);
     }
   };
+
+  // ✅ THÊM schoolYear vào dependency
+  useEffect(() => {
+    const teacherIdToFetch = isAdmin ? (selectedTeacherId || undefined) : selectedTeacherId || undefined;
+    loadTeachingRecords(teacherIdToFetch);
+  }, [selectedTeacherId, isAdmin, schoolYear]); // ← THÊM schoolYear
 
   useEffect(() => {
     const teacherIdToFetch = isAdmin ? (selectedTeacherId || undefined) : selectedTeacherId || undefined;
@@ -565,21 +581,21 @@ const TeachingInputView = ({ initialTeachingRecords = [], schoolYear, isReadOnly
                 })
                 .map((record) => {
                   // ✅ FIX: Ưu tiên dùng data đã populate
-                  const teacherName = record.teacherData?.name || 
-                                     teachers.find((t) => t.id === record.teacherId)?.name || 
-                                     "-";
-                  
-                  const weekNumber = record.weekData?.weekNumber || 
-                                    weeks.find((w) => w.id === record.weekId)?.weekNumber || 
-                                    "?";
-                  
-                  const className = record.classData?.name || 
-                                   classes.find((c) => c.id === record.classId)?.name || 
-                                   "-";
-                  
-                  const subjectName = record.subjectData?.name || 
-                                     subjects.find((s) => s.id === record.subjectId)?.name || 
-                                     "-";
+                  const teacherName = record.teacherData?.name ||
+                    teachers.find((t) => t.id === record.teacherId)?.name ||
+                    "-";
+
+                  const weekNumber = record.weekData?.weekNumber ||
+                    weeks.find((w) => w.id === record.weekId)?.weekNumber ||
+                    "?";
+
+                  const className = record.classData?.name ||
+                    classes.find((c) => c.id === record.classId)?.name ||
+                    "-";
+
+                  const subjectName = record.subjectData?.name ||
+                    subjects.find((s) => s.id === record.subjectId)?.name ||
+                    "-";
 
                   const canEdit = isAdmin || (!isAdmin && record.teacherId === selectedTeacherId);
 
@@ -592,12 +608,11 @@ const TeachingInputView = ({ initialTeachingRecords = [], schoolYear, isReadOnly
                         {teacherName}
                       </td>
                       <td className="px-4 py-3 text-sm">
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                          record.recordType === 'teaching' ? 'bg-blue-100 text-blue-700' :
-                          record.recordType === 'extra' ? 'bg-purple-100 text-purple-700' :
-                          record.recordType === 'exam' ? 'bg-orange-100 text-orange-700' :
-                          'bg-green-100 text-green-700'
-                        }`}>
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${record.recordType === 'teaching' ? 'bg-blue-100 text-blue-700' :
+                            record.recordType === 'extra' ? 'bg-purple-100 text-purple-700' :
+                              record.recordType === 'exam' ? 'bg-orange-100 text-orange-700' :
+                                'bg-green-100 text-green-700'
+                          }`}>
                           {recordTypeLabels[record.recordType] || 'Giảng dạy'}
                         </span>
                       </td>
@@ -627,11 +642,10 @@ const TeachingInputView = ({ initialTeachingRecords = [], schoolYear, isReadOnly
                             <button
                               onClick={() => startEdit(record)}
                               disabled={!canEdit}
-                              className={`p-2 rounded-md ${
-                                !canEdit 
-                                  ? "opacity-40 cursor-not-allowed" 
+                              className={`p-2 rounded-md ${!canEdit
+                                  ? "opacity-40 cursor-not-allowed"
                                   : "bg-gray-50 hover:bg-blue-50 text-blue-600"
-                              } transition`}
+                                } transition`}
                               title={canEdit ? "Sửa" : "Bạn không có quyền sửa"}
                             >
                               <Edit3 size={16} />

@@ -1,12 +1,9 @@
-
-
 import { useState } from "react";
 import { reportsAPI } from "../api/reportsAPI";
 
 export const useReports = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-
 
   const downloadFile = (blob, fileName) => {
     const url = window.URL.createObjectURL(blob);
@@ -19,29 +16,33 @@ export const useReports = () => {
     window.URL.revokeObjectURL(url);
   };
 
-
   const exportReport = async (options) => {
     setLoading(true);
     setError(null);
 
     try {
-      if (!options.schoolYear) {
-        throw new Error("Vui lòng chọn năm học");
+      // Accept both schoolYearId and schoolYear (backward/forward compatibility)
+      const schoolYearValue = options?.schoolYearId || options?.schoolYear || options?.schoolYearLabel;
+      if (!schoolYearValue) {
+        throw new Error("Vui lòng chọn năm học (schoolYearId hoặc schoolYear)");
       }
-      if (!options.teacherIds && !options.teacherId) {
+
+      // Accept teacherIds or teacherId (single)
+      if (!options?.teacherIds && !options?.teacherId) {
         throw new Error("Vui lòng chọn giáo viên");
       }
 
       const response = await reportsAPI.exportReport(options);
       setLoading(false);
 
-
-      const { type = 'bc', bcNumber, schoolYear, teacherIds, semester } = options;
-      let fileName = `BaoCao_${schoolYear}`;
-      if (type === 'bc' && bcNumber) fileName = `BC${bcNumber}_${schoolYear}`;
-      else if (type === 'week') fileName = `BaoCaoTuan_${schoolYear}`;
-      else if (type === 'semester') fileName = `HocKy${semester}_${schoolYear}`;
-      else if (type === 'year') fileName = `CaNam_${schoolYear}`;
+      const { type = 'bc', bcNumber, schoolYearLabel, schoolYearId, teacherIds, semester } = options;
+      // prefer provided label (from UI) for filename; fallback to id or schoolYear
+      const schoolYearForName = schoolYearLabel || schoolYearId || options.schoolYear;
+      let fileName = `BaoCao_${schoolYearForName}`;
+      if (type === 'bc' && bcNumber) fileName = `BC${bcNumber}_${schoolYearForName}`;
+      else if (type === 'week') fileName = `BaoCaoTuan_${schoolYearForName}`;
+      else if (type === 'semester') fileName = `HocKy${semester}_${schoolYearForName}`;
+      else if (type === 'year') fileName = `CaNam_${schoolYearForName}`;
 
       const count = Array.isArray(teacherIds) ? teacherIds.length : 1;
       if (count > 1) fileName += `_${count}GV`;
@@ -51,12 +52,9 @@ export const useReports = () => {
 
       return { success: true };
     } catch (err) {
-
       let userFriendlyMessage = "Có lỗi xảy ra khi xuất báo cáo";
 
-
       if (err.response?.status === 404) {
-
         try {
           const blob = err.response.data;
           const text = await blob.text();
@@ -66,9 +64,8 @@ export const useReports = () => {
           userFriendlyMessage = "Không tìm thấy dữ liệu giảng dạy";
         }
 
-
         userFriendlyMessage += `\n\n Vui lòng kiểm tra:\n`;
-        userFriendlyMessage += `• Giáo viên đã nhập tiết dạy cho năm học ${options.schoolYear} chưa?\n`;
+        userFriendlyMessage += `• Giáo viên đã nhập tiết dạy cho năm học chưa?\n`;
         userFriendlyMessage += `• Bản ghi có đúng tuần/tháng/học kỳ không?\n`;
         userFriendlyMessage += `• Thử chọn năm học khác xem có dữ liệu không?`;
       }
@@ -103,9 +100,7 @@ export const useReports = () => {
     }
   };
 
-
-
-  const exportMonthReport = async (teacherIds, schoolYear, month = null, bcNumber = null) => {
+  const exportMonthReport = async (teacherIds, schoolYearId, month = null, bcNumber = null) => {
     setLoading(true);
     setError(null);
 
@@ -115,19 +110,19 @@ export const useReports = () => {
       return { success: false, message: "Phải cung cấp month hoặc bcNumber" };
     }
 
-    if (!schoolYear) {
-      setError("schoolYear là bắt buộc");
+    if (!schoolYearId) {
+      setError("schoolYearId là bắt buộc");
       setLoading(false);
-      return { success: false, message: "schoolYear là bắt buộc" };
+      return { success: false, message: "schoolYearId là bắt buộc" };
     }
 
     try {
-      const response = await reportsAPI.exportMonthReport(teacherIds, schoolYear, month, bcNumber);
+      const response = await reportsAPI.exportMonthReport(teacherIds, schoolYearId, month, bcNumber);
       setLoading(false);
 
       const bc = bcNumber || month;
       const count = Array.isArray(teacherIds) ? teacherIds.length : 1;
-      const fileName = count > 1 ? `BC${bc}_${schoolYear}_${count}GV.xlsx` : `BC${bc}_${schoolYear}.xlsx`;
+      const fileName = count > 1 ? `BC${bc}_${schoolYearId}_${count}GV.xlsx` : `BC${bc}_${schoolYearId}.xlsx`;
 
       downloadFile(response.data, fileName);
       return { success: true };
@@ -139,7 +134,7 @@ export const useReports = () => {
     }
   };
 
-  const exportWeekReport = async (teacherId, weekId = null, weekIds = null, schoolYear) => {
+  const exportWeekReport = async (teacherId, weekId = null, weekIds = null, schoolYearId) => {
     setLoading(true);
     setError(null);
 
@@ -149,17 +144,17 @@ export const useReports = () => {
       return { success: false, message: "Phải cung cấp weekId hoặc weekIds" };
     }
 
-    if (!schoolYear) {
-      setError("schoolYear là bắt buộc");
+    if (!schoolYearId) {
+      setError("schoolYearId là bắt buộc");
       setLoading(false);
-      return { success: false, message: "schoolYear là bắt buộc" };
+      return { success: false, message: "schoolYearId là bắt buộc" };
     }
 
     try {
-      const response = await reportsAPI.exportWeekReport(teacherId, weekId, weekIds, schoolYear);
+      const response = await reportsAPI.exportWeekReport(teacherId, weekId, weekIds, schoolYearId);
       setLoading(false);
 
-      const fileName = weekIds && weekIds.length > 0 ? `BaoCao_NhieuTuan_${schoolYear}.xlsx` : `BaoCaoTuan_${schoolYear}.xlsx`;
+      const fileName = weekIds && weekIds.length > 0 ? `BaoCao_NhieuTuan_${schoolYearId}.xlsx` : `BaoCaoTuan_${schoolYearId}.xlsx`;
 
       downloadFile(response.data, fileName);
       return { success: true };
@@ -171,7 +166,7 @@ export const useReports = () => {
     }
   };
 
-  const exportSemesterReport = async (teacherId, schoolYear, semester) => {
+  const exportSemesterReport = async (teacherId, schoolYearId, semester) => {
     setLoading(true);
     setError(null);
 
@@ -181,17 +176,17 @@ export const useReports = () => {
       return { success: false, message: "Học kỳ phải là 1 hoặc 2" };
     }
 
-    if (!schoolYear) {
-      setError("schoolYear là bắt buộc");
+    if (!schoolYearId) {
+      setError("schoolYearId là bắt buộc");
       setLoading(false);
-      return { success: false, message: "schoolYear là bắt buộc" };
+      return { success: false, message: "schoolYearId là bắt buộc" };
     }
 
     try {
-      const response = await reportsAPI.exportSemesterReport(teacherId, schoolYear, semester);
+      const response = await reportsAPI.exportSemesterReport(teacherId, schoolYearId, semester);
       setLoading(false);
 
-      downloadFile(response.data, `HocKy${semester}_${schoolYear}.xlsx`);
+      downloadFile(response.data, `HocKy${semester}_${schoolYearId}.xlsx`);
       return { success: true };
     } catch (err) {
       const msg = err.response?.data?.msg || err.message || "Có lỗi xảy ra";
@@ -201,21 +196,21 @@ export const useReports = () => {
     }
   };
 
-  const exportYearReport = async (teacherId, schoolYear, allBC = false) => {
+  const exportYearReport = async (teacherId, schoolYearId, allBC = false) => {
     setLoading(true);
     setError(null);
 
-    if (!schoolYear) {
-      setError("schoolYear là bắt buộc");
+    if (!schoolYearId) {
+      setError("schoolYearId là bắt buộc");
       setLoading(false);
-      return { success: false, message: "schoolYear là bắt buộc" };
+      return { success: false, message: "schoolYearId là bắt buộc" };
     }
 
     try {
-      const response = await reportsAPI.exportYearReport(teacherId, schoolYear, allBC);
+      const response = await reportsAPI.exportYearReport(teacherId, schoolYearId, allBC);
       setLoading(false);
 
-      const fileName = allBC ? `TongHopBC_${schoolYear}.xlsx` : `BaoCaoNam_${schoolYear}.xlsx`;
+      const fileName = allBC ? `TongHopBC_${schoolYearId}.xlsx` : `BaoCaoNam_${schoolYearId}.xlsx`;
 
       downloadFile(response.data, fileName);
       return { success: true };

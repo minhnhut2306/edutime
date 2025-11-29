@@ -34,7 +34,7 @@ const EduTime = () => {
   const [needsSchoolYearSetup, setNeedsSchoolYearSetup] = useState(false);
   const [authToken, setAuthToken] = useState(null);
   const { logout } = useAuth();
-
+  const { finishSchoolYear } = useSchoolYear();
   const { fetchTeachers } = useTeacher();
   const { fetchClasses } = useClasses();
   const { fetchSubjects } = useSubjects();
@@ -45,8 +45,11 @@ const EduTime = () => {
   const [users, setUsers] = useState([]);
   const [schoolYear, setSchoolYear] = useState(null);
   const [viewingYear, setViewingYear] = useState(null);
-  const [activeSchoolYear, setActiveSchoolYear] = useState(null); // ✅ Năm học đang active
+  const [activeSchoolYear, setActiveSchoolYear] = useState(null); // ✅ Năm học đang active (label string)
   const [archivedYears, setArchivedYears] = useState([]);
+
+  // NEW: store the ObjectId (or null) of active school year separately
+  const [activeSchoolYearId, setActiveSchoolYearId] = useState(null);
 
   const [teachers, setTeachers] = useState([]);
   const [classes, setClasses] = useState([]);
@@ -109,14 +112,24 @@ const EduTime = () => {
     try {
       const result = await getActiveSchoolYear();
 
+      // debug: kiểm tra payload trả về từ API
+      console.log("[checkSchoolYearSetup] getActiveSchoolYear result:", result);
+
       if (result.success && result.schoolYear) {
         setNeedsSchoolYearSetup(false);
+        // lưu label và id (nếu có). API có thể trả về chỉ label (string) hoặc object có _id
+        const sy = result.schoolYear;
+        const label = sy.year || sy.label || String(sy);
+        setActiveSchoolYear(label);
+        setActiveSchoolYearId(sy._id || sy.id || null);
+        setSchoolYear(sy);
         return;
       }
 
       setNeedsSchoolYearSetup(true);
 
     } catch (err) {
+      console.error("[checkSchoolYearSetup] error:", err);
       setNeedsSchoolYearSetup(true);
     }
   };
@@ -132,11 +145,15 @@ const EduTime = () => {
     try {
       // ✅ Lấy năm học active
       const activeYearResult = await getActiveSchoolYear();
+      console.log("[loadAllData] activeYearResult:", activeYearResult);
       if (activeYearResult.success && activeYearResult.schoolYear) {
-        setSchoolYear(activeYearResult.schoolYear);
-        setActiveSchoolYear(activeYearResult.schoolYear.year);
+        const sy = activeYearResult.schoolYear;
+        const label = sy.year || sy.label || String(sy);
+        setSchoolYear(sy);
+        setActiveSchoolYear(label);
+        setActiveSchoolYearId(sy._id || sy.id || null);
         if (!viewingYear) {
-          setViewingYear(activeYearResult.schoolYear.year);
+          setViewingYear(label);
         }
       }
 
@@ -178,7 +195,7 @@ const EduTime = () => {
         setTeachingRecords(recordsResult.teachingRecords || []);
       }
 
-      console.log('📊 Loaded data for year:', viewingYear);
+      console.log('📊 Loaded data for year:', viewingYear, 'activeSchoolYearId:', activeSchoolYearId);
 
       if (currentUser?.role === 'admin') {
         const usersData = await StorageService.loadData('edutime_users');
@@ -220,22 +237,49 @@ const EduTime = () => {
   };
 
   const handleFinishYear = async () => {
-    if (!confirm(`Xác nhận kết thúc năm học ${schoolYear?.year}?\n\nDữ liệu sẽ được lưu trữ và bạn có thể bắt đầu năm học mới.`)) {
+    const currentYearLabel = schoolYear?.year;
+    if (!confirm(`Xác nhận kết thúc năm học ${currentYearLabel}?\n\nDữ liệu sẽ được lưu trữ và bạn có thể bắt đầu năm học mới.`)) {
       return;
     }
-    await saveAllData();
-    const currentYear = parseInt(schoolYear.year.split('-')[0]);
-    const newYear = `${currentYear + 1}-${currentYear + 2}`;
-    await StorageService.addSchoolYear(newYear);
 
-    setSchoolYear({ year: newYear, isActive: true });
-    setViewingYear(newYear);
-    setActiveSchoolYear(newYear); // ✅ Cập nhật năm học active mới
-    setWeeks([]);
-    setTeachingRecords([]);
-    await loadAllData();
+    setLoading(true);
+    try {
+      // ✅ SỬ DỤNG finishSchoolYear ĐÃ KHAI BÁO Ở TOP LEVEL
+      const result = await finishSchoolYear();
 
-    alert(`✅ Đã kết thúc năm học ${schoolYear.year}!\n\n📚 Bắt đầu năm học mới: ${newYear}`);
+      if (!result.success) {
+        throw new Error(result.message || 'Không thể kết thúc năm học');
+      }
+
+      // ✅ Backend trả về năm học mới trong result.data
+      const newYearLabel = result.data.newYear; // VD: "2027-2028"
+      const newYearId = result.data.newSchoolYearId;
+
+      console.log('✅ Năm học mới từ backend:', { newYearLabel, newYearId });
+
+      // ✅ Cập nhật state với năm học mới
+      setSchoolYear({ year: newYearLabel, _id: newYearId, isActive: true });
+      setViewingYear(newYearLabel);
+      setActiveSchoolYear(newYearLabel);
+      setActiveSchoolYearId(newYearId);
+
+      // ✅ Reset dữ liệu cũ
+      setTeachers([]);
+      setClasses([]);
+      setSubjects([]);
+      setWeeks([]);
+      setTeachingRecords([]);
+
+      // ✅ Load lại dữ liệu cho năm học mới
+      await loadAllData();
+
+      alert(`✅ Đã kết thúc năm học ${currentYearLabel}!\n\n📚 Bắt đầu năm học mới: ${newYearLabel}`);
+    } catch (error) {
+      console.error('❌ Lỗi kết thúc năm học:', error);
+      alert(`❌ Lỗi: ${error.message}`);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleLogin = (user, token) => {
@@ -269,11 +313,17 @@ const EduTime = () => {
       setCurrentView('dashboard');
     }
   };
+  const filteredTeachingRecords = teachingRecords.filter(record => {
+    if (!record.schoolYear) return true; // Giữ lại nếu không có schoolYear
+    return record.schoolYear === viewingYear;
+  });
 
   const handleSchoolYearCreated = (newSchoolYear) => {
+    // newSchoolYear nên là object trả về từ backend (tốt nhất có _id)
     setSchoolYear(newSchoolYear);
     setViewingYear(newSchoolYear.year);
     setActiveSchoolYear(newSchoolYear.year); // ✅ Set năm học active
+    setActiveSchoolYearId(newSchoolYear._id || newSchoolYear.id || null);
     setNeedsSchoolYearSetup(false);
   };
 
@@ -373,15 +423,16 @@ const EduTime = () => {
                   teachers={teachers}
                   classes={classes}
                   subjects={subjects}
-                  teachingRecords={teachingRecords}
+                  teachingRecords={filteredTeachingRecords}  // ✅ Truyền data đã filter
                   users={users}
-                  schoolYear={schoolYear?.year}
+                  schoolYear={viewingYear}
+                  activeSchoolYear={activeSchoolYear}
                   setSchoolYear={(year) => setSchoolYear({ year, isActive: true })}
                   currentUser={currentUser}
                   onFinishYear={handleFinishYear}
                   archivedYears={archivedYears}
                   onChangeYear={handleChangeYear}
-                  isReadOnly={isReadOnly} // ✅ Truyền prop
+                  isReadOnly={isReadOnly}
                 />
               )}
 
@@ -459,8 +510,9 @@ const EduTime = () => {
                   subjects={subjects}
                   teachingRecords={teachingRecords}
                   weeks={weeks}
-                  schoolYear={viewingYear}  // ✅ Năm học đang xem (để xuất Excel)
-                  activeSchoolYear={activeSchoolYear}  // ✅ Năm học active (để hiển thị)
+                  schoolYear={viewingYear}  // ✅ STRING: "2025-2026" (để xuất Excel)
+                  propSchoolYearId={activeSchoolYearId}  // ✅ ObjectId (đã tách ra, tránh undefined)
+                  activeSchoolYear={activeSchoolYear}  // ✅ STRING: năm học active
                   currentUser={currentUser}
                   isReadOnly={isReadOnly}
                 />

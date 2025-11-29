@@ -9,7 +9,17 @@ export const reportsAPI = {
 
   exportReport: async (options) => {
     const token = localStorage.getItem("token");
-    const { teacherIds, schoolYear, type = 'bc', bcNumber, weekId, weekIds, semester } = options;
+    const {
+      teacherIds,
+      teacherId,
+      schoolYear,
+      schoolYearId,
+      type = 'bc',
+      bcNumber,
+      weekId,
+      weekIds,
+      semester
+    } = options;
 
     console.log(" Token exists:", !!token);
     if (token) {
@@ -17,16 +27,24 @@ export const reportsAPI = {
     }
 
     if (!token) throw new Error("Chưa đăng nhập! Vui lòng đăng nhập lại.");
-    if (!schoolYear) throw new Error("schoolYear là bắt buộc (VD: 2024-2025)");
-    if (!teacherIds) throw new Error("teacherIds là bắt buộc");
+    // Require either schoolYearId (preferred) or schoolYear (fallback)
+    if (!schoolYearId && !schoolYear) throw new Error("schoolYearId hoặc schoolYear là bắt buộc");
+    // require teacherIds array or single teacherId
+    if (!teacherIds && !teacherId) throw new Error("teacherIds hoặc teacherId là bắt buộc");
 
     const params = new URLSearchParams();
-    params.append('schoolYear', schoolYear);
+    // Prefer schoolYearId param (backend expects this)
+    if (schoolYearId) params.append('schoolYearId', schoolYearId);
+    else params.append('schoolYear', schoolYear);
+
     params.append('type', type);
 
     if (Array.isArray(teacherIds)) {
       params.append('teacherIds', JSON.stringify(teacherIds));
+    } else if (teacherId) {
+      params.append('teacherId', teacherId);
     } else {
+      // fallback single teacher id passed in teacherIds as string
       params.append('teacherId', teacherIds);
     }
 
@@ -37,11 +55,11 @@ export const reportsAPI = {
 
     const url = `reports/export?${params.toString()}`;
     console.log("Calling API:", url);
-    console.log("Full URL:", `http://localhost:5000/api/${url}`);
+    console.log("Full URL:", `${api.defaults?.baseURL || 'http://localhost:5000/api/'}${url}`);
 
     try {
       const response = await api.get(url, {
-        headers: { 
+        headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
@@ -56,25 +74,25 @@ export const reportsAPI = {
     }
   },
 
-  exportMonthReport: async (teacherIds, schoolYear, month = null, bcNumber = null) => {
+  exportMonthReport: async (teacherIds, schoolYearId, month = null, bcNumber = null) => {
     const token = localStorage.getItem("token");
-    
+
     if (month === null && bcNumber === null) {
       throw new Error("Phải cung cấp month hoặc bcNumber");
     }
 
-    if (!schoolYear) {
-      throw new Error("schoolYear là bắt buộc");
+    if (!schoolYearId) {
+      throw new Error("schoolYearId là bắt buộc");
     }
 
-    let params = `schoolYear=${schoolYear}`;
-    
+    let params = `schoolYearId=${schoolYearId}`;
+
     if (Array.isArray(teacherIds)) {
-      params += `&teacherIds=${JSON.stringify(teacherIds)}`;
+      params += `&teacherIds=${encodeURIComponent(JSON.stringify(teacherIds))}`;
     } else {
       params += `&teacherId=${teacherIds}`;
     }
-    
+
     if (bcNumber !== null) {
       params += `&bcNumber=${bcNumber}`;
     } else {
@@ -88,20 +106,20 @@ export const reportsAPI = {
     return response;
   },
 
-  exportWeekReport: async (teacherId, weekId = null, weekIds = null, schoolYear) => {
+  exportWeekReport: async (teacherId, weekId = null, weekIds = null, schoolYearId) => {
     const token = localStorage.getItem("token");
-    
+
     if (!weekId && (!weekIds || weekIds.length === 0)) {
       throw new Error("Phải cung cấp weekId hoặc weekIds");
     }
 
-    if (!schoolYear) {
-      throw new Error("schoolYear là bắt buộc");
+    if (!schoolYearId) {
+      throw new Error("schoolYearId là bắt buộc");
     }
 
-    let params = `teacherId=${teacherId}&schoolYear=${schoolYear}`;
+    let params = `teacherId=${teacherId}&schoolYearId=${schoolYearId}`;
     if (weekIds && weekIds.length > 0) {
-      params += `&weekIds=${JSON.stringify(weekIds)}`;
+      params += `&weekIds=${encodeURIComponent(JSON.stringify(weekIds))}`;
     } else if (weekId) {
       params += `&weekId=${weekId}`;
     }
@@ -113,18 +131,18 @@ export const reportsAPI = {
     return response;
   },
 
-  exportSemesterReport: async (teacherId, schoolYear, semester) => {
+  exportSemesterReport: async (teacherId, schoolYearId, semester) => {
     const token = localStorage.getItem("token");
-    
+
     if (!semester || (semester !== 1 && semester !== 2)) {
       throw new Error("Học kỳ phải là 1 hoặc 2");
     }
 
-    if (!schoolYear) {
-      throw new Error("schoolYear là bắt buộc");
+    if (!schoolYearId) {
+      throw new Error("schoolYearId là bắt buộc");
     }
 
-    const params = `teacherId=${teacherId}&schoolYear=${schoolYear}&semester=${semester}`;
+    const params = `teacherId=${teacherId}&schoolYearId=${schoolYearId}&semester=${semester}`;
 
     const response = await api.get(`reports/export/semester?${params}`, {
       headers: { Authorization: `Bearer ${token}` },
@@ -133,14 +151,14 @@ export const reportsAPI = {
     return response;
   },
 
-  exportYearReport: async (teacherId, schoolYear, allBC = false) => {
+  exportYearReport: async (teacherId, schoolYearId, allBC = false) => {
     const token = localStorage.getItem("token");
-    
-    if (!schoolYear) {
-      throw new Error("schoolYear là bắt buộc");
+
+    if (!schoolYearId) {
+      throw new Error("schoolYearId là bắt buộc");
     }
 
-    let params = `teacherId=${teacherId}&schoolYear=${schoolYear}`;
+    let params = `teacherId=${teacherId}&schoolYearId=${schoolYearId}`;
     if (allBC) params += `&allBC=true`;
 
     const response = await api.get(`reports/export/year?${params}`, {

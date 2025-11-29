@@ -1,6 +1,6 @@
 import React from 'react';
 import { Users, BookOpen, FileText, BarChart2, Mail } from 'react-feather';
-import { BarChart3, FileSpreadsheet, CheckCircle } from 'lucide-react';
+import { BarChart3, FileSpreadsheet, CheckCircle, Eye } from 'lucide-react';
 
 const DashboardView = ({
   teachers = [],
@@ -8,18 +8,44 @@ const DashboardView = ({
   subjects = [],
   teachingRecords = [],
   users = [],
-  schoolYear,
-  setSchoolYear,
+  schoolYear, // ✅ String năm học đang xem (VD: "2025-2026")
+  activeSchoolYear, // ✅ Năm học active (string)
   currentUser,
   onFinishYear,
   archivedYears = [],
-  onChangeYear
-}) => {
+  onChangeYear}) => {
   const pendingUsers = users.filter(u => u.status === 'pending');
-  const totalRecords = teachingRecords.length;
+  
+  // ✅ FIX: Filter teachingRecords theo năm học đang xem
+  const filteredRecords = teachingRecords.filter(record => {
+    if (!record.schoolYear) return true; // Giữ lại nếu không có schoolYear
+    return record.schoolYear === schoolYear;
+  });
+  
+  const totalRecords = filteredRecords.length;
+
+  // ✅ Kiểm tra có đang xem năm cũ không
+  const isViewingOldYear = schoolYear !== activeSchoolYear;
 
   return (
     <div className="space-y-6">
+      {/* ✅ THÊM: Banner cảnh báo khi xem năm cũ */}
+      {isViewingOldYear && (
+        <div className="bg-orange-50 border-l-4 border-orange-400 p-4 rounded-lg shadow-md">
+          <div className="flex items-center gap-3">
+            <Eye className="text-orange-600 flex-shrink-0" size={24} />
+            <div>
+              <p className="text-sm font-medium text-orange-800">
+                📚 Đang xem dữ liệu năm học: <strong>{schoolYear}</strong> (Đã kết thúc)
+              </p>
+              <p className="text-xs text-orange-700 mt-1">
+                Dữ liệu chỉ được xem, không thể chỉnh sửa. Năm học hiện tại: <strong>{activeSchoolYear}</strong>
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl p-6 text-white shadow-lg">
           <div className="flex items-center justify-between">
@@ -52,7 +78,7 @@ const DashboardView = ({
         </div>
       </div>
 
-      {pendingUsers.length > 0 && (
+      {pendingUsers.length > 0 && !isViewingOldYear && (
         <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-lg">
           <div className="flex items-center">
             <Mail className="text-yellow-600 mr-3" size={24} />
@@ -68,76 +94,108 @@ const DashboardView = ({
         <h3 className="text-xl font-bold mb-4">Thông tin năm học</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Năm học</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Năm học đang xem
+            </label>
             <input
               type="text"
               value={schoolYear || ''}
-              onChange={(e) => setSchoolYear && setSchoolYear(e.target.value)}
-              disabled={!currentUser || currentUser.role !== 'admin'}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100"
+              disabled
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-100 font-semibold text-blue-600"
             />
+            {isViewingOldYear && (
+              <p className="text-xs text-orange-600 mt-1">
+                ⚠️ Đang xem dữ liệu năm cũ (chỉ đọc)
+              </p>
+            )}
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Tổng số bản ghi</label>
-            <div className="text-2xl font-bold text-blue-600 py-2">{totalRecords}</div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Danh sách tiết dạy</label>
+            <div className="text-2xl font-bold text-blue-600 py-2">{totalRecords} bản ghi</div>
           </div>
         </div>
 
         {currentUser && currentUser.role === 'admin' && (
           <div className="mt-4 pt-4 border-t space-y-3">
-            <button
-              onClick={onFinishYear}
-              className="flex items-center gap-2 bg-orange-600 text-white px-6 py-3 rounded-lg hover:bg-orange-700 font-medium"
-            >
-              <CheckCircle size={20} />
-              Kết thúc năm học {schoolYear}
-            </button>
+            {/* ✅ CHỈ HIỆN NÚT KẾT THÚC NĂM HỌC KHI ĐANG XEM NĂM ACTIVE */}
+            {!isViewingOldYear && (
+              <button
+                onClick={onFinishYear}
+                className="flex items-center gap-2 bg-orange-600 text-white px-6 py-3 rounded-lg hover:bg-orange-700 font-medium"
+              >
+                <CheckCircle size={20} />
+                Kết thúc năm học {schoolYear}
+              </button>
+            )}
 
             {archivedYears.length > 1 && (
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Xem lại dữ liệu năm học trước</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Xem lại dữ liệu năm học trước
+                </label>
                 <select
                   onChange={(e) => onChangeYear && onChangeYear(e.target.value)}
-                  value=""
+                  value={schoolYear} // ✅ FIX: Hiển thị năm đang xem
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                 >
-                  <option value="">-- Chọn năm học --</option>
-                  {archivedYears.filter(y => y !== schoolYear).map(year => (
-                    <option key={year} value={year}>{year}</option>
+                  {archivedYears.map(year => (
+                    <option key={year} value={year}>
+                      {year} {year === activeSchoolYear ? '(Hiện tại)' : ''}
+                    </option>
                   ))}
                 </select>
                 <p className="text-xs text-gray-500 mt-1">
-                  Lưu ý: Dữ liệu năm cũ chỉ được xem, không thể chỉnh sửa
+                  💡 Lưu ý: Dữ liệu năm cũ chỉ được xem, không thể chỉnh sửa
                 </p>
               </div>
             )}
 
-            <p className="text-sm text-gray-500">
-              Lưu ý: Sau khi kết thúc, dữ liệu năm học này sẽ được lưu trữ và bạn có thể bắt đầu năm học mới.
-            </p>
+            {!isViewingOldYear && (
+              <p className="text-sm text-gray-500">
+                📌 Lưu ý: Sau khi kết thúc, dữ liệu năm học này sẽ được lưu trữ và bạn có thể bắt đầu năm học mới.
+              </p>
+            )}
           </div>
         )}
 
-        {}
-        <div className="bg-white rounded-xl p-6 shadow-lg">
-          <h3 className="text-xl font-bold mb-4"> Thống kê theo khối</h3>
+        {/* ✅ THỐNG KÊ THEO KHỐI - Dùng filteredRecords */}
+        <div className="mt-6 pt-6 border-t">
+          <h3 className="text-xl font-bold mb-4">📊 Thống kê theo khối (Năm học: {schoolYear})</h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {[...new Set(classes.map(c => c.grade))].sort().map(grade => {
               const gradeClasses = classes.filter(c => c.grade === grade);
-              const gradeRecords = teachingRecords.filter(r =>
-                gradeClasses.some(c => c.id === r.classId)
-              );
+              
+              // ✅ FIX: Dùng filteredRecords thay vì teachingRecords
+              const gradeRecords = filteredRecords.filter(r => {
+                // Lấy classId từ record (có thể là string hoặc object)
+                const recordClassId = r.classId?._id || r.classId?.id || r.classId;
+                
+                // Kiểm tra có thuộc grade này không
+                return gradeClasses.some(c => {
+                  const classId = c._id || c.id;
+                  return classId === recordClassId || classId?.toString() === recordClassId?.toString();
+                });
+              });
+              
               const gradePeriods = gradeRecords.reduce((sum, r) => sum + (r.periods || 0), 0);
 
               return (
                 <div key={grade} className="bg-gradient-to-br from-indigo-500 to-purple-600 rounded-lg p-4 text-white">
                   <p className="text-sm opacity-90">Khối {grade}</p>
                   <p className="text-2xl font-bold mt-1">{gradePeriods} tiết</p>
-                  <p className="text-xs opacity-75 mt-1">{gradeClasses.length} lớp • {gradeRecords.length} bản ghi</p>
+                  <p className="text-xs opacity-75 mt-1">
+                    {gradeClasses.length} lớp • {gradeRecords.length} bản ghi
+                  </p>
                 </div>
               );
             })}
           </div>
+          
+          {classes.length === 0 && (
+            <div className="text-center py-8 text-gray-500">
+              <p>Chưa có dữ liệu lớp học cho năm học {schoolYear}</p>
+            </div>
+          )}
         </div>
       </div>
     </div>
