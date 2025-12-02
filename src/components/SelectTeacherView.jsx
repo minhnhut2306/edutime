@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Users, Loader, CheckCircle } from 'lucide-react';
 import { useTeacher } from '../hooks/useTeacher';
 
-const SelectTeacherView = ({ currentUser, onTeacherSelected }) => {
+const SelectTeacherView = ({ currentUser }) => {
   const [teachers, setTeachers] = useState([]);
   const [selectedTeacherId, setSelectedTeacherId] = useState('');
   const { fetchTeachers, updateTeacherUserId, loading } = useTeacher();

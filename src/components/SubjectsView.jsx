@@ -23,7 +23,7 @@ const SubjectsView = ({ currentUser, isReadOnly = false, schoolYear }) => {
 
   const handleOpenModal = () => {
     if (isReadOnly) {
-      alert('⚠️ Chế độ chỉ xem! Không thể thêm môn học vào năm học cũ.');
+      alert('Chế độ chỉ xem! Không thể thêm môn học vào năm học cũ.');
       return;
     }
     setSubjectName('');
@@ -55,7 +55,7 @@ const SubjectsView = ({ currentUser, isReadOnly = false, schoolYear }) => {
 
   const handleDelete = async (subjectId) => {
     if (isReadOnly) {
-      alert('⚠️ Chế độ chỉ xem! Không thể xóa môn học của năm học cũ.');
+      alert('Chế độ chỉ xem! Không thể xóa môn học của năm học cũ.');
       return;
     }
 
@@ -112,9 +112,7 @@ const SubjectsView = ({ currentUser, isReadOnly = false, schoolYear }) => {
             <Eye size={20} className="text-orange-600" />
             <div>
               <p className="font-medium text-orange-900">Đang xem dữ liệu năm học cũ</p>
-              <p className="text-sm text-orange-700">
-                Dữ liệu chỉ được xem, không thể thêm hoặc xóa
-              </p>
+            
             </div>
           </div>
         </div>
@@ -166,8 +164,6 @@ const SubjectsView = ({ currentUser, isReadOnly = false, schoolYear }) => {
           </tbody>
         </table>
       </div>
-
-      {/* Modal thêm môn học */}
       {showModal && !isReadOnly && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl shadow-2xl w-full max-w-md mx-4">

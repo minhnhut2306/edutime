@@ -30,7 +30,7 @@ const WeeksView = ({ currentUser, schoolYear, isReadOnly = false }) => {
 
   const handleAdd = async () => {
     if (isReadOnly) {
-      alert('⚠️ Chế độ chỉ xem! Không thể thêm tuần học vào năm học cũ.');
+      alert('Chế độ chỉ xem! Không thể thêm tuần học vào năm học cũ.');
       return;
     }
 
@@ -83,7 +83,7 @@ const WeeksView = ({ currentUser, schoolYear, isReadOnly = false }) => {
 
   const handleDelete = async (weekId) => {
     if (isReadOnly) {
-      alert('⚠️ Chế độ chỉ xem! Không thể xóa tuần học của năm học cũ.');
+      alert('Chế độ chỉ xem! Không thể xóa tuần học của năm học cũ.');
       return;
     }
 
@@ -109,7 +109,7 @@ const WeeksView = ({ currentUser, schoolYear, isReadOnly = false }) => {
 
   const handleEdit = (week) => {
     if (isReadOnly) {
-      alert('⚠️ Chế độ chỉ xem! Không thể chỉnh sửa tuần học của năm học cũ.');
+      alert('Chế độ chỉ xem! Không thể chỉnh sửa tuần học của năm học cũ.');
       return;
     }
     setEditingWeek({
@@ -192,9 +192,7 @@ const WeeksView = ({ currentUser, schoolYear, isReadOnly = false }) => {
             <Eye size={20} className="text-orange-600" />
             <div>
               <p className="font-medium text-orange-900">Đang xem dữ liệu năm học cũ</p>
-              <p className="text-sm text-orange-700">
-                Dữ liệu chỉ được xem, không thể thêm, sửa hoặc xóa
-              </p>
+              
             </div>
           </div>
         </div>

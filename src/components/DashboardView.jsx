@@ -1,6 +1,6 @@
-import React from 'react';
-import { Users, BookOpen, FileText, BarChart2, Mail } from 'react-feather';
-import { BarChart3, FileSpreadsheet, CheckCircle, Eye } from 'lucide-react';
+import React, { useMemo } from 'react';
+import { Users, BookOpen, Mail } from 'react-feather';
+import { FileSpreadsheet, CheckCircle, Eye } from 'lucide-react';
 
 const DashboardView = ({
   teachers = [],
@@ -8,35 +8,71 @@ const DashboardView = ({
   subjects = [],
   teachingRecords = [],
   users = [],
-  schoolYear, // ✅ String năm học đang xem (VD: "2025-2026")
-  activeSchoolYear, // ✅ Năm học active (string)
+  schoolYear,
+  activeSchoolYear,
   currentUser,
   onFinishYear,
   archivedYears = [],
-  onChangeYear}) => {
-  const pendingUsers = users.filter(u => u.status === 'pending');
-  
-  // ✅ FIX: Filter teachingRecords theo năm học đang xem
-  const filteredRecords = teachingRecords.filter(record => {
-    if (!record.schoolYear) return true; // Giữ lại nếu không có schoolYear
-    return record.schoolYear === schoolYear;
-  });
-  
-  const totalRecords = filteredRecords.length;
+  onChangeYear
+}) => {
+  const pendingUsers = useMemo(() => 
+    users.filter(u => u.status === 'pending'), 
+    [users]
+  );
 
-  // ✅ Kiểm tra có đang xem năm cũ không
-  const isViewingOldYear = schoolYear !== activeSchoolYear;
+  const filteredRecords = useMemo(() => 
+    teachingRecords.filter(record => {
+      if (!record.schoolYear) return true;
+      return record.schoolYear === schoolYear;
+    }), 
+    [teachingRecords, schoolYear]
+  );
+
+  const isViewingOldYear = useMemo(() => 
+    schoolYear !== activeSchoolYear, 
+    [schoolYear, activeSchoolYear]
+  );
+
+  const isAdmin = useMemo(() => 
+    currentUser?.role === 'admin', 
+    [currentUser?.role]
+  );
+
+  const grades = useMemo(() => 
+    [...new Set(classes.map(c => c.grade))].sort(), 
+    [classes]
+  );
+
+  const getGradeStats = useMemo(() => {
+    return grades.map(grade => {
+      const gradeClasses = classes.filter(c => c.grade === grade);
+      const gradeRecords = filteredRecords.filter(r => {
+        const recordClassId = r.classId?._id || r.classId?.id || r.classId;
+        return gradeClasses.some(c => {
+          const classId = c._id || c.id;
+          return classId === recordClassId || classId?.toString() === recordClassId?.toString();
+        });
+      });
+      const gradePeriods = gradeRecords.reduce((sum, r) => sum + (r.periods || 0), 0);
+
+      return {
+        grade,
+        periods: gradePeriods,
+        classCount: gradeClasses.length,
+        recordCount: gradeRecords.length
+      };
+    });
+  }, [grades, classes, filteredRecords]);
 
   return (
     <div className="space-y-6">
-      {/* ✅ THÊM: Banner cảnh báo khi xem năm cũ */}
       {isViewingOldYear && (
         <div className="bg-orange-50 border-l-4 border-orange-400 p-4 rounded-lg shadow-md">
           <div className="flex items-center gap-3">
             <Eye className="text-orange-600 flex-shrink-0" size={24} />
             <div>
               <p className="text-sm font-medium text-orange-800">
-                📚 Đang xem dữ liệu năm học: <strong>{schoolYear}</strong> (Đã kết thúc)
+                Đang xem dữ liệu năm học: <strong>{schoolYear}</strong> (Đã kết thúc)
               </p>
               <p className="text-xs text-orange-700 mt-1">
                 Dữ liệu chỉ được xem, không thể chỉnh sửa. Năm học hiện tại: <strong>{activeSchoolYear}</strong>
@@ -105,19 +141,18 @@ const DashboardView = ({
             />
             {isViewingOldYear && (
               <p className="text-xs text-orange-600 mt-1">
-                ⚠️ Đang xem dữ liệu năm cũ (chỉ đọc)
+                Đang xem dữ liệu năm cũ (chỉ đọc)
               </p>
             )}
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Danh sách tiết dạy</label>
-            <div className="text-2xl font-bold text-blue-600 py-2">{totalRecords} bản ghi</div>
+            <div className="text-2xl font-bold text-blue-600 py-2">{filteredRecords.length} bản ghi</div>
           </div>
         </div>
 
-        {currentUser && currentUser.role === 'admin' && (
+        {isAdmin && (
           <div className="mt-4 pt-4 border-t space-y-3">
-            {/* ✅ CHỈ HIỆN NÚT KẾT THÚC NĂM HỌC KHI ĐANG XEM NĂM ACTIVE */}
             {!isViewingOldYear && (
               <button
                 onClick={onFinishYear}
@@ -135,7 +170,7 @@ const DashboardView = ({
                 </label>
                 <select
                   onChange={(e) => onChangeYear && onChangeYear(e.target.value)}
-                  value={schoolYear} // ✅ FIX: Hiển thị năm đang xem
+                  value={schoolYear}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                 >
                   {archivedYears.map(year => (
@@ -145,52 +180,33 @@ const DashboardView = ({
                   ))}
                 </select>
                 <p className="text-xs text-gray-500 mt-1">
-                  💡 Lưu ý: Dữ liệu năm cũ chỉ được xem, không thể chỉnh sửa
+                  Lưu ý: Dữ liệu năm cũ chỉ được xem, không thể chỉnh sửa
                 </p>
               </div>
             )}
 
             {!isViewingOldYear && (
               <p className="text-sm text-gray-500">
-                📌 Lưu ý: Sau khi kết thúc, dữ liệu năm học này sẽ được lưu trữ và bạn có thể bắt đầu năm học mới.
+                Lưu ý: Sau khi kết thúc, không thể chỉnh sửa lại năm học đã kết thúc chỉ có thể kết thúc 1 lần
               </p>
             )}
           </div>
         )}
 
-        {/* ✅ THỐNG KÊ THEO KHỐI - Dùng filteredRecords */}
         <div className="mt-6 pt-6 border-t">
           <h3 className="text-xl font-bold mb-4">📊 Thống kê theo khối (Năm học: {schoolYear})</h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {[...new Set(classes.map(c => c.grade))].sort().map(grade => {
-              const gradeClasses = classes.filter(c => c.grade === grade);
-              
-              // ✅ FIX: Dùng filteredRecords thay vì teachingRecords
-              const gradeRecords = filteredRecords.filter(r => {
-                // Lấy classId từ record (có thể là string hoặc object)
-                const recordClassId = r.classId?._id || r.classId?.id || r.classId;
-                
-                // Kiểm tra có thuộc grade này không
-                return gradeClasses.some(c => {
-                  const classId = c._id || c.id;
-                  return classId === recordClassId || classId?.toString() === recordClassId?.toString();
-                });
-              });
-              
-              const gradePeriods = gradeRecords.reduce((sum, r) => sum + (r.periods || 0), 0);
-
-              return (
-                <div key={grade} className="bg-gradient-to-br from-indigo-500 to-purple-600 rounded-lg p-4 text-white">
-                  <p className="text-sm opacity-90">Khối {grade}</p>
-                  <p className="text-2xl font-bold mt-1">{gradePeriods} tiết</p>
-                  <p className="text-xs opacity-75 mt-1">
-                    {gradeClasses.length} lớp • {gradeRecords.length} bản ghi
-                  </p>
-                </div>
-              );
-            })}
+            {getGradeStats.map(({ grade, periods, classCount, recordCount }) => (
+              <div key={grade} className="bg-gradient-to-br from-indigo-500 to-purple-600 rounded-lg p-4 text-white">
+                <p className="text-sm opacity-90">Khối {grade}</p>
+                <p className="text-2xl font-bold mt-1">{periods} tiết</p>
+                <p className="text-xs opacity-75 mt-1">
+                  {classCount} lớp • {recordCount} bản ghi
+                </p>
+              </div>
+            ))}
           </div>
-          
+
           {classes.length === 0 && (
             <div className="text-center py-8 text-gray-500">
               <p>Chưa có dữ liệu lớp học cho năm học {schoolYear}</p>

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Lock, Trash2, Edit3, Check, X } from "react-feather";
+import { Lock, Trash2, Edit3, Check, X, Eye } from "react-feather";
 import { useTeachingRecord } from "../hooks/useTeachingRecord";
 import { useClasses } from "../hooks/useClasses";
 import { useSubjects } from "../hooks/useSubjects";
@@ -34,6 +34,7 @@ const TeachingInputView = ({ initialTeachingRecords = [], schoolYear, isReadOnly
   let parsedUser = null;
   try {
     parsedUser = rawUser ? JSON.parse(rawUser) : null;
+    // eslint-disable-next-line no-unused-vars
   } catch (err) {
     parsedUser = null;
   }
@@ -46,17 +47,8 @@ const TeachingInputView = ({ initialTeachingRecords = [], schoolYear, isReadOnly
       id: x[idField] ? (typeof x[idField] === "string" ? x[idField] : x[idField]._id || x[idField]) : x.id || "",
     }));
 
-  // ✅ FIX: Giữ lại thông tin đã populate
   const normalizeRecord = (r) => {
     if (!r) return null;
-
-    const getId = (val) => {
-      if (!val) return "";
-      if (typeof val === "string") return val;
-      if (val._id) return val.__id?.toString() || val._id || val.id;
-      if (val.id) return val.id;
-      return "";
-    };
 
     return {
       id: r._id?.toString() || r.id || `TR${Date.now()}`,
@@ -69,8 +61,6 @@ const TeachingInputView = ({ initialTeachingRecords = [], schoolYear, isReadOnly
       notes: r.notes || '',
       schoolYear: r.schoolYear,
       createdAt: r.createdAt,
-
-      // ✅ LƯU THÔNG TIN ĐÃ POPULATE
       teacherData: r.teacherId && typeof r.teacherId === 'object' ? {
         name: r.teacherId.name,
         email: r.teacherId.email,
@@ -121,6 +111,7 @@ const TeachingInputView = ({ initialTeachingRecords = [], schoolYear, isReadOnly
           });
           if (matched) setSelectedTeacherId(matched.id);
         }
+        // eslint-disable-next-line no-unused-vars
       } catch (err) {
         setTeachers([]);
       }
@@ -153,43 +144,29 @@ const TeachingInputView = ({ initialTeachingRecords = [], schoolYear, isReadOnly
 
   const loadTeachingRecords = async (teacherId) => {
     try {
-      // ✅ FIX: Truyền schoolYear vào để filter theo năm học hiện tại
       const res = await fetchTeachingRecords(teacherId, schoolYear);
       if (!res) return;
+
       let raw = [];
       if (res.success && Array.isArray(res.teachingRecords)) raw = res.teachingRecords;
       else if (res.success && Array.isArray(res.data)) raw = res.data;
       else if (res.success && res.data && Array.isArray(res.data.teachingRecords)) raw = res.data.teachingRecords;
       else if (Array.isArray(res)) raw = res;
 
-      // ✅ FIX: Filter theo năm học hiện tại (double-check)
-      const filtered = raw.filter(r => {
-        if (r.schoolYear) {
-          return r.schoolYear === schoolYear;
-        }
-        return true;
-      });
-
+      const filtered = raw.filter(r => r.schoolYear ? r.schoolYear === schoolYear : true);
       const norm = filtered.map(normalizeRecord).filter(Boolean);
 
-      console.log('✅ Loaded records for year:', schoolYear, '| Count:', norm.length);
-
       setTeachingRecords(norm);
+      // eslint-disable-next-line no-unused-vars
     } catch (err) {
       setTeachingRecords([]);
     }
   };
 
-  // ✅ THÊM schoolYear vào dependency
   useEffect(() => {
     const teacherIdToFetch = isAdmin ? (selectedTeacherId || undefined) : selectedTeacherId || undefined;
     loadTeachingRecords(teacherIdToFetch);
-  }, [selectedTeacherId, isAdmin, schoolYear]); // ← THÊM schoolYear
-
-  useEffect(() => {
-    const teacherIdToFetch = isAdmin ? (selectedTeacherId || undefined) : selectedTeacherId || undefined;
-    loadTeachingRecords(teacherIdToFetch);
-  }, [selectedTeacherId, isAdmin]);
+  }, [selectedTeacherId, isAdmin, schoolYear]);
 
   useEffect(() => {
     if (!selectedTeacherId) return;
@@ -367,17 +344,24 @@ const TeachingInputView = ({ initialTeachingRecords = [], schoolYear, isReadOnly
 
   return (
     <div className="space-y-4">
-      <h2 className="text-2xl font-bold">{isEditing ? "Chỉnh sửa bản ghi" : "Nhập tiết dạy"}</h2>
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-2xl font-bold flex items-center gap-3">
+          {isEditing ? "Chỉnh sửa bản ghi" : "Nhập tiết dạy"}
+          {isReadOnly && (
+            <span className="flex items-center gap-2 text-sm font-normal text-orange-600 bg-orange-50 px-3 py-1 rounded-full">
+              <Eye size={16} />
+              Chế độ xem
+            </span>
+          )}
+        </h2>
+      </div>
 
       {isReadOnly && (
-        <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-lg">
+        <div className="bg-orange-50 border-l-4 border-orange-400 p-4 rounded-lg">
           <div className="flex items-center gap-2">
-            <Lock size={20} className="text-yellow-600" />
+            <Eye size={20} className="text-orange-600" />
             <div>
-              <p className="font-medium text-yellow-800">📚 Chế độ chỉ xem (Read-only)</p>
-              <p className="text-sm text-yellow-700">
-                Năm học đang ở chế độ chỉ xem — không thể thêm, sửa hoặc xóa bản ghi.
-              </p>
+              <p className="font-medium text-orange-900">Đang xem dữ liệu năm học cũ</p>
             </div>
           </div>
         </div>
@@ -403,7 +387,6 @@ const TeachingInputView = ({ initialTeachingRecords = [], schoolYear, isReadOnly
         </div>
       )}
 
-      {/* INPUT FORM: hidden when isReadOnly */}
       {!isReadOnly && (
         <div className="bg-white rounded-xl shadow-lg p-6">
           <h3 className="text-lg font-semibold mb-4">{isEditing ? "Sửa bản ghi" : "Thêm bản ghi mới"}</h3>
@@ -580,7 +563,6 @@ const TeachingInputView = ({ initialTeachingRecords = [], schoolYear, isReadOnly
                   return (weekB?.weekNumber || 0) - (weekA?.weekNumber || 0);
                 })
                 .map((record) => {
-                  // ✅ FIX: Ưu tiên dùng data đã populate
                   const teacherName = record.teacherData?.name ||
                     teachers.find((t) => t.id === record.teacherId)?.name ||
                     "-";
@@ -609,9 +591,9 @@ const TeachingInputView = ({ initialTeachingRecords = [], schoolYear, isReadOnly
                       </td>
                       <td className="px-4 py-3 text-sm">
                         <span className={`px-2 py-1 rounded-full text-xs font-medium ${record.recordType === 'teaching' ? 'bg-blue-100 text-blue-700' :
-                            record.recordType === 'extra' ? 'bg-purple-100 text-purple-700' :
-                              record.recordType === 'exam' ? 'bg-orange-100 text-orange-700' :
-                                'bg-green-100 text-green-700'
+                          record.recordType === 'extra' ? 'bg-purple-100 text-purple-700' :
+                            record.recordType === 'exam' ? 'bg-orange-100 text-orange-700' :
+                              'bg-green-100 text-green-700'
                           }`}>
                           {recordTypeLabels[record.recordType] || 'Giảng dạy'}
                         </span>
@@ -643,8 +625,8 @@ const TeachingInputView = ({ initialTeachingRecords = [], schoolYear, isReadOnly
                               onClick={() => startEdit(record)}
                               disabled={!canEdit}
                               className={`p-2 rounded-md ${!canEdit
-                                  ? "opacity-40 cursor-not-allowed"
-                                  : "bg-gray-50 hover:bg-blue-50 text-blue-600"
+                                ? "opacity-40 cursor-not-allowed"
+                                : "bg-gray-50 hover:bg-blue-50 text-blue-600"
                                 } transition`}
                               title={canEdit ? "Sửa" : "Bạn không có quyền sửa"}
                             >
@@ -663,5 +645,4 @@ const TeachingInputView = ({ initialTeachingRecords = [], schoolYear, isReadOnly
     </div>
   );
 };
-
 export default TeachingInputView;

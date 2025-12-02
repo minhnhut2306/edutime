@@ -1,18 +1,15 @@
 /* eslint-disable no-unused-vars */
-
 import React, { useState, useEffect } from 'react';
 import { Download, BarChart3, Mail, Users, RefreshCw } from 'lucide-react';
 import { useReports } from '../hooks/useReports';
 import { useTeachingRecord } from '../hooks/useTeachingRecord';
 
-// eslint-disable-next-line no-unused-vars
-const ReportView = ({ teachers = [], classes = [], subjects = [], teachingRecords: initialRecords = [], weeks = [], schoolYear, currentUser }) => {
+const ReportView = ({ teachers = [], teachingRecords: initialRecords = [], weeks = [], schoolYear, currentUser }) => {
   const isAdmin = currentUser?.role === 'admin';
 
   const [teachingRecords, setTeachingRecords] = useState(initialRecords || []);
   const [loadingRecords, setLoadingRecords] = useState(false);
 
-  // ✅ schoolYear đã là string "2025-2026"
   const currentSchoolYear = typeof schoolYear === 'object' ? schoolYear?.year : schoolYear;
 
   const linkedTeacher = teachers.find(t => {
@@ -99,27 +96,32 @@ const ReportView = ({ teachers = [], classes = [], subjects = [], teachingRecord
 
   const handleExport = async () => {
     try {
-      if (!isAdmin) {
-        alert('⚠️ Chỉ Admin mới có quyền xuất báo cáo Excel!');
+      if (!isAdmin && !linkedTeacher) {
+        alert('Tài khoản của bạn chưa được liên kết với giáo viên!\n\nVui lòng liên hệ Admin để được phân quyền.');
         return;
       }
 
-      const teacherIdsToExport = exportMode === 'multiple' ? selectedTeacherIds : [selectedTeacherId];
-
-      if (teacherIdsToExport.length === 0 || (exportMode === 'single' && !selectedTeacherId)) {
-        alert('⚠️ Vui lòng chọn giáo viên!');
-        return;
+      let teacherIdsToExport;
+      
+      if (isAdmin) {
+        teacherIdsToExport = exportMode === 'multiple' ? selectedTeacherIds : [selectedTeacherId];
+        
+        if (teacherIdsToExport.length === 0 || (exportMode === 'single' && !selectedTeacherId)) {
+          alert('Vui lòng chọn giáo viên!');
+          return;
+        }
+      } else {
+        teacherIdsToExport = [linkedTeacher.id || linkedTeacher._id];
       }
 
-      // ✅ FIX: Sử dụng currentSchoolYear (string "2025-2026")
       if (!currentSchoolYear) {
-        alert('⚠️ Không tìm thấy năm học hiện tại!\n\nVui lòng kiểm tra lại hệ thống.');
+        alert('Không tìm thấy năm học hiện tại!\n\nVui lòng kiểm tra lại hệ thống.');
         return;
       }
 
       const options = {
-        teacherIds: exportMode === 'multiple' ? teacherIdsToExport : selectedTeacherId,
-        schoolYear: currentSchoolYear, // ✅ Truyền string "2025-2026"
+        teacherIds: isAdmin && exportMode === 'multiple' ? teacherIdsToExport : teacherIdsToExport[0],
+        schoolYear: currentSchoolYear,
         type: exportType,
       };
 
@@ -132,7 +134,7 @@ const ReportView = ({ teachers = [], classes = [], subjects = [], teachingRecord
         } else if (exportParams.weekId) {
           options.weekId = exportParams.weekId;
         } else {
-          alert('⚠️ Vui lòng chọn tuần!');
+          alert('Vui lòng chọn tuần!');
           return;
         }
       }
@@ -143,14 +145,21 @@ const ReportView = ({ teachers = [], classes = [], subjects = [], teachingRecord
       const result = await exportReport(options);
 
       if (result.success) {
-        const count = exportMode === 'multiple' ? teacherIdsToExport.length : 1;
-        alert(`✅ Xuất báo cáo Excel thành công!\n\n📅 Năm học: ${currentSchoolYear}\n👥 Số giáo viên: ${count}\n📥 File đã được tải về!`);
+        const count = isAdmin && exportMode === 'multiple' ? teacherIdsToExport.length : 1;
+        const teacherName = linkedTeacher ? linkedTeacher.name : '';
+        
+        alert(
+          `Xuất báo cáo Excel thành công!\n\n` +
+          `Năm học: ${currentSchoolYear}\n` +
+          `${isAdmin ? `Số giáo viên: ${count}` : `Giáo viên: ${teacherName}`}\n` +
+          `File đã được tải về!`
+        );
       } else {
-        alert(`❌ ${result.message || 'Không thể xuất báo cáo'}`);
+        alert(`${result.message || 'Không thể xuất báo cáo'}`);
       }
     } catch (err) {
       console.error("Export error:", err);
-      alert(`❌ Có lỗi xảy ra khi xuất báo cáo!\n\n${err.message || 'Vui lòng thử lại sau.'}`);
+      alert(`Có lỗi xảy ra khi xuất báo cáo!\n\n${err.message || 'Vui lòng thử lại sau.'}`);
     }
   };
 
@@ -179,7 +188,7 @@ const ReportView = ({ teachers = [], classes = [], subjects = [], teachingRecord
               </select>
             )}
             <p className="text-xs text-gray-500">
-              💡 Nếu chọn "Tự động", hệ thống sẽ xuất tất cả BC có dữ liệu (mỗi BC = 1 sheet)
+              Nếu chọn "Tự động", hệ thống sẽ xuất tất cả BC có dữ liệu (mỗi BC = 1 sheet)
             </p>
           </div>
         );
@@ -243,7 +252,7 @@ const ReportView = ({ teachers = [], classes = [], subjects = [], teachingRecord
               </div>
             )}
             <p className="text-xs text-gray-500">
-              💡 Tuần thuộc tháng nào sẽ tự động xuất BC tháng đó
+              Tuần thuộc tháng nào sẽ tự động xuất BC tháng đó
             </p>
           </div>
         );
@@ -260,7 +269,7 @@ const ReportView = ({ teachers = [], classes = [], subjects = [], teachingRecord
               <option value={2}>Học kỳ 2 (Tuần 19-35)</option>
             </select>
             <p className="text-xs text-gray-500 mt-2">
-              💡 Xuất tất cả BC trong học kỳ (mỗi tháng = 1 sheet)
+              Xuất tất cả BC trong học kỳ (mỗi tháng = 1 sheet)
             </p>
           </div>
         );
@@ -268,7 +277,7 @@ const ReportView = ({ teachers = [], classes = [], subjects = [], teachingRecord
       case 'year':
         return (
           <p className="text-sm text-gray-600 p-3 bg-gray-50 rounded-lg">
-            💡 Xuất tất cả BC trong năm học (mỗi tháng có dữ liệu = 1 sheet)
+            Xuất tất cả BC trong năm học (mỗi tháng có dữ liệu = 1 sheet)
           </p>
         );
 
@@ -293,16 +302,28 @@ const ReportView = ({ teachers = [], classes = [], subjects = [], teachingRecord
       <div className="flex justify-between items-center">
         <div>
           <h2 className="text-2xl font-bold">Báo cáo & Xuất Excel</h2>
-          <p className="text-sm text-gray-500 mt-1">Năm học: <span className="font-semibold text-blue-600">{currentSchoolYear || 'Chưa xác định'}</span></p>
+          <p className="text-sm text-gray-500 mt-1">
+            Năm học: <span className="font-semibold text-blue-600">{currentSchoolYear || 'Chưa xác định'}</span>
+            {!isAdmin && linkedTeacher && (
+              <span className="ml-3 text-gray-600">
+                • Giáo viên: <span className="font-semibold text-green-600">{linkedTeacher.name}</span>
+              </span>
+            )}
+          </p>
         </div>
-        {isAdmin && (selectedTeacherId || selectedTeacherIds.length > 0) && (
+        
+        {((isAdmin && (selectedTeacherId || selectedTeacherIds.length > 0)) || 
+          (!isAdmin && linkedTeacher)) && (
           <button
             onClick={handleExport}
             disabled={reportLoading || loadingRecords}
-            className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+            className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
           >
             <Download size={20} />
-            {reportLoading ? 'Đang xuất...' : `Xuất Excel ${exportMode === 'multiple' && selectedTeacherIds.length > 0 ? `(${selectedTeacherIds.length} GV)` : ''}`}
+            {reportLoading ? 'Đang xuất...' : 
+              isAdmin && exportMode === 'multiple' && selectedTeacherIds.length > 0 
+                ? `Xuất Excel (${selectedTeacherIds.length} GV)` 
+                : 'Xuất Excel'}
           </button>
         )}
       </div>
@@ -310,6 +331,20 @@ const ReportView = ({ teachers = [], classes = [], subjects = [], teachingRecord
       {reportError && (
         <div className="bg-red-50 border-l-4 border-red-400 p-4 rounded-lg">
           <p className="text-red-700">{reportError}</p>
+        </div>
+      )}
+
+      {!isAdmin && linkedTeacher && (
+        <div className="bg-blue-50 border-l-4 border-blue-400 p-4 rounded-lg">
+          <div className="flex items-center gap-2">
+            <Download size={20} className="text-blue-600" />
+            <div>
+              <p className="font-medium text-blue-900">Xuất báo cáo cá nhân</p>
+              <p className="text-sm text-blue-700 mt-1">
+                Bạn chỉ có thể xuất báo cáo của riêng mình. Chọn loại báo cáo và thông số bên dưới, sau đó nhấn "Xuất Excel".
+              </p>
+            </div>
+          </div>
         </div>
       )}
 
@@ -379,8 +414,42 @@ const ReportView = ({ teachers = [], classes = [], subjects = [], teachingRecord
                 <option value="year">Cả năm học</option>
               </select>
               <p className="text-xs text-gray-500 mt-1">
-                💡 Tất cả đều xuất theo mẫu BC chuẩn
+                Tất cả đều xuất theo mẫu BC chuẩn
               </p>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Tham số</label>
+              {renderExportParams()}
+            </div>
+          </div>
+
+          {loadingRecords && (
+            <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg flex items-center gap-2">
+              <RefreshCw className="animate-spin" size={20} />
+              <p className="text-sm text-blue-700">Đang tải dữ liệu...</p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {!isAdmin && linkedTeacher && (
+        <div className="bg-white rounded-xl shadow-lg p-6">
+          <h3 className="text-lg font-semibold mb-4">Chọn loại báo cáo</h3>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Loại báo cáo</label>
+              <select
+                value={exportType}
+                onChange={(e) => setExportType(e.target.value)}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="bc">Theo BC (Biên chế/Tháng)</option>
+                <option value="week">Theo Tuần</option>
+                <option value="semester">Theo Học kỳ</option>
+                <option value="year">Cả năm học</option>
+              </select>
             </div>
 
             <div>
@@ -425,4 +494,4 @@ const ReportView = ({ teachers = [], classes = [], subjects = [], teachingRecord
   );
 };
 
-export default ReportView;  
+export default ReportView;

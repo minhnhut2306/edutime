@@ -38,7 +38,7 @@ const ClassesView = ({ currentUser, isReadOnly = false, schoolYear }) => {
 
   const handleOpenModal = () => {
     if (isReadOnly) {
-      alert('⚠️ Chế độ chỉ xem! Không thể thêm lớp học vào năm học cũ.');
+      alert('Chế độ chỉ xem! Không thể thêm lớp học vào năm học cũ.');
       return;
     }
     setClassName('');
@@ -80,7 +80,7 @@ const ClassesView = ({ currentUser, isReadOnly = false, schoolYear }) => {
 
   const handleDelete = async (classId) => {
     if (isReadOnly) {
-      alert('⚠️ Chế độ chỉ xem! Không thể xóa lớp học của năm học cũ.');
+      alert('Chế độ chỉ xem! Không thể xóa lớp học của năm học cũ.');
       return;
     }
 
@@ -144,9 +144,6 @@ const ClassesView = ({ currentUser, isReadOnly = false, schoolYear }) => {
             <Eye size={20} className="text-orange-600" />
             <div>
               <p className="font-medium text-orange-900">Đang xem dữ liệu năm học cũ</p>
-              <p className="text-sm text-orange-700">
-                Dữ liệu chỉ được xem, không thể thêm hoặc xóa
-              </p>
             </div>
           </div>
         </div>
@@ -201,7 +198,6 @@ const ClassesView = ({ currentUser, isReadOnly = false, schoolYear }) => {
         </table>
       </div>
 
-      {/* Modal thêm lớp */}
       {showModal && !isReadOnly && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl shadow-2xl w-full max-w-md mx-4">

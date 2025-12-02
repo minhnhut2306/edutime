@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { Calendar, Loader, AlertCircle } from 'lucide-react';
 import { useSchoolYear } from '../hooks/useSchoolYear';
 
@@ -7,60 +7,62 @@ const SchoolYearSetupView = ({ currentUser, onSchoolYearCreated }) => {
   const { createSchoolYear, loading, error } = useSchoolYear();
   const [localError, setLocalError] = useState('');
 
-  const isAdmin = currentUser?.role === 'admin';
+  const isAdmin = useMemo(() => currentUser?.role === 'admin', [currentUser?.role]);
 
-
-  const getCurrentSchoolYear = () => {
+  const getCurrentSchoolYear = useCallback(() => {
     const now = new Date();
     const currentYear = now.getFullYear();
     const currentMonth = now.getMonth() + 1;
+    const startYear = currentMonth >= 9 ? currentYear : currentYear - 1;
+    return `${startYear}-${startYear + 1}`;
+  }, []);
 
-
-
-    if (currentMonth >= 1 && currentMonth <= 8) {
-      return `${currentYear - 1}-${currentYear}`;
-    } else {
-      return `${currentYear}-${currentYear + 1}`;
+  const validateYearInput = useCallback((input) => {
+    if (!input.trim()) {
+      return 'Vui lòng nhập năm học!';
     }
-  };
-
-  const handleSuggestYear = () => {
-    setYearInput(getCurrentSchoolYear());
-  };
-
-  const handleCreateYear = async () => {
-    setLocalError('');
-
-    if (!yearInput.trim()) {
-      setLocalError('Vui lòng nhập năm học!');
-      return;
-    }
-
 
     const yearPattern = /^\d{4}-\d{4}$/;
-    if (!yearPattern.test(yearInput)) {
-      setLocalError('Định dạng năm học không hợp lệ (VD: 2024-2025)');
-      return;
+    if (!yearPattern.test(input)) {
+      return 'Định dạng năm học không hợp lệ (VD: 2024-2025)';
     }
 
-
-    const [startYear, endYear] = yearInput.split('-').map(Number);
+    const [startYear, endYear] = input.split('-').map(Number);
     if (endYear !== startYear + 1) {
-      setLocalError('Năm học phải liên tiếp nhau (VD: 2024-2025)');
+      return 'Năm học phải liên tiếp nhau (VD: 2024-2025)';
+    }
+
+    return null;
+  }, []);
+
+  const handleSuggestYear = useCallback(() => {
+    setYearInput(getCurrentSchoolYear());
+    setLocalError('');
+  }, [getCurrentSchoolYear]);
+
+  const handleCreateYear = useCallback(async () => {
+    const validationError = validateYearInput(yearInput);
+    if (validationError) {
+      setLocalError(validationError);
       return;
     }
 
     const result = await createSchoolYear({ year: yearInput });
 
     if (result.success) {
-      alert(' Đã tạo năm học thành công!');
-
+      alert('Đã tạo năm học thành công!');
       const schoolYearObj = result.schoolYear || { year: yearInput, status: 'active' };
       onSchoolYearCreated(schoolYearObj);
     } else {
       setLocalError(result.message || 'Tạo năm học thất bại');
     }
-  };
+  }, [yearInput, validateYearInput, createSchoolYear, onSchoolYearCreated]);
+
+  const handleLogout = useCallback(() => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    window.location.reload();
+  }, []);
 
   const displayError = localError || error;
 
@@ -91,15 +93,11 @@ const SchoolYearSetupView = ({ currentUser, onSchoolYearCreated }) => {
                   Năm học chưa được tạo. Vui lòng liên hệ <strong>Admin</strong> để thiết lập năm học đầu tiên.
                 </p>
                 <p className="text-xs text-yellow-700 mt-3">
-                   Chỉ cần <strong>1 Admin duy nhất</strong> tạo năm học lần đầu, sau đó tất cả tài khoản khác (kể cả Admin) sẽ tự động sử dụng năm học đó.
+                  Chỉ cần <strong>1 Admin duy nhất</strong> tạo năm học lần đầu, sau đó tất cả tài khoản khác (kể cả Admin) sẽ tự động sử dụng năm học đó.
                 </p>
               </div>
               <button
-                onClick={() => {
-                  localStorage.removeItem('token');
-                  localStorage.removeItem('user');
-                  window.location.reload();
-                }}
+                onClick={handleLogout}
                 className="mt-4 px-6 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 font-medium"
               >
                 Đăng xuất
@@ -155,16 +153,6 @@ const SchoolYearSetupView = ({ currentUser, onSchoolYearCreated }) => {
                   'Tạo năm học'
                 )}
               </button>
-            </div>
-
-            <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-              <p className="text-sm text-blue-800 font-medium mb-2"> Lưu ý quan trọng:</p>
-              <ul className="text-xs text-blue-700 space-y-1">
-                <li>• <strong>Chỉ cần tạo 1 lần duy nhất</strong> - Tất cả tài khoản khác (kể cả Admin) sẽ tự động sử dụng</li>
-                <li>• Năm học sẽ được sử dụng cho toàn bộ hệ thống</li>
-                <li>• Bạn có thể tạo thêm năm học mới và chuyển đổi giữa chúng sau này</li>
-                <li>• Dữ liệu của mỗi năm học được lưu trữ riêng biệt</li>
-              </ul>
             </div>
           </>
         )}

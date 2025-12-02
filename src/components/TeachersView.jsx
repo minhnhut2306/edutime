@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { Edit2, Trash2, Plus, RefreshCw, X, Eye, EyeOff, Download, Upload } from 'react-feather';
-import { AlertTriangle } from 'lucide-react';
 import ExcelService from '../service/ExcelService';
 import { useTeacher } from '../hooks/useTeacher';
 import { useClasses } from '../hooks/useClasses';
@@ -26,15 +25,6 @@ const TeachersView = ({ currentUser, isReadOnly = false, schoolYear }) => {
   const { fetchClasses, loading: loadingClasses } = useClasses();
   const { fetchSubjects, loading: loadingSubjects } = useSubjects();
 
-  useEffect(() => {
-    loadAllData();
-  }, [schoolYear]);
-
-  useEffect(() => {
-    loadAllData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
   const loadAllData = async () => {
     await Promise.all([
       loadTeachers(),
@@ -44,23 +34,15 @@ const TeachersView = ({ currentUser, isReadOnly = false, schoolYear }) => {
   };
 
   const loadTeachers = async () => {
-    console.log('🔍 Loading teachers for school year:', schoolYear)
-     const result = await fetchTeachers(schoolYear);
+    const result = await fetchTeachers(schoolYear);
     if (result.success) {
       const teachersArr = Array.isArray(result.teachers) ? result.teachers : [];
-      console.log('📊 All teachers:', teachersArr.length);
-      teachersArr.forEach(t => {
-        console.log(`  - ${t.name}: schoolYearId = ${t.schoolYearId}`);
-      });
       const transformedTeachers = teachersArr.map((teacher, idx) => {
         let subjectIdsList = [];
         if (Array.isArray(teacher.subjectIds)) {
-          subjectIdsList = teacher.subjectIds.map(s => {
-            if (typeof s === 'object' && s !== null) {
-              return s._id || s.id;
-            }
-            return s;
-          });
+          subjectIdsList = teacher.subjectIds.map(s => 
+            typeof s === 'object' && s !== null ? (s._id || s.id) : s
+          );
         }
 
         return {
@@ -95,6 +77,10 @@ const TeachersView = ({ currentUser, isReadOnly = false, schoolYear }) => {
     }
   };
 
+  useEffect(() => {
+    loadAllData();
+  }, [schoolYear]);
+
   const maskEmail = (email) => {
     if (!email) return '-';
     const [user, domain] = email.split('@');
@@ -104,18 +90,14 @@ const TeachersView = ({ currentUser, isReadOnly = false, schoolYear }) => {
 
   const maskPhone = (phone) => {
     if (!phone) return '-';
-    if (phone.length <= 4) return '***';
-    return `***${phone.slice(-3)}`;
+    return phone.length <= 4 ? '***' : `***${phone.slice(-3)}`;
   };
 
   const toggleVisibility = (teacherId, field) => {
-    setVisibleInfo(prev => {
-      const current = prev[teacherId];
-      if (current === field) {
-        return { ...prev, [teacherId]: null };
-      }
-      return { ...prev, [teacherId]: field };
-    });
+    setVisibleInfo(prev => ({
+      ...prev,
+      [teacherId]: prev[teacherId] === field ? null : field
+    }));
   };
 
   const isVisible = (teacherId, field) => {
@@ -124,7 +106,7 @@ const TeachersView = ({ currentUser, isReadOnly = false, schoolYear }) => {
 
   const handleOpenAddModal = () => {
     if (isReadOnly) {
-      alert('⚠️ Năm học đã kết thúc, không thể thêm giáo viên!');
+      alert('Năm học đã kết thúc, không thể thêm giáo viên!');
       return;
     }
     setNewTeacher({
@@ -154,19 +136,14 @@ const TeachersView = ({ currentUser, isReadOnly = false, schoolYear }) => {
       return;
     }
 
-    if (!newTeacher.subjectIds || newTeacher.subjectIds.length === 0) {
+    const validSubjectIds = newTeacher.subjectIds.filter(id => id && id.trim() !== '');
+    if (validSubjectIds.length === 0) {
       alert('Vui lòng chọn ít nhất một môn học!');
       return;
     }
 
     if (!newTeacher.mainClassId) {
       alert('Vui lòng chọn lớp chủ nhiệm!');
-      return;
-    }
-
-    const validSubjectIds = newTeacher.subjectIds.filter(id => id && id.trim() !== '');
-    if (validSubjectIds.length === 0) {
-      alert('Các môn học đã chọn không hợp lệ!');
       return;
     }
 
@@ -184,40 +161,40 @@ const TeachersView = ({ currentUser, isReadOnly = false, schoolYear }) => {
       handleCloseAddModal();
       loadTeachers();
     } else {
-      const errorMsg = result.message || 'Không thể thêm giáo viên';
-      alert('❌ Lỗi: ' + errorMsg);
+      alert('Lỗi: ' + (result.message || 'Không thể thêm giáo viên'));
     }
   };
 
   const handleEdit = (teacher) => {
     if (isReadOnly) {
-      alert('⚠️ Năm học đã kết thúc, không thể chỉnh sửa giáo viên!');
+      alert('Năm học đã kết thúc, không thể chỉnh sửa giáo viên!');
       return;
     }
     setEditingTeacher({ ...teacher });
   };
 
   const handleSaveEdit = async () => {
-    if (editingTeacher) {
-      const result = await updateTeacher(editingTeacher.id, {
-        name: editingTeacher.name,
-        phone: editingTeacher.phone,
-        subjectIds: editingTeacher.subjectIds,
-        mainClassId: editingTeacher.mainClassId,
-      });
-      if (result.success) {
-        alert('Đã cập nhật thông tin giáo viên!');
-        setEditingTeacher(null);
-        loadTeachers();
-      } else {
-        alert('Lỗi: ' + result.message);
-      }
+    if (!editingTeacher) return;
+
+    const result = await updateTeacher(editingTeacher.id, {
+      name: editingTeacher.name,
+      phone: editingTeacher.phone,
+      subjectIds: editingTeacher.subjectIds,
+      mainClassId: editingTeacher.mainClassId,
+    });
+
+    if (result.success) {
+      alert('Đã cập nhật thông tin giáo viên!');
+      setEditingTeacher(null);
+      loadTeachers();
+    } else {
+      alert('Lỗi: ' + result.message);
     }
   };
 
   const handleDelete = async (id) => {
     if (isReadOnly) {
-      alert('⚠️ Năm học đã kết thúc, không thể xóa giáo viên!');
+      alert('Năm học đã kết thúc, không thể xóa giáo viên!');
       return;
     }
     if (window.confirm('Xóa giáo viên này?')) {
@@ -233,7 +210,7 @@ const TeachersView = ({ currentUser, isReadOnly = false, schoolYear }) => {
 
   const handleImport = async (e) => {
     if (isReadOnly) {
-      alert('⚠️ Năm học đã kết thúc, không thể import giáo viên!');
+      alert('Năm học đã kết thúc, không thể import giáo viên!');
       e.target.value = '';
       return;
     }
@@ -242,22 +219,40 @@ const TeachersView = ({ currentUser, isReadOnly = false, schoolYear }) => {
     if (!file) return;
 
     const response = await importTeachers(file);
-    console.log('Import response:', response);
     if (response.success) {
       const { successCount, failedCount, failed } = response.data || {};
-
       setImportResult({
         successCount: successCount || 0,
         failedCount: failedCount || 0,
         failed: failed || []
       });
-
       loadTeachers();
     } else {
       alert('Lỗi: ' + response.message);
     }
 
     e.target.value = '';
+  };
+
+  const toggleSubject = (subjectId, isEditing = false) => {
+    if (isEditing) {
+      const currentSubjects = editingTeacher.subjectIds || [];
+      const isSelected = currentSubjects.includes(subjectId);
+      setEditingTeacher({
+        ...editingTeacher,
+        subjectIds: isSelected
+          ? currentSubjects.filter(id => id !== subjectId)
+          : [...currentSubjects, subjectId]
+      });
+    } else {
+      const isSelected = newTeacher.subjectIds.includes(subjectId);
+      setNewTeacher({
+        ...newTeacher,
+        subjectIds: isSelected
+          ? newTeacher.subjectIds.filter(id => id !== subjectId)
+          : [...newTeacher.subjectIds, subjectId]
+      });
+    }
   };
 
   const loading = loadingTeachers || loadingClasses || loadingSubjects;
@@ -286,14 +281,13 @@ const TeachersView = ({ currentUser, isReadOnly = false, schoolYear }) => {
 
   return (
     <div className="space-y-4">
-      {/* ==================== HEADER ==================== */}
       <div className="flex justify-between items-center">
-
-        <h2 className="text-2xl font-bold">
-          Quản lý Giáo viên
-          {schoolYear && (
-            <span className="text-sm font-normal text-gray-600 ml-3">
-              (Năm học: {schoolYear})
+        <h2 className="text-2xl font-bold flex items-center gap-2">
+          Quản lý giáo viên
+          {isReadOnly && (
+            <span className="flex items-center gap-2 text-sm font-normal text-orange-600 bg-orange-50 px-3 py-1 rounded-full">
+              <Eye size={16} />
+              Chế độ xem
             </span>
           )}
         </h2>
@@ -333,24 +327,17 @@ const TeachersView = ({ currentUser, isReadOnly = false, schoolYear }) => {
         )}
       </div>
 
-      {/* ==================== READ-ONLY WARNING ==================== */}
       {isReadOnly && (
-        <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-lg shadow-md">
-          <div className="flex items-center gap-3">
-            <AlertTriangle className="text-yellow-600 flex-shrink-0" size={24} />
+        <div className="bg-orange-50 border-l-4 border-orange-400 p-4 rounded-lg">
+          <div className="flex items-center gap-2">
+            <Eye size={20} className="text-orange-600" />
             <div>
-              <p className="text-sm font-medium text-yellow-800">
-                📚 Dữ liệu năm học đã kết thúc - Chỉ xem
-              </p>
-              <p className="text-xs text-yellow-700 mt-1">
-                Không thể thêm, sửa, xóa giáo viên. Chọn năm học active để chỉnh sửa dữ liệu.
-              </p>
+              <p className="font-medium text-orange-900">Đang xem dữ liệu năm học cũ</p>
             </div>
           </div>
         </div>
       )}
 
-      {/* ==================== IMPORT RESULT ==================== */}
       {importResult && (
         <div className="bg-white rounded-xl shadow-lg p-4">
           <div className="flex justify-between items-center mb-3">
@@ -385,7 +372,6 @@ const TeachersView = ({ currentUser, isReadOnly = false, schoolYear }) => {
         </div>
       )}
 
-      {/* ==================== ADD MODAL ==================== */}
       {showAddModal && !isReadOnly && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl shadow-2xl p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
@@ -438,23 +424,12 @@ const TeachersView = ({ currentUser, isReadOnly = false, schoolYear }) => {
                         <button
                           key={subjectId}
                           type="button"
-                          onClick={() => {
-                            if (isSelected) {
-                              setNewTeacher({
-                                ...newTeacher,
-                                subjectIds: newTeacher.subjectIds.filter(id => id !== subjectId)
-                              });
-                            } else {
-                              setNewTeacher({
-                                ...newTeacher,
-                                subjectIds: [...newTeacher.subjectIds, subjectId]
-                              });
-                            }
-                          }}
-                          className={`px-3 py-1.5 rounded-lg border-2 transition-all font-medium ${isSelected
-                            ? 'bg-blue-600 text-white border-blue-600'
-                            : 'bg-white text-gray-700 border-gray-300 hover:border-blue-400'
-                            }`}
+                          onClick={() => toggleSubject(subjectId, false)}
+                          className={`px-3 py-1.5 rounded-lg border-2 transition-all font-medium ${
+                            isSelected
+                              ? 'bg-blue-600 text-white border-blue-600'
+                              : 'bg-white text-gray-700 border-gray-300 hover:border-blue-400'
+                          }`}
                         >
                           {s.name}
                         </button>
@@ -502,7 +477,6 @@ const TeachersView = ({ currentUser, isReadOnly = false, schoolYear }) => {
         </div>
       )}
 
-      {/* ==================== EDIT FORM ==================== */}
       {editingTeacher && !isReadOnly && (
         <div className="bg-white rounded-xl shadow-lg p-6">
           <h3 className="text-lg font-semibold mb-4">Chỉnh sửa giáo viên</h3>
@@ -535,24 +509,12 @@ const TeachersView = ({ currentUser, isReadOnly = false, schoolYear }) => {
                     <button
                       key={subjectId}
                       type="button"
-                      onClick={() => {
-                        const currentSubjects = editingTeacher.subjectIds || [];
-                        if (isSelected) {
-                          setEditingTeacher({
-                            ...editingTeacher,
-                            subjectIds: currentSubjects.filter(id => id !== subjectId)
-                          });
-                        } else {
-                          setEditingTeacher({
-                            ...editingTeacher,
-                            subjectIds: [...currentSubjects, subjectId]
-                          });
-                        }
-                      }}
-                      className={`px-3 py-1.5 rounded-lg border-2 transition-all font-medium ${isSelected
-                        ? 'bg-blue-600 text-white border-blue-600'
-                        : 'bg-white text-gray-700 border-gray-300 hover:border-blue-400'
-                        }`}
+                      onClick={() => toggleSubject(subjectId, true)}
+                      className={`px-3 py-1.5 rounded-lg border-2 transition-all font-medium ${
+                        isSelected
+                          ? 'bg-blue-600 text-white border-blue-600'
+                          : 'bg-white text-gray-700 border-gray-300 hover:border-blue-400'
+                      }`}
                     >
                       {s.name}
                     </button>
@@ -592,7 +554,6 @@ const TeachersView = ({ currentUser, isReadOnly = false, schoolYear }) => {
         </div>
       )}
 
-      {/* ==================== TABLE ==================== */}
       <div className="bg-white rounded-xl shadow-lg overflow-hidden">
         <table className="w-full">
           <thead className="bg-gray-50 border-b">
