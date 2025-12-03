@@ -9,7 +9,6 @@ export const useTeachingRecord = () => {
     setLoading(true);
     setError(null);
     try {
-      // ✅ TRUYỀN CẢ teacherId VÀ schoolYear
       const response = await teachingrecordsAPI.teachingRecords(
         teacherId,
         schoolYear
