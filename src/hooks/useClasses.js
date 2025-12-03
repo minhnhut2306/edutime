@@ -4,11 +4,11 @@ import { classesAPI } from "../api/classesAPI";
 export const useClasses = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-   const fetchClasses = async (schoolYear = null) => {
+
+  const fetchClasses = async (schoolYear = null) => {
     setLoading(true);
     setError(null);
     try {
-      // ✅ TRUYỀN schoolYear vào API
       const response = await classesAPI.classes(schoolYear);
       if (response.code === 200) {
         setLoading(false);
@@ -31,6 +31,7 @@ export const useClasses = () => {
       };
     }
   };
+
   const addClass = async (classData) => {
     setLoading(true);
     setError(null);
@@ -44,6 +45,32 @@ export const useClasses = () => {
         };
       } else {
         throw new Error(response.msg || "Thêm lớp học thất bại");
+      }
+    } catch (error) {
+      const errorMessage =
+        error.response?.data?.msg || error.message || "Có lỗi xảy ra";
+      setError(errorMessage);
+      setLoading(false);
+      return {
+        success: false,
+        message: errorMessage,
+      };
+    }
+  };
+
+  const updateClass = async (classId, classData) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await classesAPI.updateClass(classId, classData);
+      if (response.code === 200) {
+        setLoading(false);
+        return {
+          success: true,
+          class: response.data,
+        };
+      } else {
+        throw new Error(response.msg || "Cập nhật lớp học thất bại");
       }
     } catch (error) {
       const errorMessage =
@@ -88,6 +115,7 @@ export const useClasses = () => {
     error,
     fetchClasses,
     addClass,
+    updateClass,
     deleteClass,
   };
 };

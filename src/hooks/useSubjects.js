@@ -4,11 +4,11 @@ import { subjectsAPI } from "../api/subjectsAPI";
 export const useSubjects = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+
   const fetchSubjects = async (schoolYear = null) => {
     setLoading(true);
     setError(null);
     try {
-      // ✅ TRUYỀN schoolYear vào API
       const response = await subjectsAPI.subjects(schoolYear);
       if (response.code === 200) {
         setLoading(false);
@@ -31,6 +31,7 @@ export const useSubjects = () => {
       };
     }
   };
+
   const addSubject = async (subjectData) => {
     setLoading(true);
     setError(null);
@@ -56,6 +57,33 @@ export const useSubjects = () => {
       };
     }
   };
+
+  const updateSubject = async (subjectId, subjectData) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await subjectsAPI.updateSubject(subjectId, subjectData);
+      if (response.code === 200) {
+        setLoading(false);
+        return {
+          success: true,
+          subject: response.data,
+        };
+      } else {
+        throw new Error(response.msg || "Cập nhật môn học thất bại");
+      }
+    } catch (error) {
+      const errorMessage =
+        error.response?.data?.msg || error.message || "Có lỗi xảy ra";
+      setError(errorMessage);
+      setLoading(false);
+      return {
+        success: false,
+        message: errorMessage,
+      };
+    }
+  };
+
   const deleteSubject = async (subjectId) => {
     setLoading(true);
     setError(null);
@@ -82,9 +110,11 @@ export const useSubjects = () => {
       };
     }
   };
+
   return {
     fetchSubjects,
     addSubject,
+    updateSubject,
     deleteSubject,
     loading,
     error,

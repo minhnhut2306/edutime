@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Edit2, Trash2, Plus, RefreshCw, X, Eye, EyeOff, Download, Upload } from 'react-feather';
+import { Edit2, Trash2, Plus, RefreshCw, X, Eye, EyeOff, Download, Edit } from 'react-feather';
 import ExcelService from '../service/ExcelService';
 import { useTeacher } from '../hooks/useTeacher';
 import { useClasses } from '../hooks/useClasses';
@@ -333,7 +333,7 @@ const TeachersView = ({ currentUser, isReadOnly = false, schoolYear }) => {
             </button>
 
             <label className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 cursor-pointer transition-colors">
-              <Upload size={20} />
+              <Edit size={20} />
               <span>Import</span>
               <input type="file" accept=".xlsx,.xls" onChange={handleImport} className="hidden" />
             </label>
@@ -653,7 +653,7 @@ const TeachersView = ({ currentUser, isReadOnly = false, schoolYear }) => {
                           className="text-blue-600 hover:text-blue-800 transition-colors"
                           title="Chỉnh sửa"
                         >
-                          <Edit2 size={16} />
+                          <Edit size={16} />
                         </button>
                         <button
                           onClick={() => handleDelete(teacher.id)}

@@ -1,12 +1,14 @@
 import React, { useEffect, useState } from 'react';
-import { Trash2, Plus, Loader, X, Eye } from 'lucide-react';
+import { Trash2, Plus, Loader, X, Eye, Edit } from 'lucide-react';
 import { useClasses } from '../hooks/useClasses';
 
 const ClassesView = ({ currentUser, isReadOnly = false, schoolYear }) => {
   const [classes, setClasses] = useState([]);
-  const { loading, error, fetchClasses, addClass, deleteClass } = useClasses();
+  const { loading, error, fetchClasses, addClass, deleteClass, updateClass } = useClasses();
   const [isLoading, setIsLoading] = useState(false);
   const [showModal, setShowModal] = useState(false);
+  const [modalMode, setModalMode] = useState('add'); 
+  const [editingClass, setEditingClass] = useState(null);
   const [className, setClassName] = useState('');
   const [studentCount, setStudentCount] = useState('');
 
@@ -22,7 +24,7 @@ const ClassesView = ({ currentUser, isReadOnly = false, schoolYear }) => {
 
   const loadClasses = async () => {
     setIsLoading(true);
-   const result = await fetchClasses(schoolYear);
+    const result = await fetchClasses(schoolYear);
     if (result.success) {
       const normalizedClasses = result.classes.map((cls, index) => ({
         ...cls,
@@ -41,13 +43,29 @@ const ClassesView = ({ currentUser, isReadOnly = false, schoolYear }) => {
       alert('Chế độ chỉ xem! Không thể thêm lớp học vào năm học cũ.');
       return;
     }
+    setModalMode('add');
+    setEditingClass(null);
     setClassName('');
     setStudentCount('');
     setShowModal(true);
   };
 
+  const handleOpenEditModal = (cls) => {
+    if (isReadOnly) {
+      alert('Chế độ chỉ xem! Không thể chỉnh sửa lớp học của năm học cũ.');
+      return;
+    }
+    setModalMode('edit');
+    setEditingClass(cls);
+    setClassName(cls.name);
+    setStudentCount(cls.studentCount.toString());
+    setShowModal(true);
+  };
+
   const handleCloseModal = () => {
     setShowModal(false);
+    setModalMode('add');
+    setEditingClass(null);
     setClassName('');
     setStudentCount('');
   };
@@ -60,21 +78,48 @@ const ClassesView = ({ currentUser, isReadOnly = false, schoolYear }) => {
       return;
     }
 
-    const result = await addClass({
-      name: className.trim(),
-      studentCount: parseInt(studentCount) || 0
-    });
-    if (result.success) {
-      const newClass = {
-        ...result.class,
-        id: result.class._id || result.class.id,
-        classCode: generateClassCode(classes.length)
-      };
-      setClasses([...classes, newClass]);
-      handleCloseModal();
-      alert('Thêm lớp học thành công!');
+    if (modalMode === 'edit') {
+      // Chỉnh sửa lớp học
+      const result = await updateClass(editingClass.id, {
+        name: className.trim(),
+        studentCount: parseInt(studentCount) || 0
+      });
+
+      if (result.success) {
+        const updatedClasses = classes.map((cls, index) => 
+          cls.id === editingClass.id 
+            ? {
+                ...result.class,
+                id: result.class._id || result.class.id,
+                classCode: generateClassCode(index)
+              }
+            : cls
+        );
+        setClasses(updatedClasses);
+        handleCloseModal();
+        alert('Cập nhật lớp học thành công!');
+      } else {
+        alert(result.message || 'Cập nhật lớp học thất bại');
+      }
     } else {
-      alert(result.message || 'Thêm lớp học thất bại');
+      // Thêm lớp học mới
+      const result = await addClass({
+        name: className.trim(),
+        studentCount: parseInt(studentCount) || 0
+      });
+
+      if (result.success) {
+        const newClass = {
+          ...result.class,
+          id: result.class._id || result.class.id,
+          classCode: generateClassCode(classes.length)
+        };
+        setClasses([...classes, newClass]);
+        handleCloseModal();
+        alert('Thêm lớp học thành công!');
+      } else {
+        alert(result.message || 'Thêm lớp học thất bại');
+      }
     }
   };
 
@@ -182,13 +227,24 @@ const ClassesView = ({ currentUser, isReadOnly = false, schoolYear }) => {
                   <td className="px-6 py-4 text-sm text-gray-500">{cls.studentCount}</td>
                   {isAdmin && !isReadOnly && (
                     <td className="px-6 py-4 text-sm">
-                      <button
-                        onClick={() => handleDelete(cls.id)}
-                        disabled={loading}
-                        className="text-red-600 hover:text-red-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                      >
-                        <Trash2 size={16} />
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => handleOpenEditModal(cls)}
+                          disabled={loading}
+                          className="text-blue-600 hover:text-blue-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                          title="Chỉnh sửa"
+                        >
+                          <Edit size={16} />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(cls.id)}
+                          disabled={loading}
+                          className="text-red-600 hover:text-red-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                          title="Xóa"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
                     </td>
                   )}
                 </tr>
@@ -202,7 +258,9 @@ const ClassesView = ({ currentUser, isReadOnly = false, schoolYear }) => {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl shadow-2xl w-full max-w-md mx-4">
             <div className="flex items-center justify-between px-6 py-4 border-b">
-              <h3 className="text-lg font-semibold text-gray-900">Thêm lớp học mới</h3>
+              <h3 className="text-lg font-semibold text-gray-900">
+                {modalMode === 'edit' ? 'Chỉnh sửa lớp học' : 'Thêm lớp học mới'}
+              </h3>
               <button
                 onClick={handleCloseModal}
                 className="text-gray-400 hover:text-gray-600 transition-colors"
@@ -220,7 +278,7 @@ const ClassesView = ({ currentUser, isReadOnly = false, schoolYear }) => {
                   type="text"
                   value={className}
                   onChange={(e) => setClassName(e.target.value)}
-                  placeholder=""
+                  placeholder="Ví dụ: 10A1, 11B2"
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors"
                   autoFocus
                 />
@@ -234,7 +292,7 @@ const ClassesView = ({ currentUser, isReadOnly = false, schoolYear }) => {
                   type="number"
                   value={studentCount}
                   onChange={(e) => setStudentCount(e.target.value)}
-                  placeholder=""
+                  placeholder="Nhập số lượng học sinh"
                   min="0"
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors"
                 />
@@ -253,7 +311,10 @@ const ClassesView = ({ currentUser, isReadOnly = false, schoolYear }) => {
                   disabled={loading}
                   className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
-                  {loading ? 'Đang thêm...' : 'Thêm lớp'}
+                  {loading 
+                    ? (modalMode === 'edit' ? 'Đang cập nhật...' : 'Đang thêm...') 
+                    : (modalMode === 'edit' ? 'Cập nhật' : 'Thêm lớp')
+                  }
                 </button>
               </div>
             </form>

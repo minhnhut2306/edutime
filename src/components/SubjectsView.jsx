@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { Trash2, Plus, Loader, X, Eye } from 'lucide-react';
+import { Trash2, Plus, Loader, X, Eye, Edit } from 'lucide-react';
 import { useSubjects } from '../hooks/useSubjects';
 
 const SubjectsView = ({ currentUser, isReadOnly = false, schoolYear }) => {
   const [subjects, setSubjects] = useState([]);
   const [showModal, setShowModal] = useState(false);
+  const [modalMode, setModalMode] = useState('add'); 
+  const [editingSubject, setEditingSubject] = useState(null);
   const [subjectName, setSubjectName] = useState('');
-  const { fetchSubjects, addSubject, deleteSubject, loading, error } = useSubjects();
+  const { fetchSubjects, addSubject, updateSubject, deleteSubject, loading, error } = useSubjects();
   const isAdmin = currentUser.role === 'admin';
 
   useEffect(() => {
@@ -15,7 +17,7 @@ const SubjectsView = ({ currentUser, isReadOnly = false, schoolYear }) => {
   }, [schoolYear]);
 
   const loadSubjects = async () => {
-     const result = await fetchSubjects(schoolYear);
+    const result = await fetchSubjects(schoolYear);
     if (result.success) {
       setSubjects(result.subjects);
     }
@@ -26,12 +28,27 @@ const SubjectsView = ({ currentUser, isReadOnly = false, schoolYear }) => {
       alert('Chế độ chỉ xem! Không thể thêm môn học vào năm học cũ.');
       return;
     }
+    setModalMode('add');
+    setEditingSubject(null);
     setSubjectName('');
+    setShowModal(true);
+  };
+
+  const handleOpenEditModal = (subject) => {
+    if (isReadOnly) {
+      alert('Chế độ chỉ xem! Không thể chỉnh sửa môn học của năm học cũ.');
+      return;
+    }
+    setModalMode('edit');
+    setEditingSubject(subject);
+    setSubjectName(subject.name);
     setShowModal(true);
   };
 
   const handleCloseModal = () => {
     setShowModal(false);
+    setModalMode('add');
+    setEditingSubject(null);
     setSubjectName('');
   };
 
@@ -43,23 +60,34 @@ const SubjectsView = ({ currentUser, isReadOnly = false, schoolYear }) => {
       return;
     }
 
-    const result = await addSubject({ name: subjectName.trim() });
-    if (result.success) {
-      await loadSubjects();
-      handleCloseModal();
-      alert('Thêm môn học thành công!');
+    if (modalMode === 'edit') {
+      const result = await updateSubject(editingSubject._id, { name: subjectName.trim() });
+      if (result.success) {
+        await loadSubjects();
+        handleCloseModal();
+        alert('Cập nhật môn học thành công!');
+      } else {
+        alert(result.message || 'Cập nhật môn học thất bại');
+      }
     } else {
-      alert(result.message || 'Thêm môn học thất bại');
+      const result = await addSubject({ name: subjectName.trim() });
+      if (result.success) {
+        await loadSubjects();
+        handleCloseModal();
+        alert('Thêm môn học thành công!');
+      } else {
+        alert(result.message || 'Thêm môn học thất bại');
+      }
     }
   };
 
-  const handleDelete = async (subjectId) => {
+  const handleDelete = async (subjectId, subjectName) => {
     if (isReadOnly) {
       alert('Chế độ chỉ xem! Không thể xóa môn học của năm học cũ.');
       return;
     }
 
-    if (!confirm('Xóa môn học này?')) return;
+    if (!confirm(`Bạn có chắc chắn muốn xóa môn học "${subjectName}"?`)) return;
 
     const result = await deleteSubject(subjectId);
     if (result.success) {
@@ -77,7 +105,7 @@ const SubjectsView = ({ currentUser, isReadOnly = false, schoolYear }) => {
   if (loading && subjects.length === 0) {
     return (
       <div className="flex justify-center items-center h-64">
-        <Loader className="animate-spin" size={32} />
+        <Loader className="animate-spin text-blue-600" size={48} />
       </div>
     );
   }
@@ -98,7 +126,7 @@ const SubjectsView = ({ currentUser, isReadOnly = false, schoolYear }) => {
           <button
             onClick={handleOpenModal}
             disabled={loading}
-            className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             {loading ? <Loader className="animate-spin" size={20} /> : <Plus size={20} />}
             Thêm
@@ -112,7 +140,6 @@ const SubjectsView = ({ currentUser, isReadOnly = false, schoolYear }) => {
             <Eye size={20} className="text-orange-600" />
             <div>
               <p className="font-medium text-orange-900">Đang xem dữ liệu năm học cũ</p>
-            
             </div>
           </div>
         </div>
@@ -142,20 +169,31 @@ const SubjectsView = ({ currentUser, isReadOnly = false, schoolYear }) => {
               </tr>
             ) : (
               subjects.map((subject, index) => (
-                <tr key={subject._id} className="hover:bg-gray-50">
+                <tr key={subject._id} className="hover:bg-gray-50 transition-colors">
                   <td className="px-6 py-4 text-sm font-medium text-gray-900">
                     {generateSubjectCode(index)}
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-900">{subject.name}</td>
                   {isAdmin && !isReadOnly && (
                     <td className="px-6 py-4 text-sm">
-                      <button
-                        onClick={() => handleDelete(subject._id)}
-                        disabled={loading}
-                        className="text-red-600 hover:text-red-800 disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        <Trash2 size={16} />
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => handleOpenEditModal(subject)}
+                          disabled={loading}
+                          className="text-blue-600 hover:text-blue-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                          title="Chỉnh sửa"
+                        >
+                          <Edit size={16} />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(subject._id, subject.name)}
+                          disabled={loading}
+                          className="text-red-600 hover:text-red-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                          title="Xóa"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
                     </td>
                   )}
                 </tr>
@@ -164,11 +202,14 @@ const SubjectsView = ({ currentUser, isReadOnly = false, schoolYear }) => {
           </tbody>
         </table>
       </div>
+
       {showModal && !isReadOnly && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl shadow-2xl w-full max-w-md mx-4">
             <div className="flex items-center justify-between px-6 py-4 border-b">
-              <h3 className="text-lg font-semibold text-gray-900">Thêm môn học mới</h3>
+              <h3 className="text-lg font-semibold text-gray-900">
+                {modalMode === 'edit' ? 'Chỉnh sửa môn học' : 'Thêm môn học mới'}
+              </h3>
               <button
                 onClick={handleCloseModal}
                 className="text-gray-400 hover:text-gray-600 transition-colors"
@@ -186,7 +227,7 @@ const SubjectsView = ({ currentUser, isReadOnly = false, schoolYear }) => {
                   type="text"
                   value={subjectName}
                   onChange={(e) => setSubjectName(e.target.value)}
-                  placeholder=""
+                  placeholder="Ví dụ: Toán, Văn, Anh"
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors"
                   autoFocus
                 />
@@ -205,7 +246,10 @@ const SubjectsView = ({ currentUser, isReadOnly = false, schoolYear }) => {
                   disabled={loading}
                   className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
-                  {loading ? 'Đang thêm...' : 'Thêm môn'}
+                  {loading 
+                    ? (modalMode === 'edit' ? 'Đang cập nhật...' : 'Đang thêm...') 
+                    : (modalMode === 'edit' ? 'Cập nhật' : 'Thêm môn')
+                  }
                 </button>
               </div>
             </form>

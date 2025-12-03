@@ -11,8 +11,8 @@ const Sidebar = ({ currentView, setCurrentView, currentUser }) => {
       <button
         onClick={() => setCurrentView(view)}
         className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all w-full ${currentView === view
-            ? 'bg-blue-600 text-white shadow-lg'
-            : 'text-gray-700 hover:bg-gray-100'
+          ? 'bg-blue-600 text-white shadow-lg'
+          : 'text-gray-700 hover:bg-gray-100'
           }`}
       >
         <Icon size={20} />
@@ -31,10 +31,11 @@ const Sidebar = ({ currentView, setCurrentView, currentUser }) => {
       <NavButton icon={BarChart2} label="Tổng quan" view="dashboard" />
       {isAdmin && (
         <>
-          <NavButton icon={Users} label="Giáo viên" view="teachers" />
+
           <NavButton icon={BookOpen} label="Lớp học" view="classes" />
           <NavButton icon={FileText} label="Môn học" view="subjects" />
-          <NavButton icon={Clock} label="Tuần học" view="weeks" />  {}
+          <NavButton icon={Clock} label="Tuần học" view="weeks" />
+          <NavButton icon={Users} label="Giáo viên" view="teachers" /> { }
         </>
       )}
       <NavButton icon={Edit2} label="Nhập tiết dạy" view="input" />
