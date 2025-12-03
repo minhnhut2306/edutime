@@ -7,7 +7,7 @@ import TeachersView from '../components/TeachersView';
 import ClassesView from '../components/ClassesView';
 import StorageService from '../service/StorageService';
 import SubjectsView from '../components/SubjectsView';
-import TeachingInputView from '../components/TeachingInputView';
+import TeachingInputView from '../components/TeachingInput/TeachingInputView';
 import UserManagementView from '../components/UserManagementView';
 import LoginView from '../components/LoginView';
 import RegisterView from '../components/RegisterView';
