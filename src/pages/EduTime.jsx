@@ -4,7 +4,7 @@ import Header from '../components/Header';
 import Sidebar from '../components/Sidebar';
 import DashboardView from '../components/DashboardView';
 import TeachersView from '../components/TeachersView';
-import ClassesView from '../components/ClassesView';
+import ClassesView from '../components/Classes/ClassesView';
 import StorageService from '../service/StorageService';
 import SubjectsView from '../components/SubjectsView';
 import TeachingInputView from '../components/TeachingInput/TeachingInputView';
