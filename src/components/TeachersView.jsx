@@ -79,6 +79,7 @@ const TeachersView = ({ currentUser, isReadOnly = false, schoolYear }) => {
 
   useEffect(() => {
     loadAllData();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [schoolYear]);
 
   const maskEmail = (email) => {
@@ -142,16 +143,19 @@ const TeachersView = ({ currentUser, isReadOnly = false, schoolYear }) => {
       return;
     }
 
-    if (!newTeacher.mainClassId) {
-      alert('Vui lòng chọn lớp chủ nhiệm!');
-      return;
-    }
+    const normalizedPhone = newTeacher.phone && newTeacher.phone.trim() !== '' 
+      ? newTeacher.phone.trim() 
+      : undefined;
+
+    const normalizedMainClassId = newTeacher.mainClassId && newTeacher.mainClassId.trim() !== ''
+      ? newTeacher.mainClassId.trim()
+      : undefined;
 
     const teacherData = {
       name: newTeacher.name.trim(),
-      phone: newTeacher.phone ? newTeacher.phone.trim() : undefined,
+      phone: normalizedPhone,
       subjectIds: validSubjectIds,
-      mainClassId: newTeacher.mainClassId.trim(),
+      mainClassId: normalizedMainClassId,
     };
 
     const result = await addTeacher(teacherData);
@@ -176,11 +180,29 @@ const TeachersView = ({ currentUser, isReadOnly = false, schoolYear }) => {
   const handleSaveEdit = async () => {
     if (!editingTeacher) return;
 
+    if (!editingTeacher.name || editingTeacher.name.trim() === '') {
+      alert('Họ tên giáo viên không được để trống!');
+      return;
+    }
+
+    if (!editingTeacher.subjectIds || editingTeacher.subjectIds.length === 0) {
+      alert('Vui lòng chọn ít nhất một môn học!');
+      return;
+    }
+
+    const normalizedPhone = editingTeacher.phone && editingTeacher.phone.trim() !== '' 
+      ? editingTeacher.phone.trim() 
+      : '';
+
+    const normalizedMainClassId = editingTeacher.mainClassId && editingTeacher.mainClassId.trim() !== ''
+      ? editingTeacher.mainClassId.trim()
+      : '';
+
     const result = await updateTeacher(editingTeacher.id, {
-      name: editingTeacher.name,
-      phone: editingTeacher.phone,
+      name: editingTeacher.name.trim(),
+      phone: normalizedPhone,
       subjectIds: editingTeacher.subjectIds,
-      mainClassId: editingTeacher.mainClassId,
+      mainClassId: normalizedMainClassId,
     });
 
     if (result.success) {
@@ -408,7 +430,7 @@ const TeachersView = ({ currentUser, isReadOnly = false, schoolYear }) => {
                     value={newTeacher.phone}
                     onChange={(e) => setNewTeacher({ ...newTeacher, phone: e.target.value })}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="0123456789"
+                    placeholder="0123456789 (có thể bỏ trống)"
                   />
                 </div>
 
@@ -440,16 +462,13 @@ const TeachersView = ({ currentUser, isReadOnly = false, schoolYear }) => {
                 </div>
 
                 <div className="col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Lớp chủ nhiệm <span className="text-red-500">*</span>
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Lớp chủ nhiệm</label>
                   <select
                     value={newTeacher.mainClassId}
                     onChange={(e) => setNewTeacher({ ...newTeacher, mainClassId: e.target.value })}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    required
                   >
-                    <option value="">-- Chọn lớp chủ nhiệm --</option>
+                    <option value="">-- Không chủ nhiệm lớp nào --</option>
                     {classes.map(c => (
                       <option key={c._id || c.id} value={c._id || c.id}>{c.name}</option>
                     ))}
@@ -482,7 +501,9 @@ const TeachersView = ({ currentUser, isReadOnly = false, schoolYear }) => {
           <h3 className="text-lg font-semibold mb-4">Chỉnh sửa giáo viên</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Họ và tên</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Họ và tên <span className="text-red-500">*</span>
+              </label>
               <input
                 type="text"
                 value={editingTeacher.name}
@@ -497,10 +518,13 @@ const TeachersView = ({ currentUser, isReadOnly = false, schoolYear }) => {
                 value={editingTeacher.phone}
                 onChange={(e) => setEditingTeacher({ ...editingTeacher, phone: e.target.value })}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                placeholder="Có thể bỏ trống"
               />
             </div>
             <div className="col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-2">Các môn dạy (chọn nhiều môn)</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Các môn dạy (chọn nhiều môn) <span className="text-red-500">*</span>
+              </label>
               <div className="flex flex-wrap gap-2 p-3 border border-gray-300 rounded-lg bg-gray-50">
                 {subjects.map(s => {
                   const subjectId = s._id || s.id;
@@ -530,7 +554,7 @@ const TeachersView = ({ currentUser, isReadOnly = false, schoolYear }) => {
                 onChange={(e) => setEditingTeacher({ ...editingTeacher, mainClassId: e.target.value })}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
               >
-                <option value="">-- Chọn lớp --</option>
+                <option value="">-- Không chủ nhiệm lớp nào --</option>
                 {classes.map(c => (
                   <option key={c._id || c.id} value={c._id || c.id}>{c.name}</option>
                 ))}
