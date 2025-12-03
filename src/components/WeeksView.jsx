@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar, Edit2, Trash2, Plus, Loader, Eye } from 'lucide-react';
+import { Calendar, Edit, Trash2, Plus, Loader, Eye } from 'lucide-react';
 import { useWeeks } from '../hooks/useWeek';
 
 const MAX_WEEKS = 35;
@@ -338,7 +338,7 @@ const WeeksView = ({ currentUser, schoolYear, isReadOnly = false }) => {
                             className="text-blue-600 hover:text-blue-800 disabled:opacity-50"
                             title="Chỉnh sửa"
                           >
-                            <Edit2 size={16} />
+                            <Edit size={16} />
                           </button>
                           <button
                             onClick={() => handleDelete(week._id)}
