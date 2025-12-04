@@ -5,19 +5,19 @@ const FiltersBar = ({
   setGroupBy,
   quickFilterMode,
   setQuickFilterMode,
-  teachers,
-  weeks,
-  availableClasses,
-  subjects,
-  selectedTeacherId,
+  teachers = [],
+  weeks = [],
+  availableClasses = [],
+  subjects = [],
+  selectedTeacherId = "",
   setSelectedTeacherId,
-  selectedWeekId,
+  selectedWeekId = "",
   setSelectedWeekId,
-  selectedClassId,
+  selectedClassId = "",
   setSelectedClassId,
-  selectedSubjectId,
+  selectedSubjectId = "",
   setSelectedSubjectId,
-  recordType,
+  recordType = "teaching",
   setRecordType,
 }) => {
   return (
@@ -38,11 +38,11 @@ const FiltersBar = ({
           value={quickFilterMode}
           onChange={(e) => {
             setQuickFilterMode(e.target.value);
-            if (e.target.value !== "teacher") setSelectedTeacherId("");
-            if (e.target.value !== "week") setSelectedWeekId("");
-            if (e.target.value !== "class") setSelectedClassId("");
-            if (e.target.value !== "subject") setSelectedSubjectId("");
-            if (e.target.value !== "recordType") setRecordType("teaching");
+            if (e.target.value !== "teacher" && setSelectedTeacherId) setSelectedTeacherId("");
+            if (e.target.value !== "week" && setSelectedWeekId) setSelectedWeekId("");
+            if (e.target.value !== "class" && setSelectedClassId) setSelectedClassId("");
+            if (e.target.value !== "subject" && setSelectedSubjectId) setSelectedSubjectId("");
+            if (e.target.value !== "recordType" && setRecordType) setRecordType("teaching");
           }}
           className="px-3 py-2 border rounded-lg"
         >
@@ -57,7 +57,11 @@ const FiltersBar = ({
 
       <div className="flex items-center gap-3 w-full md:w-auto">
         {quickFilterMode === "teacher" && (
-          <select value={selectedTeacherId} onChange={(e) => setSelectedTeacherId(e.target.value)} className="px-3 py-2 border rounded-lg">
+          <select 
+            value={selectedTeacherId} 
+            onChange={(e) => setSelectedTeacherId && setSelectedTeacherId(e.target.value)} 
+            className="px-3 py-2 border rounded-lg"
+          >
             <option value="">-- Chọn giáo viên (Tất cả) --</option>
             {teachers.map((t) => (
               <option key={t.id} value={t.id}>
@@ -68,7 +72,11 @@ const FiltersBar = ({
         )}
 
         {quickFilterMode === "week" && (
-          <select value={selectedWeekId} onChange={(e) => setSelectedWeekId(e.target.value)} className="px-3 py-2 border rounded-lg">
+          <select 
+            value={selectedWeekId} 
+            onChange={(e) => setSelectedWeekId && setSelectedWeekId(e.target.value)} 
+            className="px-3 py-2 border rounded-lg"
+          >
             <option value="">-- Chọn tuần (Tất cả) --</option>
             {weeks.map((w) => (
               <option key={w.id} value={w.id}>
@@ -79,7 +87,11 @@ const FiltersBar = ({
         )}
 
         {quickFilterMode === "class" && (
-          <select value={selectedClassId} onChange={(e) => setSelectedClassId(e.target.value)} className="px-3 py-2 border rounded-lg">
+          <select 
+            value={selectedClassId} 
+            onChange={(e) => setSelectedClassId && setSelectedClassId(e.target.value)} 
+            className="px-3 py-2 border rounded-lg"
+          >
             <option value="">-- Chọn lớp (Tất cả) --</option>
             {availableClasses.map((c) => (
               <option key={c.id} value={c.id}>
@@ -90,7 +102,11 @@ const FiltersBar = ({
         )}
 
         {quickFilterMode === "subject" && (
-          <select value={selectedSubjectId} onChange={(e) => setSelectedSubjectId(e.target.value)} className="px-3 py-2 border rounded-lg">
+          <select 
+            value={selectedSubjectId} 
+            onChange={(e) => setSelectedSubjectId && setSelectedSubjectId(e.target.value)} 
+            className="px-3 py-2 border rounded-lg"
+          >
             <option value="">-- Chọn môn (Tất cả) --</option>
             {subjects.map((s) => (
               <option key={s.id} value={s.id}>
@@ -101,7 +117,11 @@ const FiltersBar = ({
         )}
 
         {quickFilterMode === "recordType" && (
-          <select value={recordType} onChange={(e) => setRecordType(e.target.value)} className="px-3 py-2 border rounded-lg">
+          <select 
+            value={recordType} 
+            onChange={(e) => setRecordType && setRecordType(e.target.value)} 
+            className="px-3 py-2 border rounded-lg"
+          >
             <option value="teaching">Giảng dạy</option>
             <option value="tn-hn1">TN-HN 1</option>
             <option value="tn-hn2">TN-HN 2</option>

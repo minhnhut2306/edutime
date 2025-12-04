@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { RefreshCw } from 'react-feather';
+import { Loader } from 'react-feather';
 import { useTeacher } from '../../hooks/useTeacher';
 import { useClasses } from '../../hooks/useClasses';
 import { useSubjects } from '../../hooks/useSubjects';
@@ -19,6 +19,7 @@ const TeachersView = ({ currentUser, isReadOnly = false, schoolYear }) => {
   const [importResult, setImportResult] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [pagination, setPagination] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
   const [newTeacher, setNewTeacher] = useState({
     name: '',
     phone: '',
@@ -26,12 +27,14 @@ const TeachersView = ({ currentUser, isReadOnly = false, schoolYear }) => {
     mainClassId: '',
   });
 
-  const { fetchTeachers, addTeacher, updateTeacher, deleteTeacher, importTeachers, loading: loadingTeachers, error: errorTeachers } = useTeacher();
-  const { fetchClasses, loading: loadingClasses } = useClasses();
-  const { fetchSubjects, loading: loadingSubjects } = useSubjects();
+  const { fetchTeachers, addTeacher, updateTeacher, deleteTeacher, importTeachers, error: errorTeachers } = useTeacher();
+  const { fetchClasses } = useClasses();
+  const { fetchSubjects } = useSubjects();
 
   const loadAllData = async () => {
+    setIsLoading(true);
     await Promise.all([loadTeachers(), loadClasses(), loadSubjects()]);
+    setIsLoading(false);
   };
 
   const loadTeachers = async (page = currentPage) => {
@@ -201,7 +204,6 @@ const TeachersView = ({ currentUser, isReadOnly = false, schoolYear }) => {
       if (result.success) {
         alert('Xóa giáo viên thành công!');
         
-        // Nếu xóa item cuối cùng của trang hiện tại và không phải trang 1, quay về trang trước
         if (teachers.length === 1 && currentPage > 1) {
           setCurrentPage(currentPage - 1);
         } else {
@@ -240,15 +242,10 @@ const TeachersView = ({ currentUser, isReadOnly = false, schoolYear }) => {
     e.target.value = '';
   };
 
-  const loading = loadingTeachers || loadingClasses || loadingSubjects;
-
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-center">
-          <RefreshCw className="animate-spin mx-auto mb-2" size={32} />
-          <p className="text-gray-600">Đang tải dữ liệu...</p>
-        </div>
+        <Loader className="animate-spin text-blue-600" size={48} />
       </div>
     );
   }

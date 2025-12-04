@@ -12,6 +12,7 @@ const WeeksView = ({ currentUser, schoolYear, isReadOnly = false }) => {
   const [pagination, setPagination] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalWeeks, setTotalWeeks] = useState(0);
+  const [isLoading, setIsLoading] = useState(false);
   const { fetchWeeks, addWeek, updateWeek, deleteWeek, loading, error } = useWeeks();
   const isAdmin = currentUser.role === 'admin';
   const [editingWeek, setEditingWeek] = useState(null);
@@ -23,13 +24,17 @@ const WeeksView = ({ currentUser, schoolYear, isReadOnly = false }) => {
   }, [schoolYear]);
 
   const loadWeeks = async (page = currentPage) => {
+    setIsLoading(true);
     const result = await fetchWeeks(schoolYear, page, itemsPerPage);
     if (result.success) {
       setWeeks(result.weeks);
       setPagination(result.pagination);
       setTotalWeeks(result.pagination.totalItems);
       setCurrentPage(page);
+    } else {
+      alert(result.message || 'Không thể tải danh sách tuần học');
     }
+    setIsLoading(false);
   };
 
   const handlePageChange = (newPage) => {
@@ -57,6 +62,7 @@ const WeeksView = ({ currentUser, schoolYear, isReadOnly = false }) => {
       endDate: sunday.toISOString().split('T')[0]
     };
   };
+
   const handleQuickAdd = async () => {
     if (isReadOnly) {
       alert('Chế độ chỉ xem! Không thể thêm tuần học vào năm học cũ.');
@@ -228,10 +234,10 @@ const WeeksView = ({ currentUser, schoolYear, isReadOnly = false }) => {
     }
   };
 
-  if (loading && weeks.length === 0) {
+  if (isLoading) {
     return (
-      <div className="flex justify-center items-center h-64">
-        <Loader className="animate-spin" size={32} />
+      <div className="flex items-center justify-center h-64">
+        <Loader className="animate-spin text-blue-600" size={48} />
       </div>
     );
   }

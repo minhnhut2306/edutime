@@ -5,24 +5,29 @@ export const useTeachingRecord = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  const fetchTeachingRecords = async (teacherId, schoolYear = null) => {
+  const fetchTeachingRecords = async (teacherId, schoolYear = null, filters = {}, pagination = {}) => {
     setLoading(true);
     setError(null);
     try {
       const response = await teachingrecordsAPI.teachingRecords(
         teacherId,
-        schoolYear
+        schoolYear,
+        filters,
+        pagination
       );
 
       if (response.code === 200 || response.success) {
         setLoading(false);
 
-        const teachingRecords =
-          response.data || response.teachingRecords || response;
+        // Handle both data structures
+        const data = response.data || response;
+        const records = data.records || data.teachingRecords || data || [];
+        const paginationData = data.pagination || {};
+
         return {
           success: true,
-          teachingRecords:
-            teachingRecords.teachingRecords || teachingRecords || [],
+          teachingRecords: records,
+          pagination: paginationData
         };
       } else {
         throw new Error(
@@ -43,6 +48,7 @@ export const useTeachingRecord = () => {
         success: false,
         message: errorMessage,
         teachingRecords: [],
+        pagination: {}
       };
     }
   };

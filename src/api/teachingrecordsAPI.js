@@ -1,13 +1,9 @@
-// src/api/teachingrecordsAPI.js
-
 import { apiRequest } from "./baseApi";
 
 export const teachingrecordsAPI = {
-  // ✅ FIX: Thêm tham số schoolYear
-  teachingRecords: async (teacherId, schoolYear = null) => {
+  teachingRecords: async (teacherId, schoolYear = null, filters = {}, pagination = {}) => {
     const token = localStorage.getItem("token");
     
-    // ✅ BUILD QUERY STRING
     let url = `teaching-records`;
     const params = new URLSearchParams();
     
@@ -15,9 +11,38 @@ export const teachingrecordsAPI = {
       params.append('teacherId', teacherId);
     }
     
-    // ✅ NẾU CÓ schoolYear, THÊM VÀO QUERY
     if (schoolYear) {
       params.append('schoolYear', schoolYear);
+    }
+
+    // Add filter params
+    if (filters.weekId) {
+      params.append('weekId', filters.weekId);
+    }
+    
+    if (filters.classId) {
+      params.append('classId', filters.classId);
+    }
+    
+    if (filters.subjectId) {
+      params.append('subjectId', filters.subjectId);
+    }
+    
+    if (filters.recordType) {
+      params.append('recordType', filters.recordType);
+    }
+    
+    if (filters.semester) {
+      params.append('semester', filters.semester);
+    }
+
+    // Add pagination params
+    if (pagination.page) {
+      params.append('page', pagination.page);
+    }
+    
+    if (pagination.limit) {
+      params.append('limit', pagination.limit);
     }
     
     const queryString = params.toString();

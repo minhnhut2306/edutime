@@ -1,6 +1,6 @@
 /* eslint-disable no-unused-vars */
 import React, { useState, useEffect } from "react";
-import { Eye, Lock } from "react-feather";
+import { Eye, Lock, Plus, Filter } from "react-feather";
 import { useTeachingRecord } from "../../hooks/useTeachingRecord";
 import { useClasses } from "../../hooks/useClasses";
 import { useSubjects } from "../../hooks/useSubjects";
@@ -25,6 +25,10 @@ const TeachingInputView = ({ initialTeachingRecords = [], schoolYear, isReadOnly
   const [subjects, setSubjects] = useState([]);
   const [weeks, setWeeks] = useState([]);
   const [teachingRecords, setTeachingRecords] = useState(initialTeachingRecords || []);
+
+  // Toggle states
+  const [showForm, setShowForm] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
 
   // filters/form state
   const [selectedWeekId, setSelectedWeekId] = useState("");
@@ -202,6 +206,10 @@ const TeachingInputView = ({ initialTeachingRecords = [], schoolYear, isReadOnly
     setPeriods(record.periods);
     setRecordType(record.recordType || "teaching");
     setNotes(record.notes || "");
+    
+    // Auto show form when editing
+    setShowForm(true);
+    
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
@@ -312,14 +320,6 @@ const TeachingInputView = ({ initialTeachingRecords = [], schoolYear, isReadOnly
     }
   };
 
-  const subjectBelongsToSelectedTeacher = (sid) => {
-    if (!formTeacherId) return false;
-    const t = teachers.find((tt) => tt.id === formTeacherId);
-    if (!t) return false;
-    return (t.subjectIds || []).includes(sid);
-  };
-
-  // provide grouping utility used by RecordsList
   const groupRecords = (key) => {
     const groups = new Map();
     const list = isAdmin ? filteredRecords : filteredRecords.filter((r) => r.teacherId === selectedTeacherId);
@@ -330,10 +330,7 @@ const TeachingInputView = ({ initialTeachingRecords = [], schoolYear, isReadOnly
 
       if (key === "teacher") {
         gKey = r.teacherId || "unknown";
-        label =
-          r.teacherData?.name ||
-          teachers.find((t) => t.id === r.teacherId)?.name ||
-          "Chưa rõ";
+        label = r.teacherData?.name || teachers.find((t) => t.id === r.teacherId)?.name || "Chưa rõ";
       } else if (key === "week") {
         gKey = r.weekId || "unknown";
         const wn = r.weekData?.weekNumber || weeks.find((w) => w.id === r.weekId)?.weekNumber;
@@ -358,9 +355,10 @@ const TeachingInputView = ({ initialTeachingRecords = [], schoolYear, isReadOnly
 
   return (
     <div className="space-y-4">
+      {/* Header with Toggle Buttons */}
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-2xl font-bold flex items-center gap-3">
-          {isEditing ? "Chỉnh sửa bản ghi" : "Nhập tiết dạy"}
+          Nhập tiết dạy
           {isReadOnly && (
             <span className="flex items-center gap-2 text-sm font-normal text-orange-600 bg-orange-50 px-3 py-1 rounded-full">
               <Eye size={16} />
@@ -368,8 +366,49 @@ const TeachingInputView = ({ initialTeachingRecords = [], schoolYear, isReadOnly
             </span>
           )}
         </h2>
+
+        {/* Toggle Buttons */}
+        {!isReadOnly && (
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setShowForm(!showForm)}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition ${
+                showForm
+                  ? "bg-blue-600 text-white hover:bg-blue-700"
+                  : "bg-white border border-gray-300 text-gray-700 hover:bg-gray-50"
+              }`}
+            >
+              <Plus size={18} />
+              {showForm ? "Ẩn Form" : "Thêm mới"}
+            </button>
+
+            <button
+              onClick={() => {
+                if (showFilters) {
+                  // Đang mở -> Đóng và reset filters
+                  setQuickFilterMode("all");
+                  setSelectedTeacherId(isAdmin ? "" : selectedTeacherId);
+                  setSelectedWeekId("");
+                  setSelectedClassId("");
+                  setSelectedSubjectId("");
+                  setRecordType("teaching");
+                }
+                setShowFilters(!showFilters);
+              }}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition ${
+                showFilters
+                  ? "bg-green-600 text-white hover:bg-green-700"
+                  : "bg-white border border-gray-300 text-gray-700 hover:bg-gray-50"
+              }`}
+            >
+              <Filter size={18} />
+              {showFilters ? "Ẩn Lọc" : "Bộ lọc"}
+            </button>
+          </div>
+        )}
       </div>
 
+      {/* Warnings */}
       {isReadOnly && (
         <div className="bg-orange-50 border-l-4 border-orange-400 p-4 rounded-lg">
           <div className="flex items-center gap-2">
@@ -401,58 +440,67 @@ const TeachingInputView = ({ initialTeachingRecords = [], schoolYear, isReadOnly
         </div>
       )}
 
-      {!isReadOnly && (
-        <TeachingForm
-          isAdmin={isAdmin}
-          isEditing={isEditing}
-          isReadOnly={isReadOnly}
-          teachers={teachers}
-          weeks={weeks}
-          subjects={subjects}
-          classes={classes}
-          availableClasses={availableClasses}
-          allowedGrades={allowedGrades}
-          formTeacherId={formTeacherId}
-          setFormTeacherId={setFormTeacherId}
-          selectedWeekId={selectedWeekId}
-          setSelectedWeekId={setSelectedWeekId}
-          selectedClassId={selectedClassId}
-          setSelectedClassId={setSelectedClassId}
-          selectedSubjectId={selectedSubjectId}
-          setSelectedSubjectId={setSelectedSubjectId}
-          periods={periods}
-          setPeriods={setPeriods}
-          recordType={recordType}
-          setRecordType={setRecordType}
-          notes={notes}
-          setNotes={setNotes}
-          onAddOrSave={isEditing ? handleSave : handleAdd}
-          onCancel={handleCancelEdit}
-          hasGradeRestriction={hasGradeRestriction}
-        />
+      {/* Form - Collapsible */}
+      {!isReadOnly && showForm && (
+        <div className="animate-slideIn">
+          <TeachingForm
+            isAdmin={isAdmin}
+            isEditing={isEditing}
+            isReadOnly={isReadOnly}
+            teachers={teachers}
+            weeks={weeks}
+            subjects={subjects}
+            classes={classes}
+            availableClasses={availableClasses}
+            allowedGrades={allowedGrades}
+            formTeacherId={formTeacherId}
+            setFormTeacherId={setFormTeacherId}
+            selectedWeekId={selectedWeekId}
+            setSelectedWeekId={setSelectedWeekId}
+            selectedClassId={selectedClassId}
+            setSelectedClassId={setSelectedClassId}
+            selectedSubjectId={selectedSubjectId}
+            setSelectedSubjectId={setSelectedSubjectId}
+            periods={periods}
+            setPeriods={setPeriods}
+            recordType={recordType}
+            setRecordType={setRecordType}
+            notes={notes}
+            setNotes={setNotes}
+            onAddOrSave={isEditing ? handleSave : handleAdd}
+            onCancel={handleCancelEdit}
+            hasGradeRestriction={hasGradeRestriction}
+          />
+        </div>
       )}
 
-      <FiltersBar
-        groupBy={groupBy}
-        setGroupBy={setGroupBy}
-        quickFilterMode={quickFilterMode}
-        setQuickFilterMode={setQuickFilterMode}
-        teachers={teachers}
-        weeks={weeks}
-        availableClasses={availableClasses}
-        subjects={subjects}
-        selectedTeacherId={selectedTeacherId}
-        setSelectedTeacherId={setSelectedTeacherId}
-        selectedWeekId={selectedWeekId}
-        setSelectedWeekId={setSelectedWeekId}
-        selectedClassId={selectedClassId}
-        setSelectedClassId={setSelectedClassId}
-        selectedSubjectId={selectedSubjectId}
-        setSelectedSubjectId={setSelectedSubjectId}
-        recordType={recordType}
-        setRecordType={setRecordType}
-      />
+      {/* Filters - Collapsible */}
+      {showFilters && (
+        <div className="animate-slideIn">
+          <FiltersBar
+            groupBy={groupBy}
+            setGroupBy={setGroupBy}
+            quickFilterMode={quickFilterMode}
+            setQuickFilterMode={setQuickFilterMode}
+            teachers={teachers}
+            weeks={weeks}
+            availableClasses={availableClasses}
+            subjects={subjects}
+            selectedTeacherId={selectedTeacherId}
+            setSelectedTeacherId={setSelectedTeacherId}
+            selectedWeekId={selectedWeekId}
+            setSelectedWeekId={setSelectedWeekId}
+            selectedClassId={selectedClassId}
+            setSelectedClassId={setSelectedClassId}
+            selectedSubjectId={selectedSubjectId}
+            setSelectedSubjectId={setSelectedSubjectId}
+            recordType={recordType}
+            setRecordType={setRecordType}
+          />
+        </div>
+      )}
 
+      {/* Records List */}
       <RecordsList
         records={myRecords}
         groupBy={groupBy}

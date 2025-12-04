@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Download, BarChart3, Mail } from 'lucide-react';
+import { Download, BarChart3, Mail, Loader } from 'lucide-react';
 import { useReports } from '../../hooks/useReports';
 import { useTeachingRecord } from '../../hooks/useTeachingRecord';
 import { AdminExportSettings } from './AdminExportSettings';
@@ -10,6 +10,7 @@ const ReportView = ({ teachers = [], teachingRecords: initialRecords = [], weeks
   const isAdmin = currentUser?.role === 'admin';
   const [teachingRecords, setTeachingRecords] = useState(initialRecords || []);
   const [loadingRecords, setLoadingRecords] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   const currentSchoolYear = typeof schoolYear === 'object' ? schoolYear?.year : schoolYear;
 
@@ -36,6 +37,14 @@ const ReportView = ({ teachers = [], teachingRecords: initialRecords = [], weeks
     weekIds: [],
     semester: 1,
   });
+
+  useEffect(() => {
+    if (teachers.length > 0 && weeks.length > 0) {
+      setIsLoading(false);
+    } else {
+      setIsLoading(true);
+    }
+  }, [teachers, weeks]);
 
   useEffect(() => {
     if (!selectedTeacherId) {
@@ -67,6 +76,14 @@ const ReportView = ({ teachers = [], teachingRecords: initialRecords = [], weeks
       setSelectedTeacherId(linkedTeacher.id || linkedTeacher._id);
     }
   }, [linkedTeacher, isAdmin, selectedTeacherId]);
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader className="animate-spin text-blue-600" size={48} />
+      </div>
+    );
+  }
 
   if (!isAdmin && !linkedTeacher) {
     return (
