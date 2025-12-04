@@ -24,7 +24,13 @@ const TeachingInputView = ({ initialTeachingRecords = [], schoolYear, isReadOnly
   const [classes, setClasses] = useState([]);
   const [subjects, setSubjects] = useState([]);
   const [weeks, setWeeks] = useState([]);
-  const [teachingRecords, setTeachingRecords] = useState(initialTeachingRecords || []);
+  const [teachingRecords, setTeachingRecords] = useState([]);
+  const [pagination, setPagination] = useState({
+    page: 1,
+    limit: 10,
+    total: 0,
+    totalPages: 0
+  });
 
   // Toggle states
   const [showForm, setShowForm] = useState(false);
@@ -118,30 +124,89 @@ const TeachingInputView = ({ initialTeachingRecords = [], schoolYear, isReadOnly
     })();
   }, []);
 
-  const loadTeachingRecords = async (teacherId) => {
+  // Load teaching records with filters and pagination
+  const loadTeachingRecords = async (page = 1) => {
     try {
-      const res = await fetchTeachingRecords(teacherId, schoolYear);
+      const teacherIdToFetch = isAdmin ? (selectedTeacherId || undefined) : selectedTeacherId || undefined;
+      
+      // Build filters object based on quickFilterMode
+      const filters = {};
+      if (quickFilterMode === "week" && selectedWeekId) {
+        filters.weekId = selectedWeekId;
+      }
+      if (quickFilterMode === "class" && selectedClassId) {
+        filters.classId = selectedClassId;
+      }
+      if (quickFilterMode === "subject" && selectedSubjectId) {
+        filters.subjectId = selectedSubjectId;
+      }
+      if (quickFilterMode === "recordType" && recordType) {
+        filters.recordType = recordType;
+      }
+
+      const paginationParams = {
+        page,
+        limit: pagination.limit
+      };
+
+      const res = await fetchTeachingRecords(
+        teacherIdToFetch,
+        schoolYear,
+        filters,
+        paginationParams
+      );
+
       if (!res) return;
 
-      let raw = [];
-      if (res.success && Array.isArray(res.teachingRecords)) raw = res.teachingRecords;
-      else if (res.success && Array.isArray(res.data)) raw = res.data;
-      else if (res.success && res.data && Array.isArray(res.data.teachingRecords)) raw = res.data.teachingRecords;
-      else if (Array.isArray(res)) raw = res;
+      let records = [];
+      let paginationData = {
+        page: 1,
+        limit: 10,
+        total: 0,
+        totalPages: 0
+      };
 
-      const filtered = raw.filter(r => r.schoolYear ? r.schoolYear === schoolYear : true);
+      if (res.success) {
+        // Handle different response structures
+        if (res.data && res.data.records) {
+          records = res.data.records;
+          paginationData = res.data.pagination || paginationData;
+        } else if (Array.isArray(res.teachingRecords)) {
+          records = res.teachingRecords;
+          if (res.pagination) {
+            paginationData = res.pagination;
+          }
+        }
+      }
+
+      const filtered = records.filter(r => r.schoolYear ? r.schoolYear === schoolYear : true);
       const norm = filtered.map(normalizeRecord).filter(Boolean);
 
       setTeachingRecords(norm);
+      setPagination(paginationData);
     } catch (err) {
+      console.error("Error loading teaching records:", err);
       setTeachingRecords([]);
+      setPagination({
+        page: 1,
+        limit: 10,
+        total: 0,
+        totalPages: 0
+      });
     }
   };
 
+  // Load records when filters or page changes
   useEffect(() => {
-    const teacherIdToFetch = isAdmin ? (selectedTeacherId || undefined) : selectedTeacherId || undefined;
-    loadTeachingRecords(teacherIdToFetch);
-  }, [selectedTeacherId, isAdmin, schoolYear]);
+    loadTeachingRecords(pagination.page);
+  }, [selectedTeacherId, quickFilterMode, selectedWeekId, selectedClassId, selectedSubjectId, recordType, isAdmin, schoolYear]);
+
+  // Handle page change
+  const handlePageChange = (newPage) => {
+    if (newPage < 1 || newPage > pagination.totalPages) return;
+    setPagination(prev => ({ ...prev, page: newPage }));
+    loadTeachingRecords(newPage);
+  };
 
   useEffect(() => {
     if (!formTeacherId) return;
@@ -159,27 +224,6 @@ const TeachingInputView = ({ initialTeachingRecords = [], schoolYear, isReadOnly
   const allowedGrades = currentUser?.allowedGrades || [];
   const hasGradeRestriction = !isAdmin && Array.isArray(allowedGrades) && allowedGrades.length > 0;
   const availableClasses = hasGradeRestriction ? classes.filter((c) => allowedGrades.includes(c.grade)) : classes;
-
-  const filteredRecords = teachingRecords.filter((r) => {
-    if (quickFilterMode === "teacher" && selectedTeacherId) {
-      if (r.teacherId !== selectedTeacherId) return false;
-    }
-    if (quickFilterMode === "week" && selectedWeekId) {
-      if (r.weekId !== selectedWeekId) return false;
-    }
-    if (quickFilterMode === "class" && selectedClassId) {
-      if (r.classId !== selectedClassId) return false;
-    }
-    if (quickFilterMode === "subject" && selectedSubjectId) {
-      if (r.subjectId !== selectedSubjectId) return false;
-    }
-    if (quickFilterMode === "recordType" && recordType) {
-      if (r.recordType !== recordType) return false;
-    }
-    return true;
-  });
-
-  const myRecords = isAdmin ? filteredRecords : filteredRecords.filter((r) => r.teacherId === selectedTeacherId);
 
   const resetForm = (keepTeacher = false) => {
     setSelectedWeekId("");
@@ -207,9 +251,7 @@ const TeachingInputView = ({ initialTeachingRecords = [], schoolYear, isReadOnly
     setRecordType(record.recordType || "teaching");
     setNotes(record.notes || "");
     
-    // Auto show form when editing
     setShowForm(true);
-    
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
@@ -241,8 +283,7 @@ const TeachingInputView = ({ initialTeachingRecords = [], schoolYear, isReadOnly
 
     const res = await updateTeachingRecord(editingRecordId, payload);
     if (res.success) {
-      const teacherIdToFetch = isAdmin ? (selectedTeacherId || undefined) : selectedTeacherId || undefined;
-      await loadTeachingRecords(teacherIdToFetch);
+      await loadTeachingRecords(pagination.page);
       resetForm(!isAdmin);
       alert("✅ Đã cập nhật bản ghi!");
     } else {
@@ -293,8 +334,7 @@ const TeachingInputView = ({ initialTeachingRecords = [], schoolYear, isReadOnly
 
     const res = await addTeachingRecord(payload);
     if (res.success) {
-      const teacherIdToFetch = isAdmin ? (selectedTeacherId || undefined) : selectedTeacherId || undefined;
-      await loadTeachingRecords(teacherIdToFetch);
+      await loadTeachingRecords(1); // Reset to page 1 after adding
       resetForm(!isAdmin);
       alert("✅ Đã thêm bản ghi!");
     } else {
@@ -312,8 +352,7 @@ const TeachingInputView = ({ initialTeachingRecords = [], schoolYear, isReadOnly
     if (!confirm("Xác nhận xóa bản ghi này?")) return;
     const res = await deleteTeachingRecord(recordId);
     if (res.success) {
-      const teacherIdToFetch = isAdmin ? (selectedTeacherId || undefined) : selectedTeacherId || undefined;
-      await loadTeachingRecords(teacherIdToFetch);
+      await loadTeachingRecords(pagination.page);
       alert("✅ Đã xóa bản ghi!");
     } else {
       alert(res.message || "Xóa thất bại");
@@ -322,9 +361,8 @@ const TeachingInputView = ({ initialTeachingRecords = [], schoolYear, isReadOnly
 
   const groupRecords = (key) => {
     const groups = new Map();
-    const list = isAdmin ? filteredRecords : filteredRecords.filter((r) => r.teacherId === selectedTeacherId);
 
-    list.forEach((r) => {
+    teachingRecords.forEach((r) => {
       let gKey = "Khác";
       let label = "Khác";
 
@@ -367,7 +405,6 @@ const TeachingInputView = ({ initialTeachingRecords = [], schoolYear, isReadOnly
           )}
         </h2>
 
-        {/* Toggle Buttons */}
         {!isReadOnly && (
           <div className="flex items-center gap-3">
             <button
@@ -385,7 +422,6 @@ const TeachingInputView = ({ initialTeachingRecords = [], schoolYear, isReadOnly
             <button
               onClick={() => {
                 if (showFilters) {
-                  // Đang mở -> Đóng và reset filters
                   setQuickFilterMode("all");
                   setSelectedTeacherId(isAdmin ? "" : selectedTeacherId);
                   setSelectedWeekId("");
@@ -502,7 +538,8 @@ const TeachingInputView = ({ initialTeachingRecords = [], schoolYear, isReadOnly
 
       {/* Records List */}
       <RecordsList
-        records={myRecords}
+        records={teachingRecords}
+        pagination={pagination}
         groupBy={groupBy}
         groupRecordsFn={groupRecords}
         weeks={weeks}
@@ -514,6 +551,7 @@ const TeachingInputView = ({ initialTeachingRecords = [], schoolYear, isReadOnly
         selectedTeacherId={selectedTeacherId}
         onEdit={startEdit}
         onDelete={handleDelete}
+        onPageChange={handlePageChange}
       />
     </div>
   );
