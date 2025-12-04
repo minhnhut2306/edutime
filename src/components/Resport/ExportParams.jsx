@@ -53,10 +53,10 @@ export const ExportParams = ({ exportType, exportParams, setExportParams, weeks 
                   </label>
                 ))}
               </div>
-              <p className="text-xs text-gray-500 mt-2">
+              <p className="text-xs text-blue-600 mt-2 bg-blue-50 p-2 rounded">
                 {exportParams.bcNumbers?.length > 0 
-                  ? `Đã chọn ${exportParams.bcNumbers.length} tháng. Tháng không có dữ liệu vẫn được xuất (sheet trống).`
-                  : 'Chưa chọn tháng nào'
+                  ? `✓ Đã chọn ${exportParams.bcNumbers.length} tháng. Tháng không có dữ liệu vẫn được xuất (sheet trống).`
+                  : '⚠ Chưa chọn tháng nào'
                 }
               </p>
             </div>
@@ -103,8 +103,8 @@ export const ExportParams = ({ exportType, exportParams, setExportParams, weeks 
                   </option>
                 ))}
               </select>
-              <p className="text-xs text-gray-500 mt-2">
-                Tuần không có dữ liệu vẫn được xuất (sheet trống)
+              <p className="text-xs text-blue-600 mt-2 bg-blue-50 p-2 rounded">
+                ✓ Tuần không có dữ liệu vẫn được xuất (sheet trống)
               </p>
             </div>
           ) : (
@@ -136,10 +136,10 @@ export const ExportParams = ({ exportType, exportParams, setExportParams, weeks 
                   );
                 })}
               </div>
-              <p className="text-xs text-gray-500 mt-2">
+              <p className="text-xs text-blue-600 mt-2 bg-blue-50 p-2 rounded">
                 {exportParams.weekIds?.length > 0
-                  ? `Đã chọn ${exportParams.weekIds.length} tuần. Tuần không có dữ liệu vẫn được xuất (sheet trống).`
-                  : 'Chưa chọn tuần nào'
+                  ? `✓ Đã chọn ${exportParams.weekIds.length} tuần. Tuần không có dữ liệu vẫn được xuất (sheet trống).`
+                  : '⚠ Chưa chọn tuần nào'
                 }
               </p>
             </div>
@@ -158,19 +158,29 @@ export const ExportParams = ({ exportType, exportParams, setExportParams, weeks 
             <option value={1}>Học kỳ 1 (Tuần 1-18)</option>
             <option value={2}>Học kỳ 2 (Tuần 19-35)</option>
           </select>
-          <p className="text-xs text-gray-500 mt-2">
-            Xuất tất cả tuần trong học kỳ (mỗi tháng = 1 sheet). Tuần chưa có dữ liệu vẫn xuất sheet trống.
+          <p className="text-xs text-blue-600 mt-2 bg-blue-50 p-2 rounded">
+            ✓ Xuất tất cả tuần trong học kỳ (mỗi tháng = 1 sheet)
+            <br />
+            <span className="text-gray-600">
+              • Tuần chưa có dữ liệu vẫn xuất sheet trống
+              <br />
+              • Nếu học kỳ chưa có tuần nào, xuất file rỗng
+            </span>
           </p>
         </div>
       );
 
     case 'year':
       return (
-        <p className="text-sm text-gray-600 p-3 bg-gray-50 rounded-lg">
-          Xuất tất cả tháng trong năm học (mỗi tháng = 1 sheet). 
+        <p className="text-sm text-gray-600 p-3 bg-blue-50 rounded-lg border border-blue-200">
+          <span className="font-semibold text-blue-800">✓ Xuất cả năm học:</span>
           <br />
-          <span className="text-xs text-gray-500">
-            Từ tháng 9 đến tháng 8 năm sau, bao gồm cả tháng không có dữ liệu.
+          <span className="text-xs">
+            • Từ tuần 1 đến tuần cao nhất được thiết lập (vd: tuần 35)
+            <br />
+            • Mỗi tháng = 1 sheet, bao gồm cả tháng không có dữ liệu
+            <br />
+            • Nếu chưa có tuần nào, xuất file với 12 tháng trống
           </span>
         </p>
       );
