@@ -31,12 +31,8 @@ const TeachingInputView = ({ initialTeachingRecords = [], schoolYear, isReadOnly
     total: 0,
     totalPages: 0
   });
-
-  // Toggle states
   const [showForm, setShowForm] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
-
-  // filters/form state
   const [selectedWeekId, setSelectedWeekId] = useState("");
   const [selectedClassId, setSelectedClassId] = useState("");
   const [selectedSubjectId, setSelectedSubjectId] = useState("");
@@ -51,8 +47,6 @@ const TeachingInputView = ({ initialTeachingRecords = [], schoolYear, isReadOnly
 
   const [groupBy, setGroupBy] = useState("none");
   const [quickFilterMode, setQuickFilterMode] = useState("all");
-
-  // user
   const rawUser = typeof window !== "undefined" ? localStorage.getItem("user") : null;
   let parsedUser = null;
   try {
@@ -123,13 +117,9 @@ const TeachingInputView = ({ initialTeachingRecords = [], schoolYear, isReadOnly
       }
     })();
   }, []);
-
-  // Load teaching records with filters and pagination
   const loadTeachingRecords = async (page = 1) => {
     try {
       const teacherIdToFetch = isAdmin ? (selectedTeacherId || undefined) : selectedTeacherId || undefined;
-      
-      // Build filters object based on quickFilterMode
       const filters = {};
       if (quickFilterMode === "week" && selectedWeekId) {
         filters.weekId = selectedWeekId;
@@ -167,7 +157,6 @@ const TeachingInputView = ({ initialTeachingRecords = [], schoolYear, isReadOnly
       };
 
       if (res.success) {
-        // Handle different response structures
         if (res.data && res.data.records) {
           records = res.data.records;
           paginationData = res.data.pagination || paginationData;
@@ -195,13 +184,10 @@ const TeachingInputView = ({ initialTeachingRecords = [], schoolYear, isReadOnly
       });
     }
   };
-
-  // Load records when filters or page changes
   useEffect(() => {
     loadTeachingRecords(pagination.page);
   }, [selectedTeacherId, quickFilterMode, selectedWeekId, selectedClassId, selectedSubjectId, recordType, isAdmin, schoolYear]);
 
-  // Handle page change
   const handlePageChange = (newPage) => {
     if (newPage < 1 || newPage > pagination.totalPages) return;
     setPagination(prev => ({ ...prev, page: newPage }));
@@ -238,7 +224,7 @@ const TeachingInputView = ({ initialTeachingRecords = [], schoolYear, isReadOnly
 
   const startEdit = (record) => {
     if (isReadOnly) {
-      alert("⚠️ Năm học đang ở chế độ chỉ xem. Không thể chỉnh sửa bản ghi.");
+      alert("Năm học đang ở chế độ chỉ xem. Không thể chỉnh sửa bản ghi.");
       return;
     }
     setIsEditing(true);
@@ -261,7 +247,7 @@ const TeachingInputView = ({ initialTeachingRecords = [], schoolYear, isReadOnly
 
   const handleSave = async () => {
     if (isReadOnly) {
-      alert("⚠️ Năm học đang ở chế độ chỉ xem. Không thể lưu thay đổi.");
+      alert("Năm học đang ở chế độ chỉ xem. Không thể lưu thay đổi.");
       return;
     }
     if (!editingRecordId) return;
@@ -285,7 +271,7 @@ const TeachingInputView = ({ initialTeachingRecords = [], schoolYear, isReadOnly
     if (res.success) {
       await loadTeachingRecords(pagination.page);
       resetForm(!isAdmin);
-      alert("✅ Đã cập nhật bản ghi!");
+      alert("Đã cập nhật bản ghi!");
     } else {
       alert(res.message || "Cập nhật thất bại");
     }
@@ -293,7 +279,7 @@ const TeachingInputView = ({ initialTeachingRecords = [], schoolYear, isReadOnly
 
   const handleAdd = async () => {
     if (isReadOnly) {
-      alert("⚠️ Năm học đang ở chế độ chỉ xem. Không thể thêm bản ghi.");
+      alert("Năm học đang ở chế độ chỉ xem. Không thể thêm bản ghi.");
       return;
     }
     if (isEditing) {
@@ -316,7 +302,7 @@ const TeachingInputView = ({ initialTeachingRecords = [], schoolYear, isReadOnly
     if (hasGradeRestriction) {
       const selectedClass = classes.find((c) => c.id === selectedClassId);
       if (selectedClass && !allowedGrades.includes(selectedClass.grade)) {
-        alert(`❌ Bạn không có quyền nhập dữ liệu cho khối ${selectedClass.grade}!\nBạn chỉ được nhập khối: ${allowedGrades.join(", ")}`);
+        alert(`Bạn không có quyền nhập dữ liệu cho khối ${selectedClass.grade}!\nBạn chỉ được nhập khối: ${allowedGrades.join(", ")}`);
         return;
       }
     }
@@ -334,9 +320,8 @@ const TeachingInputView = ({ initialTeachingRecords = [], schoolYear, isReadOnly
 
     const res = await addTeachingRecord(payload);
     if (res.success) {
-      await loadTeachingRecords(1); // Reset to page 1 after adding
-      resetForm(!isAdmin);
-      alert("✅ Đã thêm bản ghi!");
+      await loadTeachingRecords(1); 
+      alert("Đã thêm bản ghi!");
     } else {
       alert(res.message || "Thêm bản ghi thất bại");
     }
@@ -344,7 +329,7 @@ const TeachingInputView = ({ initialTeachingRecords = [], schoolYear, isReadOnly
 
   const handleDelete = async (recordId) => {
     if (isReadOnly) {
-      alert("⚠️ Năm học đang ở chế độ chỉ xem. Không thể xóa bản ghi.");
+      alert("Năm học đang ở chế độ chỉ xem. Không thể xóa bản ghi.");
       return;
     }
     const record = teachingRecords.find((r) => r.id === recordId);
@@ -353,7 +338,7 @@ const TeachingInputView = ({ initialTeachingRecords = [], schoolYear, isReadOnly
     const res = await deleteTeachingRecord(recordId);
     if (res.success) {
       await loadTeachingRecords(pagination.page);
-      alert("✅ Đã xóa bản ghi!");
+      alert("Đã xóa bản ghi!");
     } else {
       alert(res.message || "Xóa thất bại");
     }
@@ -510,7 +495,6 @@ const TeachingInputView = ({ initialTeachingRecords = [], schoolYear, isReadOnly
         </div>
       )}
 
-      {/* Filters - Collapsible */}
       {showFilters && (
         <div className="animate-slideIn">
           <FiltersBar
@@ -536,7 +520,6 @@ const TeachingInputView = ({ initialTeachingRecords = [], schoolYear, isReadOnly
         </div>
       )}
 
-      {/* Records List */}
       <RecordsList
         records={teachingRecords}
         pagination={pagination}
