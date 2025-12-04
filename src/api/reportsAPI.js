@@ -16,46 +16,45 @@ export const reportsAPI = {
       schoolYearId,
       type = 'bc',
       bcNumber,
+      bcNumbers,
       weekId,
       weekIds,
       semester
     } = options;
 
-    console.log(" Token exists:", !!token);
-    if (token) {
-      console.log(" Token preview:", token.substring(0, 20) + "...");
-    }
-
     if (!token) throw new Error("Chưa đăng nhập! Vui lòng đăng nhập lại.");
-    // Require either schoolYearId (preferred) or schoolYear (fallback)
     if (!schoolYearId && !schoolYear) throw new Error("schoolYearId hoặc schoolYear là bắt buộc");
-    // require teacherIds array or single teacherId
     if (!teacherIds && !teacherId) throw new Error("teacherIds hoặc teacherId là bắt buộc");
 
     const params = new URLSearchParams();
-    // Prefer schoolYearId param (backend expects this)
+    
+    // School year
     if (schoolYearId) params.append('schoolYearId', schoolYearId);
     else params.append('schoolYear', schoolYear);
 
     params.append('type', type);
 
+    // Teacher IDs
     if (Array.isArray(teacherIds)) {
       params.append('teacherIds', JSON.stringify(teacherIds));
     } else if (teacherId) {
       params.append('teacherId', teacherId);
     } else {
-      // fallback single teacher id passed in teacherIds as string
       params.append('teacherId', teacherIds);
     }
 
-    if (bcNumber) params.append('bcNumber', bcNumber);
+    // BC parameters - hỗ trợ nhiều tháng
+    if (bcNumbers && bcNumbers.length > 0) {
+      params.append('bcNumbers', JSON.stringify(bcNumbers));
+    } else if (bcNumber) {
+      params.append('bcNumber', bcNumber);
+    }
+    
     if (weekId) params.append('weekId', weekId);
     if (weekIds && weekIds.length > 0) params.append('weekIds', JSON.stringify(weekIds));
     if (semester) params.append('semester', semester);
 
     const url = `reports/export?${params.toString()}`;
-    console.log("Calling API:", url);
-    console.log("Full URL:", `${api.defaults?.baseURL || 'http://localhost:5000/api/'}${url}`);
 
     try {
       const response = await api.get(url, {
@@ -66,7 +65,6 @@ export const reportsAPI = {
         responseType: 'blob'
       });
 
-      console.log("Response received:", response.status);
       return response;
     } catch (error) {
       console.error("Export Error:", error.response?.status, error.response?.data);
@@ -74,11 +72,11 @@ export const reportsAPI = {
     }
   },
 
-  exportMonthReport: async (teacherIds, schoolYearId, month = null, bcNumber = null) => {
+  exportMonthReport: async (teacherIds, schoolYearId, month = null, bcNumber = null, bcNumbers = null) => {
     const token = localStorage.getItem("token");
 
-    if (month === null && bcNumber === null) {
-      throw new Error("Phải cung cấp month hoặc bcNumber");
+    if (month === null && bcNumber === null && (!bcNumbers || bcNumbers.length === 0)) {
+      throw new Error("Phải cung cấp month, bcNumber hoặc bcNumbers");
     }
 
     if (!schoolYearId) {
@@ -93,7 +91,9 @@ export const reportsAPI = {
       params += `&teacherId=${teacherIds}`;
     }
 
-    if (bcNumber !== null) {
+    if (bcNumbers && bcNumbers.length > 0) {
+      params += `&bcNumbers=${encodeURIComponent(JSON.stringify(bcNumbers))}`;
+    } else if (bcNumber !== null) {
       params += `&bcNumber=${bcNumber}`;
     } else {
       params += `&month=${month}`;

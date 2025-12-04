@@ -33,6 +33,7 @@ const ReportView = ({ teachers = [], teachingRecords: initialRecords = [], weeks
   const [exportType, setExportType] = useState('bc');
   const [exportParams, setExportParams] = useState({
     bcNumber: null,
+    bcNumbers: [],
     weekId: '',
     weekIds: [],
     semester: 1,
@@ -144,11 +145,17 @@ const ReportView = ({ teachers = [], teachingRecords: initialRecords = [], weeks
         type: exportType,
       };
 
-      if (exportType === 'bc' && exportParams.bcNumber) {
-        options.bcNumber = exportParams.bcNumber;
+      // Xử lý tham số BC (có thể nhiều tháng)
+      if (exportType === 'bc') {
+        if (exportParams.bcNumbers && exportParams.bcNumbers.length > 0) {
+          options.bcNumbers = exportParams.bcNumbers;
+        } else if (exportParams.bcNumber) {
+          options.bcNumber = exportParams.bcNumber;
+        }
       }
+      
       if (exportType === 'week') {
-        if (exportParams.weekIds.length > 0) {
+        if (exportParams.weekIds && exportParams.weekIds.length > 0) {
           options.weekIds = exportParams.weekIds;
         } else if (exportParams.weekId) {
           options.weekId = exportParams.weekId;
@@ -157,6 +164,7 @@ const ReportView = ({ teachers = [], teachingRecords: initialRecords = [], weeks
           return;
         }
       }
+      
       if (exportType === 'semester') {
         options.semester = exportParams.semester;
       }
@@ -167,9 +175,27 @@ const ReportView = ({ teachers = [], teachingRecords: initialRecords = [], weeks
         const count = isAdmin && exportMode === 'multiple' ? teacherIdsToExport.length : 1;
         const teacherName = linkedTeacher ? linkedTeacher.name : '';
         
+        let typeText = '';
+        if (exportType === 'bc') {
+          if (exportParams.bcNumbers && exportParams.bcNumbers.length > 0) {
+            typeText = `Tháng ${exportParams.bcNumbers.join(', ')}`;
+          } else if (exportParams.bcNumber) {
+            typeText = `Tháng ${exportParams.bcNumber}`;
+          } else {
+            typeText = 'Tất cả tháng';
+          }
+        } else if (exportType === 'week') {
+          typeText = exportParams.weekIds?.length > 0 ? `${exportParams.weekIds.length} tuần` : '1 tuần';
+        } else if (exportType === 'semester') {
+          typeText = `Học kỳ ${exportParams.semester}`;
+        } else if (exportType === 'year') {
+          typeText = 'Cả năm học';
+        }
+        
         alert(
           `Xuất báo cáo Excel thành công!\n\n` +
           `Năm học: ${currentSchoolYear}\n` +
+          `Loại: ${typeText}\n` +
           `${isAdmin ? `Số giáo viên: ${count}` : `Giáo viên: ${teacherName}`}\n` +
           `File đã được tải về!`
         );
