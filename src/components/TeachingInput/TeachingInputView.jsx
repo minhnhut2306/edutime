@@ -47,6 +47,8 @@ const TeachingInputView = ({ initialTeachingRecords = [], schoolYear, isReadOnly
 
   const [groupBy, setGroupBy] = useState("none");
   const [quickFilterMode, setQuickFilterMode] = useState("all");
+  const [sortBy, setSortBy] = useState("week"); // Mặc định sắp xếp theo tuần
+  
   const rawUser = typeof window !== "undefined" ? localStorage.getItem("user") : null;
   let parsedUser = null;
   try {
@@ -117,6 +119,7 @@ const TeachingInputView = ({ initialTeachingRecords = [], schoolYear, isReadOnly
       }
     })();
   }, []);
+
   const loadTeachingRecords = async (page = 1) => {
     try {
       const teacherIdToFetch = isAdmin ? (selectedTeacherId || undefined) : selectedTeacherId || undefined;
@@ -169,7 +172,16 @@ const TeachingInputView = ({ initialTeachingRecords = [], schoolYear, isReadOnly
       }
 
       const filtered = records.filter(r => r.schoolYear ? r.schoolYear === schoolYear : true);
-      const norm = filtered.map(normalizeRecord).filter(Boolean);
+      let norm = filtered.map(normalizeRecord).filter(Boolean);
+
+      // Sắp xếp theo tuần
+      if (sortBy === "week") {
+        norm.sort((a, b) => {
+          const weekA = a.weekData?.weekNumber || weeks.find((w) => w.id === a.weekId)?.weekNumber || 0;
+          const weekB = b.weekData?.weekNumber || weeks.find((w) => w.id === b.weekId)?.weekNumber || 0;
+          return weekA - weekB;
+        });
+      }
 
       setTeachingRecords(norm);
       setPagination(paginationData);
@@ -184,6 +196,7 @@ const TeachingInputView = ({ initialTeachingRecords = [], schoolYear, isReadOnly
       });
     }
   };
+
   useEffect(() => {
     loadTeachingRecords(pagination.page);
   }, [selectedTeacherId, quickFilterMode, selectedWeekId, selectedClassId, selectedSubjectId, recordType, isAdmin, schoolYear]);

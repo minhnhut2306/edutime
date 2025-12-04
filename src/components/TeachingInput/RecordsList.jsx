@@ -7,84 +7,39 @@ const Pagination = ({ pagination, onPageChange }) => {
 
   if (totalPages <= 1) return null;
 
-  const pages = [];
-  const maxPagesToShow = 5;
-  let startPage = Math.max(1, page - Math.floor(maxPagesToShow / 2));
-  let endPage = Math.min(totalPages, startPage + maxPagesToShow - 1);
-
-  if (endPage - startPage < maxPagesToShow - 1) {
-    startPage = Math.max(1, endPage - maxPagesToShow + 1);
-  }
-
-  for (let i = startPage; i <= endPage; i++) {
-    pages.push(i);
-  }
-
   return (
     <div className="flex items-center justify-between px-6 py-4 border-t bg-gray-50">
       <div className="text-sm text-gray-600">
         Hiển thị trang {page} / {totalPages} (Tổng: {total} bản ghi)
       </div>
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-3">
         <button
           onClick={() => onPageChange(page - 1)}
           disabled={page === 1}
-          className={`p-2 rounded-lg ${
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition ${
             page === 1
               ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-              : "bg-white border hover:bg-gray-50 text-gray-700"
+              : "bg-white border border-gray-300 hover:bg-gray-50 text-gray-700"
           }`}
         >
           <ChevronLeft size={18} />
+          <span>Trang trước</span>
         </button>
 
-        {startPage > 1 && (
-          <>
-            <button
-              onClick={() => onPageChange(1)}
-              className="px-3 py-1 rounded-lg bg-white border hover:bg-gray-50 text-gray-700"
-            >
-              1
-            </button>
-            {startPage > 2 && <span className="text-gray-400">...</span>}
-          </>
-        )}
-
-        {pages.map((p) => (
-          <button
-            key={p}
-            onClick={() => onPageChange(p)}
-            className={`px-3 py-1 rounded-lg ${
-              p === page
-                ? "bg-blue-600 text-white"
-                : "bg-white border hover:bg-gray-50 text-gray-700"
-            }`}
-          >
-            {p}
-          </button>
-        ))}
-
-        {endPage < totalPages && (
-          <>
-            {endPage < totalPages - 1 && <span className="text-gray-400">...</span>}
-            <button
-              onClick={() => onPageChange(totalPages)}
-              className="px-3 py-1 rounded-lg bg-white border hover:bg-gray-50 text-gray-700"
-            >
-              {totalPages}
-            </button>
-          </>
-        )}
+        <span className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium">
+          {page} / {totalPages}
+        </span>
 
         <button
           onClick={() => onPageChange(page + 1)}
           disabled={page === totalPages}
-          className={`p-2 rounded-lg ${
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition ${
             page === totalPages
               ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-              : "bg-white border hover:bg-gray-50 text-gray-700"
+              : "bg-white border border-gray-300 hover:bg-gray-50 text-gray-700"
           }`}
         >
+          <span>Trang sau</span>
           <ChevronRight size={18} />
         </button>
       </div>
