@@ -5,7 +5,18 @@ export const useReports = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  const downloadFile = (blob, fileName) => {
+  const downloadFile = (blob, response) => {
+    // Lấy tên file từ Content-Disposition header (backend đã đặt sẵn)
+    let fileName = 'BaoCao.xlsx'; // fallback
+    
+    const contentDisposition = response.headers['content-disposition'];
+    if (contentDisposition) {
+      const matches = contentDisposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
+      if (matches && matches[1]) {
+        fileName = decodeURIComponent(matches[1].replace(/['"]/g, ''));
+      }
+    }
+
     const url = window.URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
@@ -35,20 +46,8 @@ export const useReports = () => {
       const response = await reportsAPI.exportReport(options);
       setLoading(false);
 
-      const { type = 'bc', bcNumber, schoolYearLabel, schoolYearId, teacherIds, semester } = options;
-      // prefer provided label (from UI) for filename; fallback to id or schoolYear
-      const schoolYearForName = schoolYearLabel || schoolYearId || options.schoolYear;
-      let fileName = `BaoCao_${schoolYearForName}`;
-      if (type === 'bc' && bcNumber) fileName = `BC${bcNumber}_${schoolYearForName}`;
-      else if (type === 'week') fileName = `BaoCaoTuan_${schoolYearForName}`;
-      else if (type === 'semester') fileName = `HocKy${semester}_${schoolYearForName}`;
-      else if (type === 'year') fileName = `CaNam_${schoolYearForName}`;
-
-      const count = Array.isArray(teacherIds) ? teacherIds.length : 1;
-      if (count > 1) fileName += `_${count}GV`;
-      fileName += '.xlsx';
-
-      downloadFile(response.data, fileName);
+      // Không cần tự tạo tên file nữa - backend đã đặt sẵn trong header
+      downloadFile(response.data, response);
 
       return { success: true };
     } catch (err) {
@@ -60,6 +59,7 @@ export const useReports = () => {
           const text = await blob.text();
           const json = JSON.parse(text);
           userFriendlyMessage = json.msg || json.message || "Không tìm thấy dữ liệu";
+        // eslint-disable-next-line no-unused-vars
         } catch (parseError) {
           userFriendlyMessage = "Không tìm thấy dữ liệu giảng dạy";
         }
@@ -92,7 +92,7 @@ export const useReports = () => {
         userFriendlyMessage = err.message;
       }
 
-      console.error(" Export Error:", err);
+      console.error("❌ Export Error:", err);
       setError(userFriendlyMessage);
       setLoading(false);
 
@@ -120,11 +120,7 @@ export const useReports = () => {
       const response = await reportsAPI.exportMonthReport(teacherIds, schoolYearId, month, bcNumber);
       setLoading(false);
 
-      const bc = bcNumber || month;
-      const count = Array.isArray(teacherIds) ? teacherIds.length : 1;
-      const fileName = count > 1 ? `BC${bc}_${schoolYearId}_${count}GV.xlsx` : `BC${bc}_${schoolYearId}.xlsx`;
-
-      downloadFile(response.data, fileName);
+      downloadFile(response.data, response);
       return { success: true };
     } catch (err) {
       const msg = err.response?.data?.msg || err.message || "Có lỗi xảy ra";
@@ -154,9 +150,7 @@ export const useReports = () => {
       const response = await reportsAPI.exportWeekReport(teacherId, weekId, weekIds, schoolYearId);
       setLoading(false);
 
-      const fileName = weekIds && weekIds.length > 0 ? `BaoCao_NhieuTuan_${schoolYearId}.xlsx` : `BaoCaoTuan_${schoolYearId}.xlsx`;
-
-      downloadFile(response.data, fileName);
+      downloadFile(response.data, response);
       return { success: true };
     } catch (err) {
       const msg = err.response?.data?.msg || err.message || "Có lỗi xảy ra";
@@ -186,7 +180,7 @@ export const useReports = () => {
       const response = await reportsAPI.exportSemesterReport(teacherId, schoolYearId, semester);
       setLoading(false);
 
-      downloadFile(response.data, `HocKy${semester}_${schoolYearId}.xlsx`);
+      downloadFile(response.data, response);
       return { success: true };
     } catch (err) {
       const msg = err.response?.data?.msg || err.message || "Có lỗi xảy ra";
@@ -210,9 +204,7 @@ export const useReports = () => {
       const response = await reportsAPI.exportYearReport(teacherId, schoolYearId, allBC);
       setLoading(false);
 
-      const fileName = allBC ? `TongHopBC_${schoolYearId}.xlsx` : `BaoCaoNam_${schoolYearId}.xlsx`;
-
-      downloadFile(response.data, fileName);
+      downloadFile(response.data, response);
       return { success: true };
     } catch (err) {
       const msg = err.response?.data?.msg || err.message || "Có lỗi xảy ra";
