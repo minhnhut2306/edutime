@@ -4,17 +4,18 @@ import { weeksAPI } from "../api/weeksAPI";
 export const useWeeks = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const fetchWeeks = async (schoolYear = null) => {
+
+  const fetchWeeks = async (schoolYear = null, page = 1, limit = 10) => {
     setLoading(true);
     setError(null);
     try {
-      // ✅ TRUYỀN schoolYear vào API
-      const response = await weeksAPI.weeks(schoolYear);
+      const response = await weeksAPI.weeks(schoolYear, page, limit);
       if (response.code === 200) {
         setLoading(false);
         return {
           success: true,
           weeks: response.data.weeks,
+          pagination: response.data.pagination,
         };
       } else {
         throw new Error(response.msg || "Lấy danh sách tuần thất bại");
@@ -28,9 +29,11 @@ export const useWeeks = () => {
         success: false,
         message: errorMessage,
         weeks: [],
+        pagination: null,
       };
     }
   };
+
   const updateWeek = async (weekId, weekData) => {
     setLoading(true);
     setError(null);
@@ -56,6 +59,7 @@ export const useWeeks = () => {
       };
     }
   };
+
   const addWeek = async (weekData) => {
     setLoading(true);
     setError(null);
@@ -81,6 +85,7 @@ export const useWeeks = () => {
       };
     }
   };
+
   const deleteWeek = async (weekId) => {
     setLoading(true);
     setError(null);
@@ -105,5 +110,6 @@ export const useWeeks = () => {
       };
     }
   };
+
   return { loading, error, fetchWeeks, updateWeek, addWeek, deleteWeek };
 };

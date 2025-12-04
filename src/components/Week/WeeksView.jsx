@@ -3,27 +3,110 @@ import { Eye, Loader } from 'lucide-react';
 import { useWeeks } from '../../hooks/useWeek';
 import { WeekForm } from './WeekForm';
 import { WeeksTable } from './WeeksTable';
+import Pagination from '../Classes/Pagination';
 
 const MAX_WEEKS = 35;
 
 const WeeksView = ({ currentUser, schoolYear, isReadOnly = false }) => {
   const [weeks, setWeeks] = useState([]);
+  const [pagination, setPagination] = useState(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalWeeks, setTotalWeeks] = useState(0);
   const { fetchWeeks, addWeek, updateWeek, deleteWeek, loading, error } = useWeeks();
   const isAdmin = currentUser.role === 'admin';
   const [editingWeek, setEditingWeek] = useState(null);
   const [newWeek, setNewWeek] = useState({ startDate: '', endDate: '' });
+  const itemsPerPage = 10;
 
   useEffect(() => {
-    loadWeeks();
+    loadWeeks(1);
   }, [schoolYear]);
 
-  const loadWeeks = async () => {
-    const result = await fetchWeeks(schoolYear);
+  const loadWeeks = async (page = currentPage) => {
+    const result = await fetchWeeks(schoolYear, page, itemsPerPage);
     if (result.success) {
-      const sortedWeeks = result.weeks
-        .sort((a, b) => new Date(a.startDate) - new Date(b.startDate))
-        .map((week, index) => ({ ...week, weekNumber: index + 1 }));
-      setWeeks(sortedWeeks);
+      setWeeks(result.weeks);
+      setPagination(result.pagination);
+      setTotalWeeks(result.pagination.totalItems);
+      setCurrentPage(page);
+    }
+  };
+
+  const handlePageChange = (newPage) => {
+    if (newPage >= 1 && newPage <= (pagination?.totalPages || 1)) {
+      loadWeeks(newPage);
+    }
+  };
+
+  const getNextMondayWeek = (lastEndDate) => {
+    const nextDay = new Date(lastEndDate);
+    nextDay.setDate(nextDay.getDate() + 1);
+    
+    const dayOfWeek = nextDay.getDay();
+    const daysUntilMonday = dayOfWeek === 0 ? 1 : (8 - dayOfWeek) % 7;
+    
+    const monday = new Date(nextDay);
+    if (daysUntilMonday > 0) {
+      monday.setDate(monday.getDate() + daysUntilMonday);
+    }
+    const sunday = new Date(monday);
+    sunday.setDate(sunday.getDate() + 6);
+    
+    return {
+      startDate: monday.toISOString().split('T')[0],
+      endDate: sunday.toISOString().split('T')[0]
+    };
+  };
+  const handleQuickAdd = async () => {
+    if (isReadOnly) {
+      alert('Chế độ chỉ xem! Không thể thêm tuần học vào năm học cũ.');
+      return;
+    }
+
+    if (totalWeeks >= MAX_WEEKS) {
+      alert(`Đã đạt giới hạn ${MAX_WEEKS} tuần trong năm học!`);
+      return;
+    }
+    const allWeeksResult = await fetchWeeks(schoolYear, 1, MAX_WEEKS);
+    const allWeeks = allWeeksResult.success ? allWeeksResult.weeks : [];
+    
+    let nextWeekDates;
+    
+    if (allWeeks.length === 0) {
+      const today = new Date();
+      const dayOfWeek = today.getDay();
+      const daysUntilMonday = dayOfWeek === 0 ? 1 : (8 - dayOfWeek) % 7;
+      
+      const monday = new Date(today);
+      if (daysUntilMonday > 0) {
+        monday.setDate(monday.getDate() + daysUntilMonday);
+      }
+      
+      const sunday = new Date(monday);
+      sunday.setDate(sunday.getDate() + 6);
+      
+      nextWeekDates = {
+        startDate: monday.toISOString().split('T')[0],
+        endDate: sunday.toISOString().split('T')[0]
+      };
+    } else {
+      const sortedWeeks = [...allWeeks].sort((a, b) => 
+        new Date(b.endDate) - new Date(a.endDate)
+      );
+      const lastWeek = sortedWeeks[0];
+      nextWeekDates = getNextMondayWeek(lastWeek.endDate);
+    }
+
+    const result = await addWeek({
+      startDate: nextWeekDates.startDate,
+      endDate: nextWeekDates.endDate
+    });
+
+    if (result.success) {
+      await loadWeeks(currentPage);
+      alert(`Đã thêm Tuần ${totalWeeks + 1} (${nextWeekDates.startDate} - ${nextWeekDates.endDate})!`);
+    } else {
+      alert(result.message || 'Thêm tuần thất bại');
     }
   };
 
@@ -45,7 +128,6 @@ const WeeksView = ({ currentUser, schoolYear, isReadOnly = false }) => {
     if (isOverlap) {
       return { valid: false, message: 'Thời gian này bị trùng với tuần khác!' };
     }
-
     return { valid: true };
   };
 
@@ -66,22 +148,20 @@ const WeeksView = ({ currentUser, schoolYear, isReadOnly = false }) => {
       return;
     }
 
-    if (weeks.length >= MAX_WEEKS) {
+    if (totalWeeks >= MAX_WEEKS) {
       alert(`Đã đạt giới hạn ${MAX_WEEKS} tuần trong năm học!`);
       return;
     }
 
-    const weekNumber = weeks.length + 1;
     const result = await addWeek({
-      weekNumber,
       startDate: newWeek.startDate,
       endDate: newWeek.endDate
     });
 
     if (result.success) {
-      await loadWeeks();
+      await loadWeeks(currentPage);
       setNewWeek({ startDate: '', endDate: '' });
-      alert(`Đã thêm Tuần ${weekNumber}!`);
+      alert(`Đã thêm tuần học thành công!`);
     } else {
       alert(result.message || 'Thêm tuần thất bại');
     }
@@ -97,7 +177,9 @@ const WeeksView = ({ currentUser, schoolYear, isReadOnly = false }) => {
 
     const result = await deleteWeek(weekId);
     if (result.success) {
-      await loadWeeks();
+      const shouldGoToPrevPage = weeks.length === 1 && currentPage > 1;
+      const newPage = shouldGoToPrevPage ? currentPage - 1 : currentPage;
+      await loadWeeks(newPage);
       alert('Đã xóa tuần học!');
     } else {
       alert(result.message || 'Xóa tuần thất bại');
@@ -138,7 +220,7 @@ const WeeksView = ({ currentUser, schoolYear, isReadOnly = false }) => {
     });
 
     if (result.success) {
-      await loadWeeks();
+      await loadWeeks(currentPage);
       setEditingWeek(null);
       alert('Đã cập nhật tuần học!');
     } else {
@@ -167,7 +249,9 @@ const WeeksView = ({ currentUser, schoolYear, isReadOnly = false }) => {
               </span>
             )}
           </h2>
-          <p className="text-sm text-gray-500 mt-1">Năm học: {schoolYear} - Tổng: {weeks.length}/{MAX_WEEKS} tuần</p>
+          <p className="text-sm text-gray-500 mt-1">
+            Năm học: {schoolYear} - Tổng: {totalWeeks}/{MAX_WEEKS} tuần
+          </p>
         </div>
       </div>
 
@@ -191,9 +275,10 @@ const WeeksView = ({ currentUser, schoolYear, isReadOnly = false }) => {
           week={newWeek}
           setWeek={setNewWeek}
           onSubmit={handleAdd}
+          onQuickAdd={handleQuickAdd}
           loading={loading}
           isEdit={false}
-          totalWeeks={weeks.length}
+          totalWeeks={totalWeeks}
         />
       )}
 
@@ -208,14 +293,25 @@ const WeeksView = ({ currentUser, schoolYear, isReadOnly = false }) => {
         />
       )}
 
-      <WeeksTable
-        weeks={weeks}
-        onEdit={handleEdit}
-        onDelete={handleDelete}
-        isAdmin={isAdmin}
-        isReadOnly={isReadOnly}
-        loading={loading}
-      />
+      <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+        <WeeksTable
+          weeks={weeks}
+          onEdit={handleEdit}
+          onDelete={handleDelete}
+          isAdmin={isAdmin}
+          isReadOnly={isReadOnly}
+          loading={loading}
+        />
+
+        {pagination && (
+          <Pagination
+            currentPage={pagination.currentPage}
+            totalPages={pagination.totalPages}
+            onPageChange={handlePageChange}
+            loading={loading}
+          />
+        )}
+      </div>
     </div>
   );
 };

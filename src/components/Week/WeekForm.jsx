@@ -1,7 +1,7 @@
 import React from 'react';
-import { Plus, Loader } from 'lucide-react';
+import { Plus, Loader, Zap } from 'lucide-react';
 
-export const WeekForm = ({ week, setWeek, onSubmit, onCancel, loading, isEdit, totalWeeks }) => {
+export const WeekForm = ({ week, setWeek, onSubmit, onCancel, onQuickAdd, loading, isEdit, totalWeeks }) => {
   const calculateDays = (startDate, endDate) => {
     const start = new Date(startDate);
     const end = new Date(endDate);
@@ -35,13 +35,24 @@ export const WeekForm = ({ week, setWeek, onSubmit, onCancel, loading, isEdit, t
           />
         </div>
         <div className="flex items-end gap-2">
+          {!isEdit && onQuickAdd && (
+            <button
+              onClick={onQuickAdd}
+              disabled={loading}
+              className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center gap-2 disabled:opacity-50"
+              title="Thêm nhanh tuần tiếp theo (7 ngày từ thứ 2)"
+            >
+              {loading ? <Loader className="animate-spin" size={20} /> : <Zap size={20} />}
+              Thêm nhanh
+            </button>
+          )}
           <button
             onClick={onSubmit}
             disabled={loading}
             className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2 disabled:opacity-50"
           >
             {loading ? <Loader className="animate-spin" size={20} /> : isEdit ? 'Lưu' : <Plus size={20} />}
-            {isEdit ? '' : 'Thêm tuần'}
+            {isEdit ? '' : 'Thêm'}
           </button>
           {isEdit && (
             <button
@@ -57,7 +68,7 @@ export const WeekForm = ({ week, setWeek, onSubmit, onCancel, loading, isEdit, t
       {!isEdit && week.startDate && week.endDate && new Date(week.startDate) < new Date(week.endDate) && (
         <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-lg">
           <p className="text-sm text-green-700">
-            ✓ Tuần này sẽ được đánh số: <strong>Tuần {totalWeeks + 1}</strong>
+            Tuần này sẽ được đánh số: <strong>Tuần {totalWeeks + 1}</strong>
             {' '}({calculateDays(week.startDate, week.endDate)} ngày)
           </p>
         </div>
