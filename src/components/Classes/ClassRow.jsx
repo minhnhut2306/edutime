@@ -1,14 +1,14 @@
 import React from 'react';
 import { Trash2, Edit } from 'lucide-react';
 
-const ClassRow = ({ cls, isAdmin, loading, onEdit, onDelete }) => {
+const ClassRow = ({ cls, isAdmin, isReadOnly, loading, onEdit, onDelete }) => {
   return (
     <tr className="hover:bg-gray-50 transition-colors">
       <td className="px-6 py-4 text-sm font-medium text-gray-900">{cls.classCode}</td>
       <td className="px-6 py-4 text-sm text-gray-900">{cls.name}</td>
       <td className="px-6 py-4 text-sm text-gray-500">{cls.grade}</td>
       <td className="px-6 py-4 text-sm text-gray-500">{cls.studentCount}</td>
-      {isAdmin && (
+      {isAdmin && !isReadOnly && (
         <td className="px-6 py-4 text-sm">
           <div className="flex items-center gap-2">
             <button

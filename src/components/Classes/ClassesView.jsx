@@ -3,41 +3,72 @@ import { Loader, Plus, Eye } from 'lucide-react';
 import { useClasses } from '../../hooks/useClasses';
 import ClassesTable from './ClassesTable';
 import ClassModal from './ClassModal';
+import Pagination from './Pagination';
+import GradeFilter from './GradeFilter';
 import generateClassCode from '../../utils/classesUtils';
 
 const ClassesView = ({ currentUser, isReadOnly = false, schoolYear }) => {
   const [classes, setClasses] = useState([]);
-  const { loading, error, fetchClasses, addClass, deleteClass, updateClass } = useClasses();
+  const [pagination, setPagination] = useState(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [selectedGrade, setSelectedGrade] = useState('');
+  const [availableGrades, setAvailableGrades] = useState([]);
+  const { loading, error, fetchClasses, fetchAvailableGrades, addClass, deleteClass, updateClass } = useClasses();
   const [isLoading, setIsLoading] = useState(false);
-
-  // modal / form state
   const [showModal, setShowModal] = useState(false);
-  const [modalMode, setModalMode] = useState('add'); // 'add' | 'edit'
+  const [modalMode, setModalMode] = useState('add');
   const [editingClass, setEditingClass] = useState(null);
   const [className, setClassName] = useState('');
   const [studentCount, setStudentCount] = useState('');
 
   const isAdmin = currentUser?.role === 'admin';
+  const itemsPerPage = 10;
 
   useEffect(() => {
-    loadClasses();
+    loadAvailableGrades();
+    loadClasses(1);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [schoolYear]);
 
-  const loadClasses = async () => {
+  useEffect(() => {
+    loadClasses(1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedGrade]);
+
+  const loadAvailableGrades = async () => {
+    const result = await fetchAvailableGrades(schoolYear);
+    if (result.success) {
+      setAvailableGrades(result.grades);
+    }
+  };
+
+  const loadClasses = async (page = currentPage) => {
     setIsLoading(true);
-    const result = await fetchClasses(schoolYear);
+    const result = await fetchClasses(schoolYear, page, itemsPerPage, selectedGrade);
     if (result.success) {
       const normalized = result.classes.map((cls, idx) => ({
         ...cls,
         id: cls._id || cls.id,
-        classCode: generateClassCode(idx)
+        classCode: generateClassCode((page - 1) * itemsPerPage + idx)
       }));
       setClasses(normalized);
+      setPagination(result.pagination);
+      setCurrentPage(page);
     } else {
       alert(result.message || 'Không thể tải danh sách lớp học');
     }
     setIsLoading(false);
+  };
+
+  const handleGradeChange = (grade) => {
+    setSelectedGrade(grade);
+    setCurrentPage(1);
+  };
+
+  const handlePageChange = (newPage) => {
+    if (newPage >= 1 && newPage <= (pagination?.totalPages || 1)) {
+      loadClasses(newPage);
+    }
   };
 
   const handleOpenModal = () => {
@@ -87,37 +118,22 @@ const ClassesView = ({ currentUser, isReadOnly = false, schoolYear }) => {
       });
 
       if (result.success) {
-        // replace the class data and regenerate codes in original order
-        const updated = classes.map((cls, index) =>
-          cls.id === editingClass.id
-            ? {
-                ...cls,
-                ...result.class,
-                id: result.class._id || result.class.id,
-                classCode: generateClassCode(index)
-              }
-            : { ...cls, classCode: generateClassCode(index) }
-        );
-        setClasses(updated);
+        await loadAvailableGrades();
+        loadClasses(currentPage);
         handleCloseModal();
         alert('Cập nhật lớp học thành công!');
       } else {
         alert(result.message || 'Cập nhật lớp học thất bại');
       }
     } else {
-      // add new
       const result = await addClass({
         name: className.trim(),
         studentCount: parseInt(studentCount, 10) || 0
       });
 
       if (result.success) {
-        const newClass = {
-          ...result.class,
-          id: result.class._id || result.class.id,
-          classCode: generateClassCode(classes.length)
-        };
-        setClasses((prev) => [...prev, newClass]);
+        await loadAvailableGrades();
+        loadClasses(currentPage);
         handleCloseModal();
         alert('Thêm lớp học thành công!');
       } else {
@@ -141,10 +157,13 @@ const ClassesView = ({ currentUser, isReadOnly = false, schoolYear }) => {
 
     const result = await deleteClass(classId);
     if (result.success) {
-      const remaining = classes
-        .filter((c) => c.id !== classId)
-        .map((cls, idx) => ({ ...cls, classCode: generateClassCode(idx) }));
-      setClasses(remaining);
+      const shouldGoToPrevPage = 
+        classes.length === 1 && currentPage > 1;
+      
+      const newPage = shouldGoToPrevPage ? currentPage - 1 : currentPage;
+    
+      await loadAvailableGrades();
+      loadClasses(newPage);
       alert('Xóa lớp học thành công!');
     } else {
       alert(result.message || 'Xóa lớp học thất bại');
@@ -172,16 +191,25 @@ const ClassesView = ({ currentUser, isReadOnly = false, schoolYear }) => {
           )}
         </h2>
 
-        {isAdmin && !isReadOnly && (
-          <button
-            onClick={handleOpenModal}
-            disabled={loading}
-            className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          >
-            {loading ? <Loader className="animate-spin" size={20} /> : <Plus size={20} />}
-            Thêm
-          </button>
-        )}
+        <div className="flex items-center gap-3">
+          <GradeFilter
+            selectedGrade={selectedGrade}
+            onGradeChange={handleGradeChange}
+            availableGrades={availableGrades}
+            loading={loading}
+          />
+
+          {isAdmin && !isReadOnly && (
+            <button
+              onClick={handleOpenModal}
+              disabled={loading}
+              className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              {loading ? <Loader className="animate-spin" size={20} /> : <Plus size={20} />}
+              Thêm
+            </button>
+          )}
+        </div>
       </div>
 
       {isReadOnly && (
@@ -197,14 +225,25 @@ const ClassesView = ({ currentUser, isReadOnly = false, schoolYear }) => {
 
       {error && <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">{error}</div>}
 
-      <ClassesTable
-        classes={classes}
-        isAdmin={isAdmin}
-        isReadOnly={isReadOnly}
-        loading={loading}
-        onEdit={handleOpenEditModal}
-        onDelete={handleDelete}
-      />
+      <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+        <ClassesTable
+          classes={classes}
+          isAdmin={isAdmin}
+          isReadOnly={isReadOnly}
+          loading={loading}
+          onEdit={handleOpenEditModal}
+          onDelete={handleDelete}
+        />
+
+        {pagination && (
+          <Pagination
+            currentPage={pagination.currentPage}
+            totalPages={pagination.totalPages}
+            onPageChange={handlePageChange}
+            loading={loading}
+          />
+        )}
+      </div>
 
       {showModal && !isReadOnly && (
         <ClassModal

@@ -5,16 +5,17 @@ export const useClasses = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  const fetchClasses = async (schoolYear = null) => {
+  const fetchClasses = async (schoolYear = null, page = 1, limit = 10, grade = null) => {
     setLoading(true);
     setError(null);
     try {
-      const response = await classesAPI.classes(schoolYear);
+      const response = await classesAPI.classes(schoolYear, page, limit, grade);
       if (response.code === 200) {
         setLoading(false);
         return {
           success: true,
           classes: response.data.classes,
+          pagination: response.data.pagination,
         };
       } else {
         throw new Error(response.msg || "Lấy danh sách lớp học thất bại");
@@ -28,6 +29,34 @@ export const useClasses = () => {
         success: false,
         message: errorMessage,
         classes: [],
+        pagination: null,
+      };
+    }
+  };
+
+  const fetchAvailableGrades = async (schoolYear = null) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await classesAPI.getAvailableGrades(schoolYear);
+      if (response.code === 200) {
+        setLoading(false);
+        return {
+          success: true,
+          grades: response.data.grades,
+        };
+      } else {
+        throw new Error(response.msg || "Lấy danh sách khối thất bại");
+      }
+    } catch (error) {
+      const errorMessage =
+        error.response?.data?.msg || error.message || "Có lỗi xảy ra";
+      setError(errorMessage);
+      setLoading(false);
+      return {
+        success: false,
+        message: errorMessage,
+        grades: [],
       };
     }
   };
@@ -114,6 +143,7 @@ export const useClasses = () => {
     loading,
     error,
     fetchClasses,
+    fetchAvailableGrades,
     addClass,
     updateClass,
     deleteClass,
