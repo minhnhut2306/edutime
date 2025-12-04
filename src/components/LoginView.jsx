@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { Calendar, Eye, EyeOff, AlertCircle, Loader } from 'react-feather';
+import { Calendar, Eye, EyeOff, AlertCircle, Loader, Key, Lock } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 
-const LoginView = ({ onLogin, onShowRegister }) => {
+const LoginView = ({ onLogin, onShowRegister, onShowForgotPassword, onShowChangePassword }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -77,6 +77,17 @@ const LoginView = ({ onLogin, onShowRegister }) => {
             </div>
           </div>
 
+          {/* Nút Quên mật khẩu */}
+          <div className="flex justify-end">
+            <button
+              onClick={onShowForgotPassword}
+              disabled={loading}
+              className="text-sm text-blue-600 hover:text-blue-800 font-medium disabled:text-gray-400"
+            >
+              Quên mật khẩu?
+            </button>
+          </div>
+
           <button
             onClick={handleLogin}
             disabled={loading}
@@ -100,6 +111,18 @@ const LoginView = ({ onLogin, onShowRegister }) => {
               <span className="px-2 bg-white text-gray-500">hoặc</span>
             </div>
           </div>
+
+          {/* Nút Đổi mật khẩu - chỉ hiện khi đã đăng nhập */}
+          {onShowChangePassword && (
+            <button
+              onClick={onShowChangePassword}
+              disabled={loading}
+              className="w-full bg-green-50 text-green-700 py-3 rounded-lg hover:bg-green-100 font-medium disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center justify-center gap-2 border border-green-200"
+            >
+              <Lock size={20} />
+              Đổi mật khẩu
+            </button>
+          )}
 
           <button
             onClick={onShowRegister}

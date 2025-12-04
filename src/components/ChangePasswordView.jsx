@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Key, Eye, EyeOff, AlertCircle, Loader, CheckCircle } from 'lucide-react';
 import { authAPI } from '../api/authAPI';
 
-const ChangePasswordView = ({ onClose, onSuccess }) => {
+const ChangePasswordView = ({ onClose, onSuccess, onLogout }) => {
   const [oldPassword, setOldPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -11,6 +11,7 @@ const ChangePasswordView = ({ onClose, onSuccess }) => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState(false);
 
   const handleChangePassword = async () => {
     setError('');
@@ -47,9 +48,24 @@ const ChangePasswordView = ({ onClose, onSuccess }) => {
       const response = await authAPI.changePasswordWithOld(oldPassword, newPassword);
       
       if (response.code === 200) {
-        alert('Đổi mật khẩu thành công!');
-        if (onSuccess) onSuccess();
-        if (onClose) onClose();
+        setSuccess(true);
+        
+        // Đợi 2 giây để user đọc thông báo
+        setTimeout(() => {
+          // Xóa token ngay lập tức
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
+          
+          if (onClose) onClose();
+          if (onSuccess) onSuccess();
+          
+          // Đăng xuất và reload trang
+          if (onLogout) {
+            onLogout();
+          } else {
+            window.location.reload();
+          }
+        }, 2000);
       } else {
         setError(response.msg || 'Đổi mật khẩu thất bại');
       }
@@ -75,6 +91,24 @@ const ChangePasswordView = ({ onClose, onSuccess }) => {
           <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-start gap-2">
             <AlertCircle className="text-red-500 flex-shrink-0 mt-0.5" size={20} />
             <p className="text-sm text-red-700">{error}</p>
+          </div>
+        )}
+
+        {success && (
+          <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-lg">
+            <div className="flex items-start gap-2 mb-2">
+              <CheckCircle className="text-green-500 flex-shrink-0 mt-0.5" size={20} />
+              <div>
+                <p className="text-sm font-medium text-green-800">Đổi mật khẩu thành công!</p>
+                <p className="text-sm text-green-700 mt-1">
+                  Vui lòng đăng nhập lại với mật khẩu mới.
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 mt-3 text-green-600">
+              <Loader className="animate-spin" size={16} />
+              <p className="text-xs">Đang đăng xuất...</p>
+            </div>
           </div>
         )}
 
@@ -155,20 +189,25 @@ const ChangePasswordView = ({ onClose, onSuccess }) => {
           <div className="flex gap-3 mt-6">
             <button
               onClick={onClose}
-              disabled={loading}
+              disabled={loading || success}
               className="flex-1 bg-gray-100 text-gray-700 py-3 rounded-lg hover:bg-gray-200 font-medium disabled:bg-gray-300 disabled:cursor-not-allowed"
             >
               Hủy
             </button>
             <button
               onClick={handleChangePassword}
-              disabled={loading}
+              disabled={loading || success}
               className="flex-1 bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 font-medium disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
               {loading ? (
                 <>
                   <Loader className="animate-spin" size={20} />
                   Đang xử lý...
+                </>
+              ) : success ? (
+                <>
+                  <CheckCircle size={20} />
+                  Thành công!
                 </>
               ) : (
                 <>
@@ -187,6 +226,7 @@ const ChangePasswordView = ({ onClose, onSuccess }) => {
             <li>• Có ít nhất 1 ký tự đặc biệt (!@#$%^&*...)</li>
             <li>• Phải khác mật khẩu cũ</li>
           </ul>
+        
         </div>
       </div>
     </div>

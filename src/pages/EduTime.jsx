@@ -11,6 +11,8 @@ import TeachingInputView from '../components/TeachingInput/TeachingInputView';
 import UserManagementView from '../components/UserManagementView';
 import LoginView from '../components/LoginView';
 import RegisterView from '../components/RegisterView';
+import ForgotPasswordView from '../components/ForgotPasswordView';
+import ChangePasswordView from '../components/ChangePasswordView';
 import SelectTeacherView from '../components/SelectTeacherView';
 import SchoolYearSetupView from '../components/SchoolYearSetupView';
 import ReportView from '../components/Resport/ReportView';
@@ -29,6 +31,8 @@ const EduTime = () => {
   const [currentUser, setCurrentUser] = useState(null);
   const [currentView, setCurrentView] = useState('dashboard');
   const [showRegister, setShowRegister] = useState(false);
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [showChangePassword, setShowChangePassword] = useState(false);
   const [needsTeacherSelection, setNeedsTeacherSelection] = useState(false);
   const [needsSchoolYearSetup, setNeedsSchoolYearSetup] = useState(false);
   const [authToken, setAuthToken] = useState(null);
@@ -106,8 +110,6 @@ const EduTime = () => {
     try {
       const result = await getActiveSchoolYear();
 
-      console.log("[checkSchoolYearSetup] getActiveSchoolYear result:", result);
-
       if (result.success && result.schoolYear) {
         setNeedsSchoolYearSetup(false);
         const sy = result.schoolYear;
@@ -136,7 +138,6 @@ const EduTime = () => {
     setLoading(true);
     try {
       const activeYearResult = await getActiveSchoolYear();
-      console.log("[loadAllData] activeYearResult:", activeYearResult);
       if (activeYearResult.success && activeYearResult.schoolYear) {
         const sy = activeYearResult.schoolYear;
         const label = sy.year || sy.label || String(sy);
@@ -180,8 +181,6 @@ const EduTime = () => {
       if (recordsResult.success) {
         setTeachingRecords(recordsResult.teachingRecords || []);
       }
-
-      console.log('Loaded data for year:', viewingYear, 'activeSchoolYearId:', activeSchoolYearId);
 
       if (currentUser?.role === 'admin') {
         const usersData = await StorageService.loadData('edutime_users');
@@ -238,8 +237,6 @@ const EduTime = () => {
       const newYearLabel = result.data.newYear;
       const newYearId = result.data.newSchoolYearId;
 
-      console.log('Năm học mới từ backend:', { newYearLabel, newYearId });
-
       setSchoolYear({ year: newYearLabel, _id: newYearId, isActive: true });
       setViewingYear(newYearLabel);
       setActiveSchoolYear(newYearLabel);
@@ -266,6 +263,8 @@ const EduTime = () => {
     setCurrentUser(user);
     setIsLoggedIn(true);
     setAuthToken(token);
+    setShowRegister(false);
+    setShowForgotPassword(false);
   };
 
   const handleLogout = async () => {
@@ -277,6 +276,7 @@ const EduTime = () => {
       setCurrentView('dashboard');
       setNeedsTeacherSelection(false);
       setNeedsSchoolYearSetup(false);
+      setShowChangePassword(false);
 
       setTeachers([]);
       setClasses([]);
@@ -309,12 +309,21 @@ const EduTime = () => {
 
   const handleChangeYear = (year) => {
     if (year !== viewingYear) {
-      console.log('Chuyển sang năm học:', year);
       setViewingYear(year);
       loadAllData();
     }
   };
 
+  // Hiển thị màn hình Quên mật khẩu
+  if (showForgotPassword) {
+    return (
+      <ForgotPasswordView
+        onBackToLogin={() => setShowForgotPassword(false)}
+      />
+    );
+  }
+
+  // Hiển thị màn hình Đăng ký
   if (showRegister) {
     return (
       <RegisterView
@@ -323,12 +332,41 @@ const EduTime = () => {
     );
   }
 
+  // Hiển thị màn hình Đăng nhập
   if (!isLoggedIn) {
     return (
       <LoginView
         onLogin={handleLogin}
         onShowRegister={() => setShowRegister(true)}
+        onShowForgotPassword={() => setShowForgotPassword(true)}
       />
+    );
+  }
+
+  // Hiển thị modal Đổi mật khẩu (khi đã đăng nhập)
+  if (showChangePassword) {
+    return (
+      <>
+        <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+          <Header
+            currentUser={currentUser}
+            onLogout={handleLogout}
+            onSave={saveAllData}
+            schoolYear={viewingYear}
+            archivedYears={archivedYears}
+            onChangeYear={handleChangeYear}
+            onShowChangePassword={() => setShowChangePassword(true)}
+            isReadOnly={isReadOnly}
+          />
+          <ChangePasswordView
+            onClose={() => setShowChangePassword(false)}
+            onSuccess={() => {
+              setShowChangePassword(false);
+              alert('Đã đổi mật khẩu thành công!');
+            }}
+          />
+        </div>
+      </>
     );
   }
 
@@ -381,6 +419,7 @@ const EduTime = () => {
         schoolYear={viewingYear}
         archivedYears={archivedYears}
         onChangeYear={handleChangeYear}
+        onShowChangePassword={() => setShowChangePassword(true)}
         isReadOnly={isReadOnly}
       />
 
@@ -422,7 +461,6 @@ const EduTime = () => {
                   subjects={subjects}
                 />
               )}
-
 
               {currentView === 'classes' && isAdmin && (
                 <ClassesView
