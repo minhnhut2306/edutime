@@ -6,6 +6,7 @@ import { useSubjects } from '../../hooks/useSubjects';
 import { TeacherHeader, ReadOnlyBanner, ImportResultPanel } from './TeachersHeader';
 import { AddTeacherModal, EditTeacherForm } from './TeacherForm';
 import TeacherTable from './TeachersTable';
+import Pagination from './Pagination';
 
 const TeachersView = ({ currentUser, isReadOnly = false, schoolYear }) => {
   const isAdmin = currentUser?.role === 'admin';
@@ -16,6 +17,8 @@ const TeachersView = ({ currentUser, isReadOnly = false, schoolYear }) => {
   const [showAddModal, setShowAddModal] = useState(false);
   const [visibleInfo, setVisibleInfo] = useState({});
   const [importResult, setImportResult] = useState(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pagination, setPagination] = useState(null);
   const [newTeacher, setNewTeacher] = useState({
     name: '',
     phone: '',
@@ -31,8 +34,8 @@ const TeachersView = ({ currentUser, isReadOnly = false, schoolYear }) => {
     await Promise.all([loadTeachers(), loadClasses(), loadSubjects()]);
   };
 
-  const loadTeachers = async () => {
-    const result = await fetchTeachers(schoolYear);
+  const loadTeachers = async (page = currentPage) => {
+    const result = await fetchTeachers(schoolYear, page, 10);
     if (result.success) {
       const teachersArr = Array.isArray(result.teachers) ? result.teachers : [];
       const transformedTeachers = teachersArr.map((teacher, idx) => {
@@ -56,6 +59,7 @@ const TeachersView = ({ currentUser, isReadOnly = false, schoolYear }) => {
         };
       });
       setTeachers(transformedTeachers);
+      setPagination(result.pagination);
     } else {
       alert('Lỗi: ' + result.message);
     }
@@ -72,9 +76,17 @@ const TeachersView = ({ currentUser, isReadOnly = false, schoolYear }) => {
   };
 
   useEffect(() => {
+    setCurrentPage(1);
+  }, [schoolYear]);
+
+  useEffect(() => {
     loadAllData();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [schoolYear]);
+  }, [schoolYear, currentPage]);
+
+  const handlePageChange = (page) => {
+    setCurrentPage(page);
+  };
 
   const maskEmail = (email) => {
     if (!email) return '-';
@@ -135,7 +147,8 @@ const TeachersView = ({ currentUser, isReadOnly = false, schoolYear }) => {
     if (result.success) {
       alert('Thêm giáo viên thành công!');
       handleCloseAddModal();
-      loadTeachers();
+      setCurrentPage(1);
+      loadTeachers(1);
     } else {
       alert('Lỗi: ' + (result.message || 'Không thể thêm giáo viên'));
     }
@@ -187,7 +200,13 @@ const TeachersView = ({ currentUser, isReadOnly = false, schoolYear }) => {
       const result = await deleteTeacher(id);
       if (result.success) {
         alert('Xóa giáo viên thành công!');
-        loadTeachers();
+        
+        // Nếu xóa item cuối cùng của trang hiện tại và không phải trang 1, quay về trang trước
+        if (teachers.length === 1 && currentPage > 1) {
+          setCurrentPage(currentPage - 1);
+        } else {
+          loadTeachers();
+        }
       } else {
         alert('Lỗi: ' + result.message);
       }
@@ -212,7 +231,8 @@ const TeachersView = ({ currentUser, isReadOnly = false, schoolYear }) => {
         failedCount: failedCount || 0,
         failed: failed || []
       });
-      loadTeachers();
+      setCurrentPage(1);
+      loadTeachers(1);
     } else {
       alert('Lỗi: ' + response.message);
     }
@@ -277,19 +297,30 @@ const TeachersView = ({ currentUser, isReadOnly = false, schoolYear }) => {
         subjects={subjects}
       />
 
-      <TeacherTable
-        teachers={teachers}
-        classes={classes}
-        subjects={subjects}
-        visibleInfo={visibleInfo}
-        isAdmin={isAdmin}
-        isReadOnly={isReadOnly}
-        onEdit={handleEdit}
-        onDelete={handleDelete}
-        onToggleVisibility={toggleVisibility}
-        maskEmail={maskEmail}
-        maskPhone={maskPhone}
-      />
+      <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+        <TeacherTable
+          teachers={teachers}
+          classes={classes}
+          subjects={subjects}
+          visibleInfo={visibleInfo}
+          isAdmin={isAdmin}
+          isReadOnly={isReadOnly}
+          onEdit={handleEdit}
+          onDelete={handleDelete}
+          onToggleVisibility={toggleVisibility}
+          maskEmail={maskEmail}
+          maskPhone={maskPhone}
+        />
+
+        {pagination && (
+          <Pagination
+            currentPage={pagination.page}
+            totalPages={pagination.totalPages}
+            totalItems={pagination.total}
+            onPageChange={handlePageChange}
+          />
+        )}
+      </div>
     </div>
   );
 };

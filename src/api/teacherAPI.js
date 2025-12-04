@@ -1,8 +1,9 @@
 import { api, apiRequest } from "./baseApi";
 
 export const teacherAPI = {
-  teachers: async (schoolYear = null) => {
-    const params = schoolYear ? `?schoolYear=${schoolYear}` : "";
+  teachers: async (schoolYear = null, page = 1, limit = 10) => {
+    let params = `?page=${page}&limit=${limit}`;
+    if (schoolYear) params += `&schoolYear=${schoolYear}`;
     return await apiRequest(`teachers${params}`, "GET");
   },
   addTeacher: async (teacherData) => {

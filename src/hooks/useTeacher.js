@@ -5,16 +5,17 @@ export const useTeacher = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
- const fetchTeachers = async (schoolYear = null) => {
+  const fetchTeachers = async (schoolYear = null, page = 1, limit = 10) => {
     setLoading(true);
     setError(null);
     try {
-      const response = await teacherAPI.teachers(schoolYear);
+      const response = await teacherAPI.teachers(schoolYear, page, limit);
       if (response.code === 200) {
         setLoading(false);
         return {
           success: true,
           teachers: response.data.teachers,
+          pagination: response.data.pagination,
         };
       } else {
         throw new Error(response.msg || "Lấy danh sách giáo viên thất bại");
@@ -28,6 +29,7 @@ export const useTeacher = () => {
         success: false,
         message: errorMessage,
         teachers: [],
+        pagination: null,
       };
     }
   };
@@ -37,40 +39,14 @@ export const useTeacher = () => {
     setError(null);
     try {
       const response = await teacherAPI.addTeacher(teacherData);
-      if (response.code === 201 || response.code === 200) {
+      if (response.code === 201) {
         setLoading(false);
         return {
           success: true,
-          teacher: response.data,
+          teacher: response.data.teacher,
         };
       } else {
         throw new Error(response.msg || "Thêm giáo viên thất bại");
-      }
-    } catch (error) {
-      const errorMessage =
-        error.response?.data?.msg || error.message || "Có lỗi xảy ra";
-      setError(errorMessage);
-      setLoading(false);
-      return {
-        success: false,
-        message: errorMessage,
-      };
-    }
-  };
-
-  const deleteTeacher = async (teacherId) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const response = await teacherAPI.deleteTeacher(teacherId);
-      if (response.code === 200) {
-        setLoading(false);
-        return {
-          success: true,
-          message: response.msg,
-        };
-      } else {
-        throw new Error(response.msg || "Xóa giáo viên thất bại");
       }
     } catch (error) {
       const errorMessage =
@@ -93,7 +69,7 @@ export const useTeacher = () => {
         setLoading(false);
         return {
           success: true,
-          teacher: response.data,
+          teacher: response.data.teacher,
         };
       } else {
         throw new Error(response.msg || "Cập nhật giáo viên thất bại");
@@ -110,19 +86,18 @@ export const useTeacher = () => {
     }
   };
 
-  const updateTeacherUserId = async (teacherId, userId) => {
+  const deleteTeacher = async (teacherId) => {
     setLoading(true);
     setError(null);
     try {
-      const response = await teacherAPI.updateTeacherUserId(teacherId, userId);
+      const response = await teacherAPI.deleteTeacher(teacherId);
       if (response.code === 200) {
         setLoading(false);
         return {
           success: true,
-          teacher: response.data,
         };
       } else {
-        throw new Error(response.msg || "Cập nhật userId thất bại");
+        throw new Error(response.msg || "Xóa giáo viên thất bại");
       }
     } catch (error) {
       const errorMessage =
@@ -141,14 +116,11 @@ export const useTeacher = () => {
     setError(null);
     try {
       const response = await teacherAPI.importTeachers(file);
-      setLoading(false);
-
-      const data = response.data || response;
-
-      if (response.code === 200 || response.code === 201) {
+      if (response.code === 200) {
+        setLoading(false);
         return {
           success: true,
-          data: data,
+          data: response.data,
         };
       } else {
         throw new Error(response.msg || "Import giáo viên thất bại");
@@ -166,13 +138,12 @@ export const useTeacher = () => {
   };
 
   return {
-    fetchTeachers,
-    addTeacher,
-    deleteTeacher,
-    updateTeacher,
-    updateTeacherUserId,
-    importTeachers,
     loading,
     error,
+    fetchTeachers,
+    addTeacher,
+    updateTeacher,
+    deleteTeacher,
+    importTeachers,
   };
 };
