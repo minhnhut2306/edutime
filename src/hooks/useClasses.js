@@ -11,12 +11,14 @@ export const useClasses = () => {
     try {
       const response = await classesAPI.classes(schoolYear, page, limit, grade);
       if (response.code === 200) {
-        setLoading(false);
-        return {
+        // Trả về kết quả ngay lập tức, không cần đợi
+        const result = {
           success: true,
-          classes: response.data.classes,
-          pagination: response.data.pagination,
+          classes: response.data?.classes || [],
+          pagination: response.data?.pagination || null,
         };
+        setLoading(false);
+        return result;
       } else {
         throw new Error(response.msg || "Lấy danh sách lớp học thất bại");
       }

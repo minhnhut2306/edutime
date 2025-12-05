@@ -2,15 +2,12 @@
 const StorageService = {
   async loadData(key) {
     try {
-
       if (typeof window === 'undefined' || !window.storage) {
-        console.warn('Storage API not available');
         return null;
       }
       const data = await window.storage.get(key, true);
       return data ? JSON.parse(data.value) : null;
-
-    } catch (error) {
+    } catch {
       return null;
     }
   },
@@ -18,13 +15,12 @@ const StorageService = {
   async saveData(key, value) {
     try {
       if (typeof window === 'undefined' || !window.storage) {
-        console.warn('Storage API not available');
         return false;
       }
       await window.storage.set(key, JSON.stringify(value), true);
       return true;
-    } catch (error) {
-      console.error('Error saving:', error);
+    } catch {
+
       return false;
     }
   },
@@ -46,27 +42,31 @@ const StorageService = {
         });
 
       return years.length > 0 ? years : ['2024-2025'];
-
-    } catch (error) {
+    } catch {
+      
       return ['2024-2025'];
     }
   },
 
   async addSchoolYear(year) {
-    if (typeof window === 'undefined' || !window.storage) {
-      console.warn('Storage API not available');
+    try {
+      if (typeof window === 'undefined' || !window.storage) {
+        return;
+      }
+      const key = `edutime_year_${year}`;
+      const existing = await this.loadData(key);
+      if (!existing) {
+        await this.saveData(key, {
+          teachers: [],
+          classes: [],
+          subjects: [],
+          weeks: [],
+          teachingRecords: []
+        });
+      }
+    } catch {
+     
       return;
-    }
-    const key = `edutime_year_${year}`;
-    const existing = await this.loadData(key);
-    if (!existing) {
-      await this.saveData(key, {
-        teachers: [],
-        classes: [],
-        subjects: [],
-        weeks: [],
-        teachingRecords: []
-      });
     }
   }
 };

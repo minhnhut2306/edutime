@@ -137,7 +137,10 @@ const EduTime = () => {
   const loadAllData = async () => {
     setLoading(true);
     try {
+      // Lấy năm học hiện tại trước (cần để có viewingYear)
       const activeYearResult = await getActiveSchoolYear();
+      let yearToUse = viewingYear;
+      
       if (activeYearResult.success && activeYearResult.schoolYear) {
         const sy = activeYearResult.schoolYear;
         const label = sy.year || sy.label || String(sy);
@@ -146,48 +149,73 @@ const EduTime = () => {
         setActiveSchoolYearId(sy._id || sy.id || null);
         if (!viewingYear) {
           setViewingYear(label);
+          yearToUse = label;
         }
       }
 
-      const yearsResult = await fetchSchoolYears();
-      if (yearsResult.success) {
-        setArchivedYears(yearsResult.schoolYears.map(y => y.year));
+      // Chạy song song tất cả các API call không phụ thuộc nhau để tăng tốc độ
+      const [
+        yearsResult,
+        teachersResult,
+        classesResult,
+        subjectsResult,
+        weeksResult,
+        recordsResult,
+        usersData
+      ] = await Promise.allSettled([
+        fetchSchoolYears(),
+        fetchTeachers(yearToUse),
+        fetchClasses(yearToUse),
+        fetchSubjects(yearToUse),
+        fetchWeeks(yearToUse),
+        fetchTeachingRecords(undefined, yearToUse),
+        currentUser?.role === 'admin' ? StorageService.loadData('edutime_users') : Promise.resolve(null)
+      ]);
+
+      // Xử lý kết quả từng API call
+      if (yearsResult.status === 'fulfilled' && yearsResult.value?.success) {
+        setArchivedYears(yearsResult.value.schoolYears.map(y => y.year));
       }
 
-      const teachersResult = await fetchTeachers(viewingYear);
-      if (teachersResult.success) {
-        setTeachers(teachersResult.teachers);
+      if (teachersResult.status === 'fulfilled' && teachersResult.value?.success) {
+        setTeachers(teachersResult.value.teachers);
       }
 
-      const classesResult = await fetchClasses(viewingYear);
-      if (classesResult.success) {
-        setClasses(classesResult.classes);
+      if (classesResult.status === 'fulfilled' && classesResult.value?.success) {
+        setClasses(classesResult.value.classes);
       }
 
-      const subjectsResult = await fetchSubjects(viewingYear);
-      if (subjectsResult.success) {
-        setSubjects(subjectsResult.subjects);
+      if (subjectsResult.status === 'fulfilled' && subjectsResult.value?.success) {
+        setSubjects(subjectsResult.value.subjects);
       }
 
-      const weeksResult = await fetchWeeks(viewingYear);
-      if (weeksResult.success) {
-        setWeeks(weeksResult.weeks);
+      if (weeksResult.status === 'fulfilled' && weeksResult.value?.success) {
+        setWeeks(weeksResult.value.weeks);
       }
 
-      const recordsResult = await fetchTeachingRecords(
-        undefined,
-        viewingYear
-      );
-      if (recordsResult.success) {
-        setTeachingRecords(recordsResult.teachingRecords || []);
+      if (recordsResult.status === 'fulfilled' && recordsResult.value?.success) {
+        setTeachingRecords(recordsResult.value.teachingRecords || []);
       }
 
-      if (currentUser?.role === 'admin') {
-        const usersData = await StorageService.loadData('edutime_users');
-        if (usersData) {
-          setUsers(usersData);
+      if (usersData.status === 'fulfilled' && usersData.value && currentUser?.role === 'admin') {
+        setUsers(usersData.value);
+      }
+
+      // Log lỗi nếu có (không làm gián đoạn quá trình tải)
+      [
+        yearsResult,
+        teachersResult,
+        classesResult,
+        subjectsResult,
+        weeksResult,
+        recordsResult,
+        usersData
+      ].forEach((result, index) => {
+        if (result.status === 'rejected') {
+          const apiNames = ['fetchSchoolYears', 'fetchTeachers', 'fetchClasses', 'fetchSubjects', 'fetchWeeks', 'fetchTeachingRecords', 'loadUsers'];
+          console.error(`Error loading ${apiNames[index]}:`, result.reason);
         }
-      }
+      });
     } catch (error) {
       console.error('loadAllData error:', error);
       alert('Có lỗi khi tải dữ liệu!');

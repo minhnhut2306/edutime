@@ -25,8 +25,27 @@ const ClassesView = ({ currentUser, isReadOnly = false, schoolYear }) => {
   const itemsPerPage = 10;
 
   useEffect(() => {
-    loadAvailableGrades();
-    loadClasses(1);
+    // Load grades và classes song song để tối ưu tốc độ
+    const loadData = async () => {
+      setIsLoading(true);
+      try {
+        await Promise.all([
+          loadAvailableGrades().catch(err => {
+            console.error("Error loading grades:", err);
+            return null;
+          }),
+          loadClasses(1).catch(err => {
+            console.error("Error loading classes:", err);
+            return null;
+          })
+        ]);
+      } catch (err) {
+        console.error("Error loading initial data:", err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    loadData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [schoolYear]);
 
@@ -44,20 +63,33 @@ const ClassesView = ({ currentUser, isReadOnly = false, schoolYear }) => {
 
   const loadClasses = async (page = currentPage) => {
     setIsLoading(true);
-    const result = await fetchClasses(schoolYear, page, itemsPerPage, selectedGrade);
-    if (result.success) {
-      const normalized = result.classes.map((cls, idx) => ({
-        ...cls,
-        id: cls._id || cls.id,
-        classCode: generateClassCode((page - 1) * itemsPerPage + idx)
-      }));
-      setClasses(normalized);
-      setPagination(result.pagination);
-      setCurrentPage(page);
-    } else {
-      alert(result.message || 'Không thể tải danh sách lớp học');
+    try {
+      const result = await fetchClasses(schoolYear, page, itemsPerPage, selectedGrade);
+      if (result.success) {
+        const normalized = result.classes.map((cls, idx) => ({
+          ...cls,
+          id: cls._id || cls.id,
+          classCode: generateClassCode((page - 1) * itemsPerPage + idx)
+        }));
+        setClasses(normalized);
+        setPagination(result.pagination);
+        setCurrentPage(page);
+      } else {
+        // Nếu không có data hoặc lỗi, set empty state ngay
+        setClasses([]);
+        setPagination(null);
+        if (result.message && !result.message.includes('Không có')) {
+          alert(result.message || 'Không thể tải danh sách lớp học');
+        }
+      }
+    } catch (err) {
+      // Xử lý lỗi và set empty state
+      setClasses([]);
+      setPagination(null);
+      console.error('Error loading classes:', err);
+    } finally {
+      setIsLoading(false);
     }
-    setIsLoading(false);
   };
 
   const handleGradeChange = (grade) => {
@@ -170,10 +202,16 @@ const ClassesView = ({ currentUser, isReadOnly = false, schoolYear }) => {
     }
   };
 
-  if (isLoading) {
+  // Chỉ hiển thị loading full screen khi đang load lần đầu và chưa có data
+  const isInitialLoad = isLoading && classes.length === 0 && !error;
+
+  if (isInitialLoad) {
     return (
       <div className="flex items-center justify-center h-64">
-        <Loader className="animate-spin text-blue-600" size={48} />
+        <div className="flex flex-col items-center gap-4">
+          <Loader className="animate-spin text-blue-600" size={48} />
+          <p className="text-gray-600">Đang tải dữ liệu lớp học...</p>
+        </div>
       </div>
     );
   }
@@ -225,7 +263,12 @@ const ClassesView = ({ currentUser, isReadOnly = false, schoolYear }) => {
 
       {error && <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">{error}</div>}
 
-      <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+      <div className="bg-white rounded-xl shadow-lg overflow-hidden relative">
+        {isLoading && classes.length > 0 && (
+          <div className="absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center z-10">
+            <Loader className="animate-spin text-blue-600" size={32} />
+          </div>
+        )}
         <ClassesTable
           classes={classes}
           isAdmin={isAdmin}

@@ -10,19 +10,27 @@ const SubjectsView = ({ currentUser, isReadOnly = false, schoolYear }) => {
   const [modalMode, setModalMode] = useState('add'); 
   const [editingSubject, setEditingSubject] = useState(null);
   const [subjectName, setSubjectName] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
   const { fetchSubjects, addSubject, updateSubject, deleteSubject, loading, error } = useSubjects();
   const isAdmin = currentUser.role === 'admin';
+
+  const loadSubjects = async () => {
+    setIsLoading(true);
+    try {
+      const result = await fetchSubjects(schoolYear);
+      if (result.success) {
+        setSubjects(result.subjects);
+      }
+    } catch (err) {
+      console.error("Error loading subjects:", err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
     loadSubjects();
   }, [schoolYear]);
-
-  const loadSubjects = async () => {
-    const result = await fetchSubjects(schoolYear);
-    if (result.success) {
-      setSubjects(result.subjects);
-    }
-  };
 
   const handleOpenModal = () => {
     if (isReadOnly) {
@@ -97,10 +105,16 @@ const SubjectsView = ({ currentUser, isReadOnly = false, schoolYear }) => {
     }
   };
 
-  if (loading && subjects.length === 0) {
+  // Chỉ hiển thị loading full screen khi đang load lần đầu và chưa có data
+  const isInitialLoad = (isLoading || loading) && subjects.length === 0 && !error;
+
+  if (isInitialLoad) {
     return (
       <div className="flex justify-center items-center h-64">
-        <Loader className="animate-spin text-blue-600" size={48} />
+        <div className="flex flex-col items-center gap-4">
+          <Loader className="animate-spin text-blue-600" size={48} />
+          <p className="text-gray-600">Đang tải dữ liệu môn học...</p>
+        </div>
       </div>
     );
   }
@@ -120,10 +134,10 @@ const SubjectsView = ({ currentUser, isReadOnly = false, schoolYear }) => {
         {isAdmin && !isReadOnly && (
           <button
             onClick={handleOpenModal}
-            disabled={loading}
+            disabled={loading || isLoading}
             className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
-            {loading ? <Loader className="animate-spin" size={20} /> : <Plus size={20} />}
+            {(loading || isLoading) ? <Loader className="animate-spin" size={20} /> : <Plus size={20} />}
             Thêm
           </button>
         )}
@@ -144,14 +158,21 @@ const SubjectsView = ({ currentUser, isReadOnly = false, schoolYear }) => {
         </div>
       )}
 
-      <SubjectsTable
-        subjects={subjects}
-        onEdit={handleOpenEditModal}
-        onDelete={handleDelete}
-        isAdmin={isAdmin}
-        isReadOnly={isReadOnly}
-        loading={loading}
-      />
+      <div className="bg-white rounded-xl shadow-lg overflow-hidden relative">
+        {(isLoading || loading) && subjects.length > 0 && (
+          <div className="absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center z-10">
+            <Loader className="animate-spin text-blue-600" size={32} />
+          </div>
+        )}
+        <SubjectsTable
+          subjects={subjects}
+          onEdit={handleOpenEditModal}
+          onDelete={handleDelete}
+          isAdmin={isAdmin}
+          isReadOnly={isReadOnly}
+          loading={loading || isLoading}
+        />
+      </div>
 
       <SubjectModal
         isOpen={showModal}

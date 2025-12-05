@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Download, BarChart3, Mail, Loader } from 'lucide-react';
 import { useReports } from '../../hooks/useReports';
 import { useTeachingRecord } from '../../hooks/useTeachingRecord';
@@ -10,23 +10,28 @@ const ReportView = ({ teachers = [], teachingRecords: initialRecords = [], weeks
   const isAdmin = currentUser?.role === 'admin';
   const [teachingRecords, setTeachingRecords] = useState(initialRecords || []);
   const [loadingRecords, setLoadingRecords] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
 
   const currentSchoolYear = typeof schoolYear === 'object' ? schoolYear?.year : schoolYear;
 
-  const linkedTeacher = teachers.find(t => {
-    if (!t.userId) return false;
-    const teacherUserId = t.userId?._id || t.userId;
-    const currentUserId = currentUser?._id || currentUser?.id;
-    return teacherUserId === currentUserId || teacherUserId?.toString() === currentUserId?.toString();
-  });
+  const linkedTeacher = useMemo(() => {
+    return teachers.find(t => {
+      if (!t.userId) return false;
+      const teacherUserId = t.userId?._id || t.userId;
+      const currentUserId = currentUser?._id || currentUser?.id;
+      return teacherUserId === currentUserId || teacherUserId?.toString() === currentUserId?.toString();
+    });
+  }, [teachers, currentUser]);
 
   const availableTeachers = isAdmin ? teachers : (linkedTeacher ? [linkedTeacher] : []);
 
   const { exportReport, exportMultipleReports, loading: reportLoading, error: reportError } = useReports();
   const { fetchTeachingRecords } = useTeachingRecord();
 
-  const [selectedTeacherId, setSelectedTeacherId] = useState(isAdmin ? '' : (linkedTeacher?.id || linkedTeacher?._id || ''));
+  const [selectedTeacherId, setSelectedTeacherId] = useState(() => {
+    if (isAdmin) return '';
+    const teacherId = linkedTeacher?.id || linkedTeacher?._id;
+    return teacherId || '';
+  });
   const [selectedTeacherIds, setSelectedTeacherIds] = useState([]);
   const [exportMode, setExportMode] = useState('single');
 
@@ -39,52 +44,45 @@ const ReportView = ({ teachers = [], teachingRecords: initialRecords = [], weeks
     semester: 1,
   });
 
-  useEffect(() => {
-    if (teachers.length > 0 && weeks.length > 0) {
-      setIsLoading(false);
-    } else {
-      setIsLoading(true);
-    }
-  }, [teachers, weeks]);
 
-  useEffect(() => {
+  const loadTeacherRecords = useCallback(async () => {
     if (!selectedTeacherId) {
       setTeachingRecords([]);
+      setLoadingRecords(false);
       return;
     }
-    loadTeacherRecords();
-  }, [selectedTeacherId]);
-
-  const loadTeacherRecords = async () => {
     setLoadingRecords(true);
     try {
-      const result = await fetchTeachingRecords(selectedTeacherId);
-      if (result.success) {
+      const result = await fetchTeachingRecords(selectedTeacherId, currentSchoolYear);
+      if (result && result.success) {
         setTeachingRecords(result.teachingRecords || []);
       } else {
         setTeachingRecords([]);
       }
-    // eslint-disable-next-line no-unused-vars
     } catch (error) {
+      console.error("Error loading teacher records:", error);
       setTeachingRecords([]);
     } finally {
       setLoadingRecords(false);
     }
-  };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedTeacherId, currentSchoolYear]);
 
   useEffect(() => {
-    if (!isAdmin && linkedTeacher && !selectedTeacherId) {
-      setSelectedTeacherId(linkedTeacher.id || linkedTeacher._id);
-    }
-  }, [linkedTeacher, isAdmin, selectedTeacherId]);
+    loadTeacherRecords();
+  }, [loadTeacherRecords]);
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <Loader className="animate-spin text-blue-600" size={48} />
-      </div>
-    );
-  }
+  // Chỉ set selectedTeacherId một lần khi linkedTeacher thay đổi và chưa có selectedTeacherId
+  const linkedTeacherId = useMemo(() => {
+    return linkedTeacher?.id || linkedTeacher?._id || null;
+  }, [linkedTeacher?.id, linkedTeacher?._id]);
+
+  useEffect(() => {
+    if (!isAdmin && linkedTeacherId && linkedTeacherId !== selectedTeacherId) {
+      setSelectedTeacherId(linkedTeacherId);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [linkedTeacherId, isAdmin]);
 
   if (!isAdmin && !linkedTeacher) {
     return (
@@ -312,12 +310,34 @@ const ReportView = ({ teachers = [], teachingRecords: initialRecords = [], weeks
         />
       )}
 
+      {loadingRecords && teachingRecords.length === 0 && (
+        <div className="flex items-center justify-center h-64">
+          <div className="flex flex-col items-center gap-4">
+            <Loader className="animate-spin text-blue-600" size={48} />
+            <p className="text-gray-600">Đang tải dữ liệu báo cáo...</p>
+          </div>
+        </div>
+      )}
+
       {selectedTeacherId && !loadingRecords && (
         <StatCards
           totalPeriods={totalPeriods}
           recordsCount={myRecords.length}
           teacherName={teachers.find(t => (t.id || t._id) === selectedTeacherId)?.name}
         />
+      )}
+
+      {loadingRecords && teachingRecords.length > 0 && (
+        <div className="relative">
+          <div className="absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center z-10 rounded-lg">
+            <Loader className="animate-spin text-blue-600" size={32} />
+          </div>
+          <StatCards
+            totalPeriods={totalPeriods}
+            recordsCount={myRecords.length}
+            teacherName={teachers.find(t => (t.id || t._id) === selectedTeacherId)?.name}
+          />
+        </div>
       )}
 
       {!selectedTeacherId && isAdmin && (
@@ -331,3 +351,4 @@ const ReportView = ({ teachers = [], teachingRecords: initialRecords = [], weeks
 };
 
 export default ReportView;
+  

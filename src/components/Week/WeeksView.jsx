@@ -25,16 +25,21 @@ const WeeksView = ({ currentUser, schoolYear, isReadOnly = false }) => {
 
   const loadWeeks = async (page = currentPage) => {
     setIsLoading(true);
-    const result = await fetchWeeks(schoolYear, page, itemsPerPage);
-    if (result.success) {
-      setWeeks(result.weeks);
-      setPagination(result.pagination);
-      setTotalWeeks(result.pagination.totalItems);
-      setCurrentPage(page);
-    } else {
-      alert(result.message || 'Không thể tải danh sách tuần học');
+    try {
+      const result = await fetchWeeks(schoolYear, page, itemsPerPage);
+      if (result.success) {
+        setWeeks(result.weeks);
+        setPagination(result.pagination);
+        setTotalWeeks(result.pagination.totalItems);
+        setCurrentPage(page);
+      } else {
+        alert(result.message || 'Không thể tải danh sách tuần học');
+      }
+    } catch (err) {
+      console.error("Error loading weeks:", err);
+    } finally {
+      setIsLoading(false);
     }
-    setIsLoading(false);
   };
 
   const handlePageChange = (newPage) => {
@@ -234,10 +239,16 @@ const WeeksView = ({ currentUser, schoolYear, isReadOnly = false }) => {
     }
   };
 
-  if (isLoading) {
+  // Chỉ hiển thị loading full screen khi đang load lần đầu và chưa có data
+  const isInitialLoad = isLoading && weeks.length === 0 && !error;
+
+  if (isInitialLoad) {
     return (
       <div className="flex items-center justify-center h-64">
-        <Loader className="animate-spin text-blue-600" size={48} />
+        <div className="flex flex-col items-center gap-4">
+          <Loader className="animate-spin text-blue-600" size={48} />
+          <p className="text-gray-600">Đang tải dữ liệu tuần học...</p>
+        </div>
       </div>
     );
   }
@@ -299,14 +310,19 @@ const WeeksView = ({ currentUser, schoolYear, isReadOnly = false }) => {
         />
       )}
 
-      <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+      <div className="bg-white rounded-xl shadow-lg overflow-hidden relative">
+        {(isLoading || loading) && weeks.length > 0 && (
+          <div className="absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center z-10">
+            <Loader className="animate-spin text-blue-600" size={32} />
+          </div>
+        )}
         <WeeksTable
           weeks={weeks}
           onEdit={handleEdit}
           onDelete={handleDelete}
           isAdmin={isAdmin}
           isReadOnly={isReadOnly}
-          loading={loading}
+          loading={loading || isLoading}
         />
 
         {pagination && (
@@ -314,7 +330,7 @@ const WeeksView = ({ currentUser, schoolYear, isReadOnly = false }) => {
             currentPage={pagination.currentPage}
             totalPages={pagination.totalPages}
             onPageChange={handlePageChange}
-            loading={loading}
+            loading={loading || isLoading}
           />
         )}
       </div>

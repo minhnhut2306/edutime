@@ -33,11 +33,31 @@ const TeachersView = ({ currentUser, isReadOnly = false, schoolYear }) => {
 
   const loadAllData = async () => {
     setIsLoading(true);
-    await Promise.all([loadTeachers(), loadClasses(), loadSubjects()]);
-    setIsLoading(false);
+    try {
+      // Load tất cả dữ liệu song song để tối ưu tốc độ
+      await Promise.all([
+        loadTeachers().catch(err => {
+          console.error("Error loading teachers:", err);
+          return null;
+        }),
+        loadClasses().catch(err => {
+          console.error("Error loading classes:", err);
+          return null;
+        }),
+        loadSubjects().catch(err => {
+          console.error("Error loading subjects:", err);
+          return null;
+        })
+      ]);
+    } catch (err) {
+      console.error("Error loading all data:", err);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const loadTeachers = async (page = currentPage) => {
+    // Không set loading ở đây vì đã có trong loadAllData
     const result = await fetchTeachers(schoolYear, page, 10);
     if (result.success) {
       const teachersArr = Array.isArray(result.teachers) ? result.teachers : [];
@@ -242,10 +262,16 @@ const TeachersView = ({ currentUser, isReadOnly = false, schoolYear }) => {
     e.target.value = '';
   };
 
-  if (isLoading) {
+  // Chỉ hiển thị loading full screen khi đang load lần đầu và chưa có data
+  const isInitialLoad = isLoading && teachers.length === 0 && !errorTeachers;
+
+  if (isInitialLoad) {
     return (
       <div className="flex items-center justify-center h-64">
-        <Loader className="animate-spin text-blue-600" size={48} />
+        <div className="flex flex-col items-center gap-4">
+          <Loader className="animate-spin text-blue-600" size={48} />
+          <p className="text-gray-600">Đang tải dữ liệu giáo viên...</p>
+        </div>
       </div>
     );
   }
@@ -294,7 +320,12 @@ const TeachersView = ({ currentUser, isReadOnly = false, schoolYear }) => {
         subjects={subjects}
       />
 
-      <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+      <div className="bg-white rounded-xl shadow-lg overflow-hidden relative">
+        {isLoading && teachers.length > 0 && (
+          <div className="absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center z-10">
+            <Loader className="animate-spin text-blue-600" size={32} />
+          </div>
+        )}
         <TeacherTable
           teachers={teachers}
           classes={classes}
