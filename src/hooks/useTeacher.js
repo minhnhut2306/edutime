@@ -137,10 +137,36 @@ export const useTeacher = () => {
     }
   };
 
+  const updateTeacherUserId = async (teacherId, userId) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await teacherAPI.updateTeacherUserId(teacherId, userId);
+      if (response.code === 200) {
+        setLoading(false);
+        return {
+          success: true,
+          teacher: response.data.teacher,
+        };
+      } else {
+        throw new Error(response.msg || "Cập nhật userId thất bại");
+      }
+    } catch (error) {
+      const errorMessage =
+        error.response?.data?.msg || error.message || "Có lỗi xảy ra";
+      setError(errorMessage);
+      setLoading(false);
+      return {
+        success: false,
+        message: errorMessage,
+      };
+    }
+  };
   return {
     loading,
     error,
     fetchTeachers,
+    updateTeacherUserId,
     addTeacher,
     updateTeacher,
     deleteTeacher,

@@ -34,14 +34,25 @@ const SelectTeacherView = ({ currentUser }) => {
     }
 
     setSubmitting(true);
-    const result = await updateTeacherUserId(selectedTeacherId, currentUser._id || currentUser.id);
 
-    if (result.success) {
-      alert(' Đã liên kết tài khoản với giáo viên thành công!');
+    try {
+      const currentUserId = currentUser._id || currentUser.id;
+      const result = await updateTeacherUserId(selectedTeacherId, currentUserId);
 
-      window.location.reload();
-    } else {
-      alert(' Lỗi: ' + result.message);
+      if (result.success) {
+        alert('✅ Đã liên kết tài khoản với giáo viên thành công!');
+
+        // Cập nhật lại localStorage
+        const updatedUser = { ...currentUser, teacherId: selectedTeacherId };
+        localStorage.setItem('user', JSON.stringify(updatedUser));
+
+        window.location.reload();
+      } else {
+        throw new Error(result.message || 'Không thể liên kết tài khoản');
+      }
+    } catch (error) {
+      console.error('Error linking teacher:', error);
+      alert('❌ Lỗi: ' + (error.message || 'Không thể liên kết tài khoản'));
       setSubmitting(false);
     }
   };
@@ -83,11 +94,10 @@ const SelectTeacherView = ({ currentUser }) => {
                 <button
                   key={teacher._id || teacher.id}
                   onClick={() => setSelectedTeacherId(teacher._id || teacher.id)}
-                  className={`w-full p-4 rounded-lg border-2 transition-all text-left ${
-                    selectedTeacherId === (teacher._id || teacher.id)
+                  className={`w-full p-4 rounded-lg border-2 transition-all text-left ${selectedTeacherId === (teacher._id || teacher.id)
                       ? 'border-blue-600 bg-blue-50'
                       : 'border-gray-200 hover:border-blue-300'
-                  }`}
+                    }`}
                 >
                   <div className="flex items-center justify-between">
                     <div>

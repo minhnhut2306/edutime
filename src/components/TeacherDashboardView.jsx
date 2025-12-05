@@ -92,30 +92,6 @@ const TeacherDashboardView = ({ teacher, teachingRecords = [], classes = [], sub
           <p className="text-3xl font-bold text-purple-600 mt-2">{myRecords.length}</p>
         </div>
       </div>
-
-      <div className="bg-white rounded-xl p-6 shadow-lg">
-        <h3 className="text-xl font-bold mb-4">Hướng dẫn sử dụng</h3>
-        <div className="space-y-3 text-gray-700">
-          <div className="flex items-start gap-3">
-            <div className="bg-blue-100 rounded-full p-2 mt-1">
-              <Edit2 size={16} className="text-blue-600" />
-            </div>
-            <div>
-              <p className="font-medium">Nhập tiết dạy hàng ngày</p>
-              <p className="text-sm text-gray-600">Vào mục "Nhập tiết dạy" để ghi lại số tiết dạy mỗi ngày</p>
-            </div>
-          </div>
-          <div className="flex items-start gap-3">
-            <div className="bg-green-100 rounded-full p-2 mt-1">
-              <Download size={16} className="text-green-600" />
-            </div>
-            <div>
-              <p className="font-medium">Xem báo cáo</p>
-              <p className="text-sm text-gray-600">Vào mục "Báo cáo" để xem thống kê tiết dạy của bạn</p>
-            </div>
-          </div>
-        </div>
-      </div>
     </div>
   );
 };
