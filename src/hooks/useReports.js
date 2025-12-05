@@ -233,6 +233,67 @@ export const useReports = () => {
     }
   };
 
+    const exportMultipleReports = async (options) => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      const schoolYearValue = options?.schoolYearId || options?.schoolYear || options?.schoolYearLabel;
+      if (!schoolYearValue) {
+        throw new Error("Vui lòng chọn năm học (schoolYearId hoặc schoolYear)");
+      }
+
+      if (!options?.teacherIds || options.teacherIds.length === 0) {
+        throw new Error("Vui lòng chọn ít nhất 1 giáo viên");
+      }
+
+      const response = await reportsAPI.exportMultipleReports(options);
+      setLoading(false);
+
+      // Download file ZIP
+      let fileName = `BaoCao_${options.teacherIds.length}GV.zip`;
+      
+      const contentDisposition = response.headers['content-disposition'];
+      if (contentDisposition) {
+        const matches = contentDisposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
+        if (matches && matches[1]) {
+          fileName = decodeURIComponent(matches[1].replace(/['"]/g, ''));
+        }
+      }
+
+      const url = window.URL.createObjectURL(response.data);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
+      return { success: true };
+    } catch (err) {
+      let userFriendlyMessage = "Có lỗi xảy ra khi xuất báo cáo nhiều giáo viên";
+
+      if (err.response?.status === 404) {
+        userFriendlyMessage = "Không tìm thấy dữ liệu cho các giáo viên đã chọn";
+      } else if (err.response?.status === 401) {
+        userFriendlyMessage = "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại!";
+      } else if (err.response?.status === 403) {
+        userFriendlyMessage = "Bạn không có quyền xuất báo cáo này!";
+      } else if (err.response?.status === 500) {
+        userFriendlyMessage = "Lỗi hệ thống. Vui lòng thử lại sau!";
+      } else if (err.message) {
+        userFriendlyMessage = err.message;
+      }
+
+      console.error("❌ Export Multiple Error:", err);
+      setError(userFriendlyMessage);
+      setLoading(false);
+
+      return { success: false, message: userFriendlyMessage };
+    }
+  };
+
   return {
     exportReport,
     getTeacherReport,
@@ -240,6 +301,7 @@ export const useReports = () => {
     exportWeekReport,
     exportSemesterReport,
     exportYearReport,
+    exportMultipleReports,
     loading,
     error,
   };

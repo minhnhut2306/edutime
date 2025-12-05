@@ -23,7 +23,7 @@ const ReportView = ({ teachers = [], teachingRecords: initialRecords = [], weeks
 
   const availableTeachers = isAdmin ? teachers : (linkedTeacher ? [linkedTeacher] : []);
 
-  const { exportReport, loading: reportLoading, error: reportError } = useReports();
+  const { exportReport, exportMultipleReports, loading: reportLoading, error: reportError } = useReports();
   const { fetchTeachingRecords } = useTeachingRecord();
 
   const [selectedTeacherId, setSelectedTeacherId] = useState(isAdmin ? '' : (linkedTeacher?.id || linkedTeacher?._id || ''));
@@ -140,12 +140,11 @@ const ReportView = ({ teachers = [], teachingRecords: initialRecords = [], weeks
       }
 
       const options = {
-        teacherIds: isAdmin && exportMode === 'multiple' ? teacherIdsToExport : teacherIdsToExport[0],
         schoolYear: currentSchoolYear,
         type: exportType,
       };
 
-      // Xử lý tham số BC (có thể nhiều tháng)
+      // Xử lý tham số BC
       if (exportType === 'bc') {
         if (exportParams.bcNumbers && exportParams.bcNumbers.length > 0) {
           options.bcNumbers = exportParams.bcNumbers;
@@ -169,10 +168,20 @@ const ReportView = ({ teachers = [], teachingRecords: initialRecords = [], weeks
         options.semester = exportParams.semester;
       }
 
-      const result = await exportReport(options);
+      let result;
+
+      // KIỂM TRA: Nếu chọn nhiều GV (exportMode='multiple') => dùng exportMultipleReports
+      if (isAdmin && exportMode === 'multiple' && teacherIdsToExport.length > 1) {
+        options.teacherIds = teacherIdsToExport;
+        result = await exportMultipleReports(options);
+      } else {
+        // Chỉ 1 GV => dùng exportReport như cũ
+        options.teacherId = teacherIdsToExport[0];
+        result = await exportReport(options);
+      }
 
       if (result.success) {
-        const count = isAdmin && exportMode === 'multiple' ? teacherIdsToExport.length : 1;
+        const count = teacherIdsToExport.length;
         const teacherName = linkedTeacher ? linkedTeacher.name : '';
         
         let typeText = '';
@@ -192,12 +201,16 @@ const ReportView = ({ teachers = [], teachingRecords: initialRecords = [], weeks
           typeText = 'Cả năm học';
         }
         
+        const fileTypeText = isAdmin && exportMode === 'multiple' && count > 1 
+          ? `File ZIP chứa ${count} file Excel (mỗi GV 1 file)`
+          : 'File Excel';
+        
         alert(
-          `Xuất báo cáo Excel thành công!\n\n` +
+          `Xuất báo cáo thành công!\n\n` +
           `Năm học: ${currentSchoolYear}\n` +
           `Loại: ${typeText}\n` +
           `${isAdmin ? `Số giáo viên: ${count}` : `Giáo viên: ${teacherName}`}\n` +
-          `File đã được tải về!`
+          `${fileTypeText} đã được tải về!`
         );
       } else {
         alert(`${result.message || 'Không thể xuất báo cáo'}`);
