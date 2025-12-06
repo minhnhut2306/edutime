@@ -16,7 +16,7 @@ const ChangePasswordView = ({ onClose, onSuccess, onLogout }) => {
   const handleChangePassword = async () => {
     setError('');
 
-    // Validation
+
     if (!oldPassword || !newPassword || !confirmPassword) {
       setError('Vui lòng nhập đầy đủ thông tin!');
       return;
@@ -46,20 +46,20 @@ const ChangePasswordView = ({ onClose, onSuccess, onLogout }) => {
     setLoading(true);
     try {
       const response = await authAPI.changePasswordWithOld(oldPassword, newPassword);
-      
+
       if (response.code === 200) {
         setSuccess(true);
-        
-        // Đợi 2 giây để user đọc thông báo
+
+
         setTimeout(() => {
-          // Xóa token ngay lập tức
+
           localStorage.removeItem('token');
           localStorage.removeItem('user');
-          
+
           if (onClose) onClose();
           if (onSuccess) onSuccess();
-          
-          // Đăng xuất và reload trang
+
+
           if (onLogout) {
             onLogout();
           } else {
@@ -226,7 +226,7 @@ const ChangePasswordView = ({ onClose, onSuccess, onLogout }) => {
             <li>• Có ít nhất 1 ký tự đặc biệt (!@#$%^&*...)</li>
             <li>• Phải khác mật khẩu cũ</li>
           </ul>
-        
+
         </div>
       </div>
     </div>

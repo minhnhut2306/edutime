@@ -14,7 +14,7 @@ const ClassesView = ({ currentUser, isReadOnly = false, schoolYear }) => {
   const [selectedGrade, setSelectedGrade] = useState('');
   const [availableGrades, setAvailableGrades] = useState([]);
   const { error, fetchClasses, fetchAvailableGrades, addClass, deleteClass, updateClass } = useClasses();
-  
+
   const [showModal, setShowModal] = useState(false);
   const [modalMode, setModalMode] = useState('add');
   const [editingClass, setEditingClass] = useState(null);
@@ -180,7 +180,7 @@ const ClassesView = ({ currentUser, isReadOnly = false, schoolYear }) => {
     if (result.success) {
       const shouldGoToPrevPage = classes.length === 1 && currentPage > 1;
       const newPage = shouldGoToPrevPage ? currentPage - 1 : currentPage;
-    
+
       await loadAvailableGrades();
       loadClasses(newPage);
       alert('Xóa lớp học thành công!');

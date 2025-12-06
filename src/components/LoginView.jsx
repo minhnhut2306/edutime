@@ -77,7 +77,7 @@ const LoginView = ({ onLogin, onShowRegister, onShowForgotPassword, onShowChange
             </div>
           </div>
 
-          {/* Nút Quên mật khẩu */}
+          {}
           <div className="flex justify-end">
             <button
               onClick={onShowForgotPassword}
@@ -112,7 +112,7 @@ const LoginView = ({ onLogin, onShowRegister, onShowForgotPassword, onShowChange
             </div>
           </div>
 
-          {/* Nút Đổi mật khẩu - chỉ hiện khi đã đăng nhập */}
+          {}
           {onShowChangePassword && (
             <button
               onClick={onShowChangePassword}

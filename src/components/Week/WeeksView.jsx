@@ -47,17 +47,17 @@ const WeeksView = ({ currentUser, schoolYear, isReadOnly = false }) => {
   const getNextMondayWeek = (lastEndDate) => {
     const nextDay = new Date(lastEndDate);
     nextDay.setDate(nextDay.getDate() + 1);
-    
+
     const dayOfWeek = nextDay.getDay();
     const daysUntilMonday = dayOfWeek === 0 ? 1 : (8 - dayOfWeek) % 7;
-    
+
     const monday = new Date(nextDay);
     if (daysUntilMonday > 0) {
       monday.setDate(monday.getDate() + daysUntilMonday);
     }
     const sunday = new Date(monday);
     sunday.setDate(sunday.getDate() + 6);
-    
+
     return {
       startDate: monday.toISOString().split('T')[0],
       endDate: sunday.toISOString().split('T')[0]
@@ -76,28 +76,28 @@ const WeeksView = ({ currentUser, schoolYear, isReadOnly = false }) => {
     }
     const allWeeksResult = await fetchWeeks(schoolYear, 1, MAX_WEEKS);
     const allWeeks = allWeeksResult.success ? allWeeksResult.weeks : [];
-    
+
     let nextWeekDates;
-    
+
     if (allWeeks.length === 0) {
       const today = new Date();
       const dayOfWeek = today.getDay();
       const daysUntilMonday = dayOfWeek === 0 ? 1 : (8 - dayOfWeek) % 7;
-      
+
       const monday = new Date(today);
       if (daysUntilMonday > 0) {
         monday.setDate(monday.getDate() + daysUntilMonday);
       }
-      
+
       const sunday = new Date(monday);
       sunday.setDate(sunday.getDate() + 6);
-      
+
       nextWeekDates = {
         startDate: monday.toISOString().split('T')[0],
         endDate: sunday.toISOString().split('T')[0]
       };
     } else {
-      const sortedWeeks = [...allWeeks].sort((a, b) => 
+      const sortedWeeks = [...allWeeks].sort((a, b) =>
         new Date(b.endDate) - new Date(a.endDate)
       );
       const lastWeek = sortedWeeks[0];

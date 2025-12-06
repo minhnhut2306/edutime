@@ -7,10 +7,10 @@ import { SubjectsTable } from './SubjectsTable';
 const SubjectsView = ({ currentUser, isReadOnly = false, schoolYear }) => {
   const [subjects, setSubjects] = useState([]);
   const [showModal, setShowModal] = useState(false);
-  const [modalMode, setModalMode] = useState('add'); 
+  const [modalMode, setModalMode] = useState('add');
   const [editingSubject, setEditingSubject] = useState(null);
   const [subjectName, setSubjectName] = useState('');
-  
+
   const { fetchSubjects, addSubject, updateSubject, deleteSubject, error } = useSubjects();
   const isAdmin = currentUser.role === 'admin';
 

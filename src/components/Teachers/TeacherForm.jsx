@@ -1,7 +1,7 @@
 import React from 'react';
 import { X } from 'react-feather';
 
-// Component chọn môn học
+
 const SubjectSelector = ({ subjects, selectedSubjectIds = [], onToggle }) => (
   <div>
     <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -31,7 +31,7 @@ const SubjectSelector = ({ subjects, selectedSubjectIds = [], onToggle }) => (
   </div>
 );
 
-// Modal thêm giáo viên
+
 export const AddTeacherModal = ({ isOpen, onClose, teacher, onChange, onSubmit, classes, subjects }) => {
   if (!isOpen) return null;
 
@@ -126,7 +126,7 @@ export const AddTeacherModal = ({ isOpen, onClose, teacher, onChange, onSubmit, 
   );
 };
 
-// Form chỉnh sửa giáo viên
+
 export const EditTeacherForm = ({ teacher, onChange, onSave, onCancel, classes, subjects }) => {
   if (!teacher) return null;
 

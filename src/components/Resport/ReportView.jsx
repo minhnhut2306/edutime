@@ -65,14 +65,14 @@ const ReportView = ({ teachers = [], teachingRecords: initialRecords = [], weeks
     } finally {
       setLoadingRecords(false);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, [selectedTeacherId, currentSchoolYear]);
 
   useEffect(() => {
     loadTeacherRecords();
   }, [loadTeacherRecords]);
 
-  // Chỉ set selectedTeacherId một lần khi linkedTeacher thay đổi và chưa có selectedTeacherId
+
   const linkedTeacherId = useMemo(() => {
     return linkedTeacher?.id || linkedTeacher?._id || null;
   }, [linkedTeacher?.id, linkedTeacher?._id]);
@@ -81,7 +81,7 @@ const ReportView = ({ teachers = [], teachingRecords: initialRecords = [], weeks
     if (!isAdmin && linkedTeacherId && linkedTeacherId !== selectedTeacherId) {
       setSelectedTeacherId(linkedTeacherId);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, [linkedTeacherId, isAdmin]);
 
   if (!isAdmin && !linkedTeacher) {
@@ -120,10 +120,10 @@ const ReportView = ({ teachers = [], teachingRecords: initialRecords = [], weeks
       }
 
       let teacherIdsToExport;
-      
+
       if (isAdmin) {
         teacherIdsToExport = exportMode === 'multiple' ? selectedTeacherIds : [selectedTeacherId];
-        
+
         if (teacherIdsToExport.length === 0 || (exportMode === 'single' && !selectedTeacherId)) {
           alert('Vui lòng chọn giáo viên!');
           return;
@@ -142,7 +142,7 @@ const ReportView = ({ teachers = [], teachingRecords: initialRecords = [], weeks
         type: exportType,
       };
 
-      // Xử lý tham số BC
+
       if (exportType === 'bc') {
         if (exportParams.bcNumbers && exportParams.bcNumbers.length > 0) {
           options.bcNumbers = exportParams.bcNumbers;
@@ -150,7 +150,7 @@ const ReportView = ({ teachers = [], teachingRecords: initialRecords = [], weeks
           options.bcNumber = exportParams.bcNumber;
         }
       }
-      
+
       if (exportType === 'week') {
         if (exportParams.weekIds && exportParams.weekIds.length > 0) {
           options.weekIds = exportParams.weekIds;
@@ -161,19 +161,19 @@ const ReportView = ({ teachers = [], teachingRecords: initialRecords = [], weeks
           return;
         }
       }
-      
+
       if (exportType === 'semester') {
         options.semester = exportParams.semester;
       }
 
       let result;
 
-      // KIỂM TRA: Nếu chọn nhiều GV (exportMode='multiple') => dùng exportMultipleReports
+
       if (isAdmin && exportMode === 'multiple' && teacherIdsToExport.length > 1) {
         options.teacherIds = teacherIdsToExport;
         result = await exportMultipleReports(options);
       } else {
-        // Chỉ 1 GV => dùng exportReport như cũ
+
         options.teacherId = teacherIdsToExport[0];
         result = await exportReport(options);
       }
@@ -181,7 +181,7 @@ const ReportView = ({ teachers = [], teachingRecords: initialRecords = [], weeks
       if (result.success) {
         const count = teacherIdsToExport.length;
         const teacherName = linkedTeacher ? linkedTeacher.name : '';
-        
+
         let typeText = '';
         if (exportType === 'bc') {
           if (exportParams.bcNumbers && exportParams.bcNumbers.length > 0) {
@@ -198,11 +198,11 @@ const ReportView = ({ teachers = [], teachingRecords: initialRecords = [], weeks
         } else if (exportType === 'year') {
           typeText = 'Cả năm học';
         }
-        
-        const fileTypeText = isAdmin && exportMode === 'multiple' && count > 1 
+
+        const fileTypeText = isAdmin && exportMode === 'multiple' && count > 1
           ? `File ZIP chứa ${count} file Excel (mỗi GV 1 file)`
           : 'File Excel';
-        
+
         alert(
           `Xuất báo cáo thành công!\n\n` +
           `Năm học: ${currentSchoolYear}\n` +
@@ -244,8 +244,8 @@ const ReportView = ({ teachers = [], teachingRecords: initialRecords = [], weeks
             )}
           </p>
         </div>
-        
-        {((isAdmin && (selectedTeacherId || selectedTeacherIds.length > 0)) || 
+
+        {((isAdmin && (selectedTeacherId || selectedTeacherIds.length > 0)) ||
           (!isAdmin && linkedTeacher)) && (
           <button
             onClick={handleExport}
@@ -253,9 +253,9 @@ const ReportView = ({ teachers = [], teachingRecords: initialRecords = [], weeks
             className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
           >
             <Download size={20} />
-            {reportLoading ? 'Đang xuất...' : 
-              isAdmin && exportMode === 'multiple' && selectedTeacherIds.length > 0 
-                ? `Xuất Excel (${selectedTeacherIds.length} GV)` 
+            {reportLoading ? 'Đang xuất...' :
+              isAdmin && exportMode === 'multiple' && selectedTeacherIds.length > 0
+                ? `Xuất Excel (${selectedTeacherIds.length} GV)`
                 : 'Xuất Excel'}
           </button>
         )}
@@ -351,4 +351,3 @@ const ReportView = ({ teachers = [], teachingRecords: initialRecords = [], weeks
 };
 
 export default ReportView;
-  

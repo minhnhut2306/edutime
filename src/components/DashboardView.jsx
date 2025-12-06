@@ -15,31 +15,31 @@ const DashboardView = ({
   archivedYears = [],
   onChangeYear
 }) => {
-  const pendingUsers = useMemo(() => 
-    users.filter(u => u.status === 'pending'), 
+  const pendingUsers = useMemo(() =>
+    users.filter(u => u.status === 'pending'),
     [users]
   );
 
-  const filteredRecords = useMemo(() => 
+  const filteredRecords = useMemo(() =>
     teachingRecords.filter(record => {
       if (!record.schoolYear) return true;
       return record.schoolYear === schoolYear;
-    }), 
+    }),
     [teachingRecords, schoolYear]
   );
 
-  const isViewingOldYear = useMemo(() => 
-    schoolYear !== activeSchoolYear, 
+  const isViewingOldYear = useMemo(() =>
+    schoolYear !== activeSchoolYear,
     [schoolYear, activeSchoolYear]
   );
 
-  const isAdmin = useMemo(() => 
-    currentUser?.role === 'admin', 
+  const isAdmin = useMemo(() =>
+    currentUser?.role === 'admin',
     [currentUser?.role]
   );
 
-  const grades = useMemo(() => 
-    [...new Set(classes.map(c => c.grade))].sort(), 
+  const grades = useMemo(() =>
+    [...new Set(classes.map(c => c.grade))].sort(),
     [classes]
   );
 

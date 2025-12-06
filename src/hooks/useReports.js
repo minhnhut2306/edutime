@@ -6,9 +6,9 @@ export const useReports = () => {
   const [error, setError] = useState(null);
 
   const downloadFile = (blob, response) => {
-    // Lấy tên file từ Content-Disposition header (backend đã đặt sẵn)
-    let fileName = 'BaoCao.xlsx'; // fallback
-    
+
+    let fileName = 'BaoCao.xlsx';
+
     const contentDisposition = response.headers['content-disposition'];
     if (contentDisposition) {
       const matches = contentDisposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
@@ -32,13 +32,13 @@ export const useReports = () => {
     setError(null);
 
     try {
-      // Accept both schoolYearId and schoolYear (backward/forward compatibility)
+
       const schoolYearValue = options?.schoolYearId || options?.schoolYear || options?.schoolYearLabel;
       if (!schoolYearValue) {
         throw new Error("Vui lòng chọn năm học (schoolYearId hoặc schoolYear)");
       }
 
-      // Accept teacherIds or teacherId (single)
+
       if (!options?.teacherIds && !options?.teacherId) {
         throw new Error("Vui lòng chọn giáo viên");
       }
@@ -46,7 +46,7 @@ export const useReports = () => {
       const response = await reportsAPI.exportReport(options);
       setLoading(false);
 
-      // Không cần tự tạo tên file nữa - backend đã đặt sẵn trong header
+
       downloadFile(response.data, response);
 
       return { success: true };
@@ -59,7 +59,7 @@ export const useReports = () => {
           const text = await blob.text();
           const json = JSON.parse(text);
           userFriendlyMessage = json.msg || json.message || "Không tìm thấy dữ liệu";
-        // eslint-disable-next-line no-unused-vars
+
         } catch (parseError) {
           userFriendlyMessage = "Không tìm thấy dữ liệu giảng dạy";
         }
@@ -250,9 +250,9 @@ export const useReports = () => {
       const response = await reportsAPI.exportMultipleReports(options);
       setLoading(false);
 
-      // Download file ZIP
+
       let fileName = `BaoCao_${options.teacherIds.length}GV.zip`;
-      
+
       const contentDisposition = response.headers['content-disposition'];
       if (contentDisposition) {
         const matches = contentDisposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);

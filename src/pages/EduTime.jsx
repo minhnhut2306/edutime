@@ -1,4 +1,3 @@
-/* eslint-disable no-unused-vars */
 import React, { useState, useEffect } from 'react';
 import Header from '../components/Header';
 import Sidebar from '../components/Sidebar';
@@ -58,6 +57,8 @@ const EduTime = () => {
   const [weeks, setWeeks] = useState([]);
   const [teachingRecords, setTeachingRecords] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [loadingProgress, setLoadingProgress] = useState({ current: 0, total: 0, message: '' });
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const isReadOnly = viewingYear !== activeSchoolYear;
 
@@ -103,7 +104,7 @@ const EduTime = () => {
           setNeedsTeacherSelection(true);
         }
       }
-    } catch (err) { /* empty */ }
+    } catch (err) {  }
   };
 
   const checkSchoolYearSetup = async () => {
@@ -134,33 +135,79 @@ const EduTime = () => {
     }
   }, [isLoggedIn, viewingYear, needsTeacherSelection, needsSchoolYearSetup]);
 
-  const loadAllData = async () => {
-    setLoading(true);
+  const loadCachedData = async (yearToUse) => {
     try {
-      // Lấy năm học hiện tại trước (cần để có viewingYear)
-      const activeYearResult = await getActiveSchoolYear();
+      if (!yearToUse) return false;
+
+      const key = `edutime_year_${yearToUse}`;
+      const cachedData = await StorageService.loadData(key);
+
+      if (cachedData) {
+
+        if (cachedData.teachers) setTeachers(cachedData.teachers);
+        if (cachedData.classes) setClasses(cachedData.classes);
+        if (cachedData.subjects) setSubjects(cachedData.subjects);
+        if (cachedData.weeks) setWeeks(cachedData.weeks);
+        if (cachedData.teachingRecords) setTeachingRecords(cachedData.teachingRecords);
+      }
+
+
+      if (currentUser?.role === 'admin') {
+        const cachedUsers = await StorageService.loadData('edutime_users');
+        if (cachedUsers) setUsers(cachedUsers);
+      }
+
+      return !!cachedData;
+    } catch (err) {
+      console.error('Error loading cached data:', err);
+      return false;
+    }
+  };
+
+  const loadAllData = async () => {
+    try {
+
       let yearToUse = viewingYear;
-      
-      if (activeYearResult.success && activeYearResult.schoolYear) {
-        const sy = activeYearResult.schoolYear;
-        const label = sy.year || sy.label || String(sy);
-        setSchoolYear(sy);
-        setActiveSchoolYear(label);
-        setActiveSchoolYearId(sy._id || sy.id || null);
-        if (!viewingYear) {
-          setViewingYear(label);
-          yearToUse = label;
+
+      if (!viewingYear || !activeSchoolYear) {
+        setLoading(true);
+        setLoadingProgress({ current: 1, total: 7, message: 'Đang lấy thông tin năm học...' });
+        const activeYearResult = await getActiveSchoolYear();
+        if (activeYearResult.success && activeYearResult.schoolYear) {
+          const sy = activeYearResult.schoolYear;
+          const label = sy.year || sy.label || String(sy);
+          setSchoolYear(sy);
+          setActiveSchoolYear(label);
+          setActiveSchoolYearId(sy._id || sy.id || null);
+          if (!viewingYear) {
+            setViewingYear(label);
+            yearToUse = label;
+          }
         }
       }
 
-      // Chạy song song tất cả các API call không phụ thuộc nhau để tăng tốc độ
+
+      const hasCache = await loadCachedData(yearToUse);
+
+
+      if (!hasCache) {
+        setLoading(true);
+        setLoadingProgress({ current: 0, total: 7, message: 'Đang khởi tạo...' });
+      } else {
+
+        setIsRefreshing(true);
+        setLoadingProgress({ current: 0, total: 7, message: 'Đang cập nhật dữ liệu...' });
+      }
+
+      setLoadingProgress({ current: 1, total: 7, message: 'Đang tải danh sách năm học...' });
+
+
       const [
         yearsResult,
         teachersResult,
         classesResult,
         subjectsResult,
         weeksResult,
-        recordsResult,
         usersData
       ] = await Promise.allSettled([
         fetchSchoolYears(),
@@ -168,18 +215,23 @@ const EduTime = () => {
         fetchClasses(yearToUse),
         fetchSubjects(yearToUse),
         fetchWeeks(yearToUse),
-        fetchTeachingRecords(undefined, yearToUse),
         currentUser?.role === 'admin' ? StorageService.loadData('edutime_users') : Promise.resolve(null)
       ]);
 
-      // Xử lý kết quả từng API call
+      setLoadingProgress({ current: 2, total: 7, message: 'Đang xử lý danh sách năm học...' });
+
+
       if (yearsResult.status === 'fulfilled' && yearsResult.value?.success) {
         setArchivedYears(yearsResult.value.schoolYears.map(y => y.year));
       }
 
+      setLoadingProgress({ current: 3, total: 7, message: 'Đang tải giáo viên...' });
+
       if (teachersResult.status === 'fulfilled' && teachersResult.value?.success) {
         setTeachers(teachersResult.value.teachers);
       }
+
+      setLoadingProgress({ current: 4, total: 7, message: 'Đang tải lớp học và môn học...' });
 
       if (classesResult.status === 'fulfilled' && classesResult.value?.success) {
         setClasses(classesResult.value.classes);
@@ -189,38 +241,60 @@ const EduTime = () => {
         setSubjects(subjectsResult.value.subjects);
       }
 
+      setLoadingProgress({ current: 5, total: 7, message: 'Đang tải tuần học...' });
+
       if (weeksResult.status === 'fulfilled' && weeksResult.value?.success) {
         setWeeks(weeksResult.value.weeks);
-      }
-
-      if (recordsResult.status === 'fulfilled' && recordsResult.value?.success) {
-        setTeachingRecords(recordsResult.value.teachingRecords || []);
       }
 
       if (usersData.status === 'fulfilled' && usersData.value && currentUser?.role === 'admin') {
         setUsers(usersData.value);
       }
 
-      // Log lỗi nếu có (không làm gián đoạn quá trình tải)
+
+      setLoadingProgress({ current: 6, total: 7, message: 'Đang tải bản ghi tiết dạy...' });
+
+      try {
+        const recordsResult = await fetchTeachingRecords(undefined, yearToUse);
+        if (recordsResult?.success) {
+          setTeachingRecords(recordsResult.teachingRecords || []);
+        }
+      } catch (err) {
+        console.error('Error loading teaching records:', err);
+        setTeachingRecords([]);
+      }
+
+
+      setLoadingProgress({ current: 7, total: 7, message: 'Hoàn tất!' });
+
+
       [
         yearsResult,
         teachersResult,
         classesResult,
         subjectsResult,
         weeksResult,
-        recordsResult,
         usersData
       ].forEach((result, index) => {
         if (result.status === 'rejected') {
-          const apiNames = ['fetchSchoolYears', 'fetchTeachers', 'fetchClasses', 'fetchSubjects', 'fetchWeeks', 'fetchTeachingRecords', 'loadUsers'];
+          const apiNames = ['fetchSchoolYears', 'fetchTeachers', 'fetchClasses', 'fetchSubjects', 'fetchWeeks', 'loadUsers'];
           console.error(`Error loading ${apiNames[index]}:`, result.reason);
         }
       });
+
+
+      setTimeout(() => {
+        setLoading(false);
+        setIsRefreshing(false);
+        setLoadingProgress({ current: 0, total: 0, message: '' });
+      }, 300);
+
     } catch (error) {
       console.error('loadAllData error:', error);
       alert('Có lỗi khi tải dữ liệu!');
-    } finally {
       setLoading(false);
+      setLoadingProgress({ current: 0, total: 0, message: '' });
+      setIsRefreshing(false);
     }
   };
 
@@ -342,7 +416,7 @@ const EduTime = () => {
     }
   };
 
-  // Hiển thị màn hình Quên mật khẩu
+
   if (showForgotPassword) {
     return (
       <ForgotPasswordView
@@ -351,7 +425,7 @@ const EduTime = () => {
     );
   }
 
-  // Hiển thị màn hình Đăng ký
+
   if (showRegister) {
     return (
       <RegisterView
@@ -360,7 +434,7 @@ const EduTime = () => {
     );
   }
 
-  // Hiển thị màn hình Đăng nhập
+
   if (!isLoggedIn) {
     return (
       <LoginView
@@ -371,7 +445,7 @@ const EduTime = () => {
     );
   }
 
-  // Hiển thị modal Đổi mật khẩu (khi đã đăng nhập)
+
   if (showChangePassword) {
     return (
       <>
@@ -420,11 +494,35 @@ const EduTime = () => {
   }
 
   if (loading) {
+    const progress = loadingProgress.total > 0
+      ? Math.round((loadingProgress.current / loadingProgress.total) * 100)
+      : 0;
+
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600 text-lg">Đang tải dữ liệu...</p>
+        <div className="text-center max-w-md w-full px-6">
+          <div className="relative mb-6">
+            <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mx-auto"></div>
+            {loadingProgress.total > 0 && (
+              <div className="absolute inset-0 flex items-center justify-center">
+                <span className="text-blue-600 font-semibold text-sm">{progress}%</span>
+              </div>
+            )}
+          </div>
+          <p className="text-gray-700 text-lg font-medium mb-2">
+            {loadingProgress.message || 'Đang tải dữ liệu...'}
+          </p>
+          {loadingProgress.total > 0 && (
+            <div className="w-full bg-gray-200 rounded-full h-2.5 mb-2">
+              <div
+                className="bg-blue-600 h-2.5 rounded-full transition-all duration-300 ease-out"
+                style={{ width: `${progress}%` }}
+              ></div>
+            </div>
+          )}
+          <p className="text-gray-500 text-sm">
+            Vui lòng đợi trong giây lát...
+          </p>
         </div>
       </div>
     );
@@ -439,7 +537,14 @@ const EduTime = () => {
   }) : null;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 relative">
+      {}
+      {isRefreshing && !loading && (
+        <div className="fixed top-4 right-4 z-50 bg-blue-600 text-white px-4 py-2 rounded-lg shadow-lg flex items-center gap-2 animate-pulse">
+          <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+          <span className="text-sm font-medium">Đang cập nhật...</span>
+        </div>
+      )}
       <Header
         currentUser={currentUser}
         onLogout={handleLogout}

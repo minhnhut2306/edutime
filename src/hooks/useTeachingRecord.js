@@ -19,7 +19,7 @@ export const useTeachingRecord = () => {
       if (response.code === 200 || response.success) {
         setLoading(false);
 
-        // Handle both data structures
+
         const data = response.data || response;
         const records = data.records || data.teachingRecords || data || [];
         const paginationData = data.pagination || {};

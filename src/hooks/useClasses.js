@@ -11,7 +11,7 @@ export const useClasses = () => {
     try {
       const response = await classesAPI.classes(schoolYear, page, limit, grade);
       if (response.code === 200) {
-        // Trả về kết quả ngay lập tức, không cần đợi
+
         const result = {
           success: true,
           classes: response.data?.classes || [],

@@ -1,4 +1,3 @@
-
 const StorageService = {
   async loadData(key) {
     try {
@@ -43,7 +42,7 @@ const StorageService = {
 
       return years.length > 0 ? years : ['2024-2025'];
     } catch {
-      
+
       return ['2024-2025'];
     }
   },
@@ -65,7 +64,7 @@ const StorageService = {
         });
       }
     } catch {
-     
+
       return;
     }
   }

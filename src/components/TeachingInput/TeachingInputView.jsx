@@ -1,4 +1,3 @@
-/* eslint-disable no-unused-vars */
 import React, { useState, useEffect } from "react";
 import { Eye, Lock, Plus, Filter } from "react-feather";
 import { useTeachingRecord } from "../../hooks/useTeachingRecord";
@@ -47,8 +46,8 @@ const TeachingInputView = ({ initialTeachingRecords = [], schoolYear, isReadOnly
 
   const [groupBy, setGroupBy] = useState("none");
   const [quickFilterMode, setQuickFilterMode] = useState("all");
-  const [sortBy, setSortBy] = useState("week"); // Mặc định sắp xếp theo tuần
-  
+  const [sortBy, setSortBy] = useState("week");
+
   const rawUser = typeof window !== "undefined" ? localStorage.getItem("user") : null;
   let parsedUser = null;
   try {
@@ -174,7 +173,7 @@ const TeachingInputView = ({ initialTeachingRecords = [], schoolYear, isReadOnly
       const filtered = records.filter(r => r.schoolYear ? r.schoolYear === schoolYear : true);
       let norm = filtered.map(normalizeRecord).filter(Boolean);
 
-      // Sắp xếp theo tuần
+
       if (sortBy === "week") {
         norm.sort((a, b) => {
           const weekA = a.weekData?.weekNumber || weeks.find((w) => w.id === a.weekId)?.weekNumber || 0;
@@ -249,7 +248,7 @@ const TeachingInputView = ({ initialTeachingRecords = [], schoolYear, isReadOnly
     setPeriods(record.periods);
     setRecordType(record.recordType || "teaching");
     setNotes(record.notes || "");
-    
+
     setShowForm(true);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
@@ -333,7 +332,7 @@ const TeachingInputView = ({ initialTeachingRecords = [], schoolYear, isReadOnly
 
     const res = await addTeachingRecord(payload);
     if (res.success) {
-      await loadTeachingRecords(1); 
+      await loadTeachingRecords(1);
       alert("Đã thêm bản ghi!");
     } else {
       alert(res.message || "Thêm bản ghi thất bại");
@@ -391,7 +390,7 @@ const TeachingInputView = ({ initialTeachingRecords = [], schoolYear, isReadOnly
 
   return (
     <div className="space-y-4">
-      {/* Header with Toggle Buttons */}
+      {}
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-2xl font-bold flex items-center gap-3">
           Nhập tiết dạy
@@ -442,7 +441,7 @@ const TeachingInputView = ({ initialTeachingRecords = [], schoolYear, isReadOnly
         )}
       </div>
 
-      {/* Warnings */}
+      {}
       {isReadOnly && (
         <div className="bg-orange-50 border-l-4 border-orange-400 p-4 rounded-lg">
           <div className="flex items-center gap-2">
@@ -474,7 +473,7 @@ const TeachingInputView = ({ initialTeachingRecords = [], schoolYear, isReadOnly
         </div>
       )}
 
-      {/* Form - Collapsible */}
+      {}
       {!isReadOnly && showForm && (
         <div className="animate-slideIn">
           <TeachingForm

@@ -31,7 +31,7 @@ const TeachersView = ({ currentUser, isReadOnly = false, schoolYear }) => {
 
   const loadAllData = async () => {
     try {
-      // Load tất cả dữ liệu song song để tối ưu tốc độ
+
       await Promise.all([
         loadTeachers().catch(err => {
           console.error("Error loading teachers:", err);
@@ -52,14 +52,14 @@ const TeachersView = ({ currentUser, isReadOnly = false, schoolYear }) => {
   };
 
   const loadTeachers = async (page = currentPage) => {
-    // Không set loading ở đây vì đã có trong loadAllData
+
     const result = await fetchTeachers(schoolYear, page, 10);
     if (result.success) {
       const teachersArr = Array.isArray(result.teachers) ? result.teachers : [];
       const transformedTeachers = teachersArr.map((teacher, idx) => {
         let subjectIdsList = [];
         if (Array.isArray(teacher.subjectIds)) {
-          subjectIdsList = teacher.subjectIds.map(s => 
+          subjectIdsList = teacher.subjectIds.map(s =>
             typeof s === 'object' && s !== null ? (s._id || s.id) : s
           );
         }
@@ -99,7 +99,7 @@ const TeachersView = ({ currentUser, isReadOnly = false, schoolYear }) => {
 
   useEffect(() => {
     loadAllData();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, [schoolYear, currentPage]);
 
   const handlePageChange = (page) => {
@@ -218,7 +218,7 @@ const TeachersView = ({ currentUser, isReadOnly = false, schoolYear }) => {
       const result = await deleteTeacher(id);
       if (result.success) {
         alert('Xóa giáo viên thành công!');
-        
+
         if (teachers.length === 1 && currentPage > 1) {
           setCurrentPage(currentPage - 1);
         } else {

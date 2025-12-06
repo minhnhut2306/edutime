@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Edit2, Phone, BookOpen, School, Save, X, AlertCircle, CheckCircle, Calendar, TrendingUp } from 'lucide-react';
 
-// Component cho SubjectSelector
 const SubjectSelector = ({ subjects, selectedSubjectIds = [], onToggle, disabled }) => (
   <div>
     <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -20,11 +19,10 @@ const SubjectSelector = ({ subjects, selectedSubjectIds = [], onToggle, disabled
               type="button"
               onClick={() => !disabled && onToggle(subjectId)}
               disabled={disabled}
-              className={`px-3 py-1.5 rounded-lg border-2 transition-all font-medium ${
-                isSelected
+              className={`px-3 py-1.5 rounded-lg border-2 transition-all font-medium ${isSelected
                   ? 'bg-blue-600 text-white border-blue-600'
                   : 'bg-white text-gray-700 border-gray-300 hover:border-blue-400'
-              } ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                } ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
             >
               {s.name}
             </button>
@@ -32,7 +30,7 @@ const SubjectSelector = ({ subjects, selectedSubjectIds = [], onToggle, disabled
         })
       )}
     </div>
-  
+
   </div>
 );
 
@@ -41,7 +39,7 @@ const TeacherDashboardView = ({ teacher, teachingRecords = [], classes = [], sub
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  
+
   const [formData, setFormData] = useState({
     name: '',
     phone: '',
@@ -49,10 +47,10 @@ const TeacherDashboardView = ({ teacher, teachingRecords = [], classes = [], sub
     mainClassId: ''
   });
 
-  // Khởi tạo formData khi teacher thay đổi
+
   useEffect(() => {
     if (teacher) {
-      // Chuẩn hóa subjectIds - đảm bảo là array các ID
+
       let normalizedSubjectIds = [];
       if (Array.isArray(teacher.subjectIds)) {
         normalizedSubjectIds = teacher.subjectIds.map(s => {
@@ -106,22 +104,22 @@ const TeacherDashboardView = ({ teacher, teachingRecords = [], classes = [], sub
   });
   const monthPeriods = monthRecords.reduce((sum, r) => sum + (r.periods || 0), 0);
 
-  // Lấy thông tin lớp chủ nhiệm
+
   const mainClassId = teacher.mainClassId?._id || teacher.mainClassId;
   const mainClass = (classes || []).find(c => {
     const classId = c._id || c.id;
     return classId === mainClassId || classId?.toString() === mainClassId?.toString();
   });
 
-  // Lấy danh sách môn dạy - FIX LỖI Ở ĐÂY
+
   const teacherSubjects = [];
   if (Array.isArray(teacher.subjectIds)) {
     teacher.subjectIds.forEach(sid => {
-      // Nếu sid đã là object có name
+
       if (typeof sid === 'object' && sid !== null && sid.name) {
         teacherSubjects.push(sid);
       } else {
-        // Nếu sid là string ID, tìm trong subjects
+
         const subjectId = typeof sid === 'object' ? (sid._id || sid.id) : sid;
         const subject = (subjects || []).find(s => {
           const sId = s._id || s.id;
@@ -134,17 +132,17 @@ const TeacherDashboardView = ({ teacher, teachingRecords = [], classes = [], sub
     });
   }
 
-  // Danh sách lớp có thể chọn (chưa có CN hoặc là lớp hiện tại)
+
   const availableClasses = classes.filter(cls => {
     const clsId = cls._id || cls.id;
     const currentMainClassId = teacher.mainClassId?._id || teacher.mainClassId;
-    
-    // Tìm giáo viên nào đang chủ nhiệm lớp này
-    const hasOtherHomeRoomTeacher = false; // Sẽ cần data teachers để check
-    
-    // Cho phép chọn lớp hiện tại hoặc lớp chưa có chủ nhiệm
+
+
+    const hasOtherHomeRoomTeacher = false;
+
+
     const isCurrentClass = currentMainClassId === clsId || currentMainClassId?.toString() === clsId?.toString();
-    
+
     return isCurrentClass || !hasOtherHomeRoomTeacher;
   });
 
@@ -162,7 +160,7 @@ const TeacherDashboardView = ({ teacher, teachingRecords = [], classes = [], sub
     setError('');
     setSuccess('');
 
-    // Validation
+
     if (!formData.name.trim()) {
       setError('Vui lòng nhập họ tên!');
       return;
@@ -173,7 +171,7 @@ const TeacherDashboardView = ({ teacher, teachingRecords = [], classes = [], sub
       return;
     }
 
-    // Kiểm tra số điện thoại nếu có nhập
+
     if (formData.phone && formData.phone.trim()) {
       const phoneRegex = /^[0-9]{10,11}$/;
       if (!phoneRegex.test(formData.phone.trim())) {
@@ -186,7 +184,6 @@ const TeacherDashboardView = ({ teacher, teachingRecords = [], classes = [], sub
 
     try {
       const token = localStorage.getItem('token');
-      
       const response = await fetch(`https://edutime-server.vercel.app/api/teachers/${teacherId}`, {
         method: 'PUT',
         headers: {
@@ -206,8 +203,8 @@ const TeacherDashboardView = ({ teacher, teachingRecords = [], classes = [], sub
       if (data.code === 200) {
         setSuccess('Cập nhật thông tin thành công!');
         setIsEditing(false);
-        
-        // Reload trang để cập nhật dữ liệu mới
+
+
         setTimeout(() => {
           window.location.reload();
         }, 1500);
@@ -226,8 +223,8 @@ const TeacherDashboardView = ({ teacher, teachingRecords = [], classes = [], sub
     setIsEditing(false);
     setError('');
     setSuccess('');
-    
-    // Reset form về dữ liệu ban đầu
+
+
     if (teacher) {
       let normalizedSubjectIds = [];
       if (Array.isArray(teacher.subjectIds)) {
@@ -250,7 +247,7 @@ const TeacherDashboardView = ({ teacher, teachingRecords = [], classes = [], sub
 
   return (
     <div className="space-y-6">
-      {/* Header với nút chỉnh sửa */}
+      { }
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold">Xin chào, {teacher.name || 'Giáo viên'}!</h2>
         {!isEditing && (
@@ -264,7 +261,7 @@ const TeacherDashboardView = ({ teacher, teachingRecords = [], classes = [], sub
         )}
       </div>
 
-      {/* Thông báo lỗi/thành công */}
+      { }
       {error && (
         <div className="bg-red-50 border-l-4 border-red-400 p-4 rounded-lg">
           <div className="flex items-center gap-2">
@@ -284,9 +281,9 @@ const TeacherDashboardView = ({ teacher, teachingRecords = [], classes = [], sub
       )}
 
       {!isEditing ? (
-        // View Mode - Thông tin hiện tại
+
         <>
-          {/* Card thông tin chính */}
+          { }
           <div className="bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl p-6 text-white shadow-lg">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
@@ -302,7 +299,7 @@ const TeacherDashboardView = ({ teacher, teachingRecords = [], classes = [], sub
                   <p className="text-sm">Môn dạy</p>
                 </div>
                 <p className="text-xl font-bold">
-                  {teacherSubjects.length > 0 
+                  {teacherSubjects.length > 0
                     ? teacherSubjects.map(s => s.name).join(', ')
                     : 'Chưa có'}
                 </p>
@@ -317,7 +314,7 @@ const TeacherDashboardView = ({ teacher, teachingRecords = [], classes = [], sub
             </div>
           </div>
 
-          {/* Thống kê */}
+          { }
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="bg-white rounded-xl p-6 shadow-lg">
               <div className="flex items-center gap-2 mb-2">
@@ -343,10 +340,10 @@ const TeacherDashboardView = ({ teacher, teachingRecords = [], classes = [], sub
           </div>
         </>
       ) : (
-        // Edit Mode - Form chỉnh sửa
+
         <div className="bg-white rounded-xl shadow-lg p-6">
           <h3 className="text-lg font-semibold mb-6">Chỉnh sửa thông tin cá nhân</h3>
-          
+
           <div className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>

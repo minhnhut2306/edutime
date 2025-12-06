@@ -215,7 +215,7 @@ const RecordsList = ({
     );
   }
 
-  // Non-grouped (flat) view
+
   return (
     <div className="bg-white rounded-xl shadow-lg overflow-hidden">
       <div className="px-6 py-4 bg-gray-50 border-b flex items-center justify-between">

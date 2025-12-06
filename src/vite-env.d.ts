@@ -1,5 +1,3 @@
-/// <reference types="vite/client" />
-
 interface Window {
   storage?: {
     get: (key: string, sync?: boolean) => Promise<{ value: string } | null>;

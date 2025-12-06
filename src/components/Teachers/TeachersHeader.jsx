@@ -2,7 +2,7 @@ import React from 'react';
 import { RefreshCw, Download, Edit, Plus, Eye, X } from 'react-feather';
 import ExcelService from '../../service/ExcelService';
 
-// Header chính
+
 export const TeacherHeader = ({ isAdmin, isReadOnly, onRefresh, onImport, onAdd }) => (
   <div className="flex justify-between items-center">
     <h2 className="text-2xl font-bold flex items-center gap-2">
@@ -51,7 +51,7 @@ export const TeacherHeader = ({ isAdmin, isReadOnly, onRefresh, onImport, onAdd 
   </div>
 );
 
-// Banner readonly
+
 export const ReadOnlyBanner = () => (
   <div className="bg-orange-50 border-l-4 border-orange-400 p-4 rounded-lg">
     <div className="flex items-center gap-2">
@@ -63,7 +63,7 @@ export const ReadOnlyBanner = () => (
   </div>
 );
 
-// Kết quả import
+
 export const ImportResultPanel = ({ result, onClose }) => {
   if (!result) return null;
 

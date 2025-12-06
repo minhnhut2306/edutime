@@ -3,7 +3,7 @@ import { Mail, AlertCircle, Loader, ArrowLeft, Key, Eye, EyeOff } from 'lucide-r
 import { authAPI } from '../api/authAPI';
 
 const ForgotPasswordView = ({ onBackToLogin }) => {
-  const [step, setStep] = useState('email'); // 'email', 'otp', 'reset'
+  const [step, setStep] = useState('email');
   const [email, setEmail] = useState('');
   const [otp, setOtp] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -32,7 +32,7 @@ const ForgotPasswordView = ({ onBackToLogin }) => {
     setLoading(true);
     try {
       const response = await authAPI.forgotPassword(email);
-      
+
       if (response.code === 200) {
         setSuccessMessage('Mã OTP đã được gửi đến email của bạn!');
         setStep('otp');
@@ -48,7 +48,7 @@ const ForgotPasswordView = ({ onBackToLogin }) => {
 
   const handleVerifyOTP = async () => {
     setError('');
-    
+
     if (!otp) {
       setError('Vui lòng nhập mã OTP!');
       return;
@@ -62,7 +62,7 @@ const ForgotPasswordView = ({ onBackToLogin }) => {
     setLoading(true);
     try {
       const response = await authAPI.verifyOTP(email, otp);
-      
+
       if (response.code === 200) {
         setSuccessMessage('Xác thực OTP thành công!');
         setStep('reset');
@@ -103,7 +103,7 @@ const ForgotPasswordView = ({ onBackToLogin }) => {
     setLoading(true);
     try {
       const response = await authAPI.resetPassword(email, otp, newPassword);
-      
+
       if (response.code === 200) {
         alert('Đặt lại mật khẩu thành công! Vui lòng đăng nhập.');
         onBackToLogin();

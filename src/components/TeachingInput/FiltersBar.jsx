@@ -57,9 +57,9 @@ const FiltersBar = ({
 
       <div className="flex items-center gap-3 w-full md:w-auto">
         {quickFilterMode === "teacher" && (
-          <select 
-            value={selectedTeacherId} 
-            onChange={(e) => setSelectedTeacherId && setSelectedTeacherId(e.target.value)} 
+          <select
+            value={selectedTeacherId}
+            onChange={(e) => setSelectedTeacherId && setSelectedTeacherId(e.target.value)}
             className="px-3 py-2 border rounded-lg"
           >
             <option value="">-- Chọn giáo viên (Tất cả) --</option>
@@ -72,9 +72,9 @@ const FiltersBar = ({
         )}
 
         {quickFilterMode === "week" && (
-          <select 
-            value={selectedWeekId} 
-            onChange={(e) => setSelectedWeekId && setSelectedWeekId(e.target.value)} 
+          <select
+            value={selectedWeekId}
+            onChange={(e) => setSelectedWeekId && setSelectedWeekId(e.target.value)}
             className="px-3 py-2 border rounded-lg"
           >
             <option value="">-- Chọn tuần (Tất cả) --</option>
@@ -87,9 +87,9 @@ const FiltersBar = ({
         )}
 
         {quickFilterMode === "class" && (
-          <select 
-            value={selectedClassId} 
-            onChange={(e) => setSelectedClassId && setSelectedClassId(e.target.value)} 
+          <select
+            value={selectedClassId}
+            onChange={(e) => setSelectedClassId && setSelectedClassId(e.target.value)}
             className="px-3 py-2 border rounded-lg"
           >
             <option value="">-- Chọn lớp (Tất cả) --</option>
@@ -102,9 +102,9 @@ const FiltersBar = ({
         )}
 
         {quickFilterMode === "subject" && (
-          <select 
-            value={selectedSubjectId} 
-            onChange={(e) => setSelectedSubjectId && setSelectedSubjectId(e.target.value)} 
+          <select
+            value={selectedSubjectId}
+            onChange={(e) => setSelectedSubjectId && setSelectedSubjectId(e.target.value)}
             className="px-3 py-2 border rounded-lg"
           >
             <option value="">-- Chọn môn (Tất cả) --</option>
@@ -117,9 +117,9 @@ const FiltersBar = ({
         )}
 
         {quickFilterMode === "recordType" && (
-          <select 
-            value={recordType} 
-            onChange={(e) => setRecordType && setRecordType(e.target.value)} 
+          <select
+            value={recordType}
+            onChange={(e) => setRecordType && setRecordType(e.target.value)}
             className="px-3 py-2 border rounded-lg"
           >
             <option value="teaching">Giảng dạy</option>

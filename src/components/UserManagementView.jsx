@@ -48,7 +48,6 @@ const UserManagementView = () => {
     }
   };
 
-
   let myUser = null;
   try {
     const stored = localStorage.getItem('user');
@@ -58,7 +57,6 @@ const UserManagementView = () => {
   } catch (err) {
     console.error('Lỗi parse user:', err);
   }
-
 
   const otherUsers = users.filter(user => user._id !== myUser?._id);
 

@@ -175,7 +175,7 @@ export const useSchoolYear = () => {
     getActiveSchoolYear,
     getSchoolYearData,
     createSchoolYear,
-    finishSchoolYear, // ✅ ĐÃ THÊM VÀO RETURN
+    finishSchoolYear,
     deleteSchoolYear,
     loading,
     error,
