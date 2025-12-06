@@ -7,17 +7,38 @@ import { AddTeacherModal, EditTeacherForm } from './TeacherForm';
 import TeacherTable from './TeachersTable';
 import Pagination from './Pagination';
 
+// Cache data ở ngoài component
+let cachedData = {
+  teachers: null,
+  classes: null,
+  subjects: null,
+  pagination: null,
+  schoolYear: null
+};
+
 const TeachersView = ({ currentUser, isReadOnly = false, schoolYear }) => {
   const isAdmin = currentUser?.role === 'admin';
-  const [teachers, setTeachers] = useState([]);
-  const [classes, setClasses] = useState([]);
-  const [subjects, setSubjects] = useState([]);
+  
+  // Khởi tạo từ cache nếu có
+  const [teachers, setTeachers] = useState(
+    cachedData.schoolYear === schoolYear && cachedData.teachers ? cachedData.teachers : []
+  );
+  const [classes, setClasses] = useState(
+    cachedData.schoolYear === schoolYear && cachedData.classes ? cachedData.classes : []
+  );
+  const [subjects, setSubjects] = useState(
+    cachedData.schoolYear === schoolYear && cachedData.subjects ? cachedData.subjects : []
+  );
+  const [pagination, setPagination] = useState(
+    cachedData.schoolYear === schoolYear && cachedData.pagination ? cachedData.pagination : null
+  );
+  
+  const [isLoadingData, setIsLoadingData] = useState(false);
   const [editingTeacher, setEditingTeacher] = useState(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [visibleInfo, setVisibleInfo] = useState({});
   const [importResult, setImportResult] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
-  const [pagination, setPagination] = useState(null);
   const [newTeacher, setNewTeacher] = useState({
     name: '',
     phone: '',
@@ -30,67 +51,87 @@ const TeachersView = ({ currentUser, isReadOnly = false, schoolYear }) => {
   const { fetchSubjects } = useSubjects();
 
   const loadAllData = async () => {
-    try {
+    // Nếu có cache thì không load
+    if (cachedData.schoolYear === schoolYear && cachedData.teachers && cachedData.classes && cachedData.subjects) {
+      return;
+    }
 
+    setIsLoadingData(true);
+    try {
       await Promise.all([
-        loadTeachers().catch(err => {
-          console.error("Error loading teachers:", err);
-          return null;
-        }),
-        loadClasses().catch(err => {
-          console.error("Error loading classes:", err);
-          return null;
-        }),
-        loadSubjects().catch(err => {
-          console.error("Error loading subjects:", err);
-          return null;
-        })
+        loadTeachers(currentPage),
+        loadClasses(),
+        loadSubjects()
       ]);
     } catch (err) {
       console.error("Error loading all data:", err);
+    } finally {
+      setIsLoadingData(false);
     }
   };
 
   const loadTeachers = async (page = currentPage) => {
+    setIsLoadingData(true);
+    try {
+      const result = await fetchTeachers(schoolYear, page, 10);
+      if (result.success) {
+        const teachersArr = Array.isArray(result.teachers) ? result.teachers : [];
+        const transformedTeachers = teachersArr.map((teacher, idx) => {
+          let subjectIdsList = [];
+          if (Array.isArray(teacher.subjectIds)) {
+            subjectIdsList = teacher.subjectIds.map(s =>
+              typeof s === 'object' && s !== null ? (s._id || s.id) : s
+            );
+          }
 
-    const result = await fetchTeachers(schoolYear, page, 10);
-    if (result.success) {
-      const teachersArr = Array.isArray(result.teachers) ? result.teachers : [];
-      const transformedTeachers = teachersArr.map((teacher, idx) => {
-        let subjectIdsList = [];
-        if (Array.isArray(teacher.subjectIds)) {
-          subjectIdsList = teacher.subjectIds.map(s =>
-            typeof s === 'object' && s !== null ? (s._id || s.id) : s
-          );
-        }
-
-        return {
-          idxNum: idx,
-          id: teacher._id || teacher.id,
-          name: teacher.name,
-          email: teacher.userId?.email || teacher.email || '',
-          phone: teacher.phone || '',
-          mainClassId: teacher.mainClassId?._id || teacher.mainClassId || '',
-          mainClassName: teacher.mainClassId?.name || teacher.mainClassName || '',
-          subjectIds: subjectIdsList,
-          userId: teacher.userId?._id || teacher.userId || ''
-        };
-      });
-      setTeachers(transformedTeachers);
-      setPagination(result.pagination);
-    } else {
-      alert('Lỗi: ' + result.message);
+          return {
+            idxNum: idx,
+            id: teacher._id || teacher.id,
+            name: teacher.name,
+            email: teacher.userId?.email || teacher.email || '',
+            phone: teacher.phone || '',
+            mainClassId: teacher.mainClassId?._id || teacher.mainClassId || '',
+            mainClassName: teacher.mainClassId?.name || teacher.mainClassName || '',
+            subjectIds: subjectIdsList,
+            userId: teacher.userId?._id || teacher.userId || ''
+          };
+        });
+        setTeachers(transformedTeachers);
+        setPagination(result.pagination);
+        
+        // Lưu cache
+        cachedData.teachers = transformedTeachers;
+        cachedData.pagination = result.pagination;
+        cachedData.schoolYear = schoolYear;
+      } else {
+        setTeachers([]);
+        setPagination(null);
+      }
+    } catch (err) {
+      console.error('Error loading teachers:', err);
+      setTeachers([]);
+      setPagination(null);
+    } finally {
+      setIsLoadingData(false);
     }
   };
 
   const loadClasses = async () => {
     const result = await fetchClasses();
-    if (result.success) setClasses(result.classes || []);
+    if (result.success) {
+      const classList = result.classes || [];
+      setClasses(classList);
+      cachedData.classes = classList;
+    }
   };
 
   const loadSubjects = async () => {
     const result = await fetchSubjects();
-    if (result.success) setSubjects(result.subjects || []);
+    if (result.success) {
+      const subjectsList = result.subjects || [];
+      setSubjects(subjectsList);
+      cachedData.subjects = subjectsList;
+    }
   };
 
   useEffect(() => {
@@ -99,7 +140,6 @@ const TeachersView = ({ currentUser, isReadOnly = false, schoolYear }) => {
 
   useEffect(() => {
     loadAllData();
-
   }, [schoolYear, currentPage]);
 
   const handlePageChange = (page) => {
@@ -165,6 +205,8 @@ const TeachersView = ({ currentUser, isReadOnly = false, schoolYear }) => {
     if (result.success) {
       alert('Thêm giáo viên thành công!');
       handleCloseAddModal();
+      // Xóa cache để load lại
+      cachedData = { teachers: null, classes: null, subjects: null, pagination: null, schoolYear: null };
       setCurrentPage(1);
       loadTeachers(1);
     } else {
@@ -203,7 +245,9 @@ const TeachersView = ({ currentUser, isReadOnly = false, schoolYear }) => {
     if (result.success) {
       alert('Đã cập nhật thông tin giáo viên!');
       setEditingTeacher(null);
-      loadTeachers();
+      // Xóa cache để load lại
+      cachedData = { teachers: null, classes: null, subjects: null, pagination: null, schoolYear: null };
+      loadTeachers(currentPage);
     } else {
       alert('Lỗi: ' + result.message);
     }
@@ -218,11 +262,13 @@ const TeachersView = ({ currentUser, isReadOnly = false, schoolYear }) => {
       const result = await deleteTeacher(id);
       if (result.success) {
         alert('Xóa giáo viên thành công!');
-
+        // Xóa cache để load lại
+        cachedData = { teachers: null, classes: null, subjects: null, pagination: null, schoolYear: null };
+        
         if (teachers.length === 1 && currentPage > 1) {
           setCurrentPage(currentPage - 1);
         } else {
-          loadTeachers();
+          loadTeachers(currentPage);
         }
       } else {
         alert('Lỗi: ' + result.message);
@@ -248,6 +294,8 @@ const TeachersView = ({ currentUser, isReadOnly = false, schoolYear }) => {
         failedCount: failedCount || 0,
         failed: failed || []
       });
+      // Xóa cache để load lại
+      cachedData = { teachers: null, classes: null, subjects: null, pagination: null, schoolYear: null };
       setCurrentPage(1);
       loadTeachers(1);
     } else {
@@ -257,11 +305,17 @@ const TeachersView = ({ currentUser, isReadOnly = false, schoolYear }) => {
     e.target.value = '';
   };
 
+  const handleRefresh = () => {
+    // Xóa cache và load lại
+    cachedData = { teachers: null, classes: null, subjects: null, pagination: null, schoolYear: null };
+    loadAllData();
+  };
+
   if (errorTeachers) {
     return (
       <div className="bg-red-50 border border-red-200 rounded-lg p-4">
         <p className="text-red-700">Lỗi: {errorTeachers}</p>
-        <button onClick={loadAllData} className="mt-2 text-red-600 hover:text-red-800 underline">
+        <button onClick={handleRefresh} className="mt-2 text-red-600 hover:text-red-800 underline">
           Thử lại
         </button>
       </div>
@@ -273,7 +327,7 @@ const TeachersView = ({ currentUser, isReadOnly = false, schoolYear }) => {
       <TeacherHeader
         isAdmin={isAdmin}
         isReadOnly={isReadOnly}
-        onRefresh={loadAllData}
+        onRefresh={handleRefresh}
         onImport={handleImport}
         onAdd={handleOpenAddModal}
       />
@@ -301,30 +355,39 @@ const TeachersView = ({ currentUser, isReadOnly = false, schoolYear }) => {
         subjects={subjects}
       />
 
-      <div className="bg-white rounded-xl shadow-lg overflow-hidden relative">
-        <TeacherTable
-          teachers={teachers}
-          classes={classes}
-          subjects={subjects}
-          visibleInfo={visibleInfo}
-          isAdmin={isAdmin}
-          isReadOnly={isReadOnly}
-          onEdit={handleEdit}
-          onDelete={handleDelete}
-          onToggleVisibility={toggleVisibility}
-          maskEmail={maskEmail}
-          maskPhone={maskPhone}
-        />
-
-        {pagination && (
-          <Pagination
-            currentPage={pagination.page}
-            totalPages={pagination.totalPages}
-            totalItems={pagination.total}
-            onPageChange={handlePageChange}
+      {isLoadingData ? (
+        <div className="bg-white rounded-xl shadow-lg p-16 flex items-center justify-center">
+          <div className="flex flex-col items-center gap-4">
+            <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+            <p className="text-gray-600 font-medium">Đang tải dữ liệu...</p>
+          </div>
+        </div>
+      ) : (
+        <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+          <TeacherTable
+            teachers={teachers}
+            classes={classes}
+            subjects={subjects}
+            visibleInfo={visibleInfo}
+            isAdmin={isAdmin}
+            isReadOnly={isReadOnly}
+            onEdit={handleEdit}
+            onDelete={handleDelete}
+            onToggleVisibility={toggleVisibility}
+            maskEmail={maskEmail}
+            maskPhone={maskPhone}
           />
-        )}
-      </div>
+
+          {pagination && (
+            <Pagination
+              currentPage={pagination.page}
+              totalPages={pagination.totalPages}
+              totalItems={pagination.total}
+              onPageChange={handlePageChange}
+            />
+          )}
+        </div>
+      )}
     </div>
   );
 };

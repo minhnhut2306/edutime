@@ -4,28 +4,52 @@ import { useSubjects } from '../../hooks/useSubjects';
 import { SubjectModal } from './SubjectModal';
 import { SubjectsTable } from './SubjectsTable';
 
+// Cache data ở ngoài component để giữ khi unmount
+let cachedData = {
+  subjects: null,
+  schoolYear: null
+};
+
 const SubjectsView = ({ currentUser, isReadOnly = false, schoolYear }) => {
-  const [subjects, setSubjects] = useState([]);
+  // Khởi tạo từ cache nếu có
+  const [subjects, setSubjects] = useState(
+    cachedData.schoolYear === schoolYear && cachedData.subjects ? cachedData.subjects : []
+  );
+  const [isLoadingData, setIsLoadingData] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [modalMode, setModalMode] = useState('add');
   const [editingSubject, setEditingSubject] = useState(null);
   const [subjectName, setSubjectName] = useState('');
 
-  const { fetchSubjects, addSubject, updateSubject, deleteSubject, error } = useSubjects();
+  const { loading, fetchSubjects, addSubject, updateSubject, deleteSubject, error } = useSubjects();
   const isAdmin = currentUser.role === 'admin';
 
   const loadSubjects = async () => {
+    setIsLoadingData(true);
     try {
       const result = await fetchSubjects(schoolYear);
       if (result.success) {
         setSubjects(result.subjects);
+        // Lưu vào cache
+        cachedData.subjects = result.subjects;
+        cachedData.schoolYear = schoolYear;
+      } else {
+        setSubjects([]);
       }
     } catch (err) {
       console.error("Error loading subjects:", err);
+      setSubjects([]);
+    } finally {
+      setIsLoadingData(false);
     }
   };
 
   useEffect(() => {
+    // Nếu có cache của năm học này thì không load
+    if (cachedData.schoolYear === schoolYear && cachedData.subjects) {
+      return;
+    }
+    
     loadSubjects();
   }, [schoolYear]);
 
@@ -67,6 +91,8 @@ const SubjectsView = ({ currentUser, isReadOnly = false, schoolYear }) => {
     if (modalMode === 'edit') {
       const result = await updateSubject(editingSubject._id, { name: subjectName.trim() });
       if (result.success) {
+        // Xóa cache để load lại data mới
+        cachedData = { subjects: null, schoolYear: null };
         await loadSubjects();
         handleCloseModal();
         alert('Cập nhật môn học thành công!');
@@ -76,6 +102,8 @@ const SubjectsView = ({ currentUser, isReadOnly = false, schoolYear }) => {
     } else {
       const result = await addSubject({ name: subjectName.trim() });
       if (result.success) {
+        // Xóa cache để load lại data mới
+        cachedData = { subjects: null, schoolYear: null };
         await loadSubjects();
         handleCloseModal();
         alert('Thêm môn học thành công!');
@@ -95,6 +123,8 @@ const SubjectsView = ({ currentUser, isReadOnly = false, schoolYear }) => {
 
     const result = await deleteSubject(subjectId);
     if (result.success) {
+      // Xóa cache để load lại data mới
+      cachedData = { subjects: null, schoolYear: null };
       await loadSubjects();
       alert('Xóa môn học thành công!');
     } else {
@@ -117,7 +147,8 @@ const SubjectsView = ({ currentUser, isReadOnly = false, schoolYear }) => {
         {isAdmin && !isReadOnly && (
           <button
             onClick={handleOpenModal}
-            className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+            disabled={isLoadingData}
+            className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             <Plus size={20} />
             Thêm
@@ -140,15 +171,25 @@ const SubjectsView = ({ currentUser, isReadOnly = false, schoolYear }) => {
         </div>
       )}
 
-      <div className="bg-white rounded-xl shadow-lg overflow-hidden">
-        <SubjectsTable
-          subjects={subjects}
-          onEdit={handleOpenEditModal}
-          onDelete={handleDelete}
-          isAdmin={isAdmin}
-          isReadOnly={isReadOnly}
-        />
-      </div>
+      {isLoadingData ? (
+        <div className="bg-white rounded-xl shadow-lg p-16 flex items-center justify-center">
+          <div className="flex flex-col items-center gap-4">
+            <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+            <p className="text-gray-600 font-medium">Đang tải dữ liệu...</p>
+          </div>
+        </div>
+      ) : (
+        <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+          <SubjectsTable
+            subjects={subjects}
+            onEdit={handleOpenEditModal}
+            onDelete={handleDelete}
+            isAdmin={isAdmin}
+            isReadOnly={isReadOnly}
+            loading={loading}
+          />
+        </div>
+      )}
 
       <SubjectModal
         isOpen={showModal}
@@ -156,6 +197,7 @@ const SubjectsView = ({ currentUser, isReadOnly = false, schoolYear }) => {
         onSubmit={handleSubmit}
         subjectName={subjectName}
         setSubjectName={setSubjectName}
+        loading={loading}
         mode={modalMode}
       />
     </div>

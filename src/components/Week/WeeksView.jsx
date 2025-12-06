@@ -7,11 +7,28 @@ import Pagination from '../Classes/Pagination';
 
 const MAX_WEEKS = 35;
 
+// Cache data ở ngoài component
+let cachedData = {
+  weeks: null,
+  pagination: null,
+  totalWeeks: null,
+  schoolYear: null
+};
+
 const WeeksView = ({ currentUser, schoolYear, isReadOnly = false }) => {
-  const [weeks, setWeeks] = useState([]);
-  const [pagination, setPagination] = useState(null);
+  // Khởi tạo từ cache nếu có
+  const [weeks, setWeeks] = useState(
+    cachedData.schoolYear === schoolYear && cachedData.weeks ? cachedData.weeks : []
+  );
+  const [pagination, setPagination] = useState(
+    cachedData.schoolYear === schoolYear && cachedData.pagination ? cachedData.pagination : null
+  );
+  const [totalWeeks, setTotalWeeks] = useState(
+    cachedData.schoolYear === schoolYear && cachedData.totalWeeks ? cachedData.totalWeeks : 0
+  );
+  
+  const [isLoadingData, setIsLoadingData] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
-  const [totalWeeks, setTotalWeeks] = useState(0);
   const { fetchWeeks, addWeek, updateWeek, deleteWeek, error } = useWeeks();
   const isAdmin = currentUser.role === 'admin';
   const [editingWeek, setEditingWeek] = useState(null);
@@ -23,6 +40,12 @@ const WeeksView = ({ currentUser, schoolYear, isReadOnly = false }) => {
   }, [schoolYear]);
 
   const loadWeeks = async (page = currentPage) => {
+    // Nếu có cache thì không load
+    if (cachedData.schoolYear === schoolYear && cachedData.weeks && page === 1) {
+      return;
+    }
+
+    setIsLoadingData(true);
     try {
       const result = await fetchWeeks(schoolYear, page, itemsPerPage);
       if (result.success) {
@@ -30,11 +53,26 @@ const WeeksView = ({ currentUser, schoolYear, isReadOnly = false }) => {
         setPagination(result.pagination);
         setTotalWeeks(result.pagination.totalItems);
         setCurrentPage(page);
+        
+        // Lưu cache
+        if (page === 1) {
+          cachedData.weeks = result.weeks;
+          cachedData.pagination = result.pagination;
+          cachedData.totalWeeks = result.pagination.totalItems;
+          cachedData.schoolYear = schoolYear;
+        }
       } else {
-        alert(result.message || 'Không thể tải danh sách tuần học');
+        setWeeks([]);
+        setPagination(null);
+        setTotalWeeks(0);
       }
     } catch (err) {
       console.error("Error loading weeks:", err);
+      setWeeks([]);
+      setPagination(null);
+      setTotalWeeks(0);
+    } finally {
+      setIsLoadingData(false);
     }
   };
 
@@ -74,6 +112,7 @@ const WeeksView = ({ currentUser, schoolYear, isReadOnly = false }) => {
       alert(`Đã đạt giới hạn ${MAX_WEEKS} tuần trong năm học!`);
       return;
     }
+    
     const allWeeksResult = await fetchWeeks(schoolYear, 1, MAX_WEEKS);
     const allWeeks = allWeeksResult.success ? allWeeksResult.weeks : [];
 
@@ -110,6 +149,8 @@ const WeeksView = ({ currentUser, schoolYear, isReadOnly = false }) => {
     });
 
     if (result.success) {
+      // Xóa cache để load lại
+      cachedData = { weeks: null, pagination: null, totalWeeks: null, schoolYear: null };
       await loadWeeks(currentPage);
       alert(`Đã thêm Tuần ${totalWeeks + 1} (${nextWeekDates.startDate} - ${nextWeekDates.endDate})!`);
     } else {
@@ -166,6 +207,8 @@ const WeeksView = ({ currentUser, schoolYear, isReadOnly = false }) => {
     });
 
     if (result.success) {
+      // Xóa cache để load lại
+      cachedData = { weeks: null, pagination: null, totalWeeks: null, schoolYear: null };
       await loadWeeks(currentPage);
       setNewWeek({ startDate: '', endDate: '' });
       alert(`Đã thêm tuần học thành công!`);
@@ -184,6 +227,9 @@ const WeeksView = ({ currentUser, schoolYear, isReadOnly = false }) => {
 
     const result = await deleteWeek(weekId);
     if (result.success) {
+      // Xóa cache để load lại
+      cachedData = { weeks: null, pagination: null, totalWeeks: null, schoolYear: null };
+      
       const shouldGoToPrevPage = weeks.length === 1 && currentPage > 1;
       const newPage = shouldGoToPrevPage ? currentPage - 1 : currentPage;
       await loadWeeks(newPage);
@@ -227,6 +273,8 @@ const WeeksView = ({ currentUser, schoolYear, isReadOnly = false }) => {
     });
 
     if (result.success) {
+      // Xóa cache để load lại
+      cachedData = { weeks: null, pagination: null, totalWeeks: null, schoolYear: null };
       await loadWeeks(currentPage);
       setEditingWeek(null);
       alert('Đã cập nhật tuần học!');
@@ -290,23 +338,32 @@ const WeeksView = ({ currentUser, schoolYear, isReadOnly = false }) => {
         />
       )}
 
-      <div className="bg-white rounded-xl shadow-lg overflow-hidden relative">
-        <WeeksTable
-          weeks={weeks}
-          onEdit={handleEdit}
-          onDelete={handleDelete}
-          isAdmin={isAdmin}
-          isReadOnly={isReadOnly}
-        />
-
-        {pagination && (
-          <Pagination
-            currentPage={pagination.currentPage}
-            totalPages={pagination.totalPages}
-            onPageChange={handlePageChange}
+      {isLoadingData ? (
+        <div className="bg-white rounded-xl shadow-lg p-16 flex items-center justify-center">
+          <div className="flex flex-col items-center gap-4">
+            <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+            <p className="text-gray-600 font-medium">Đang tải dữ liệu...</p>
+          </div>
+        </div>
+      ) : (
+        <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+          <WeeksTable
+            weeks={weeks}
+            onEdit={handleEdit}
+            onDelete={handleDelete}
+            isAdmin={isAdmin}
+            isReadOnly={isReadOnly}
           />
-        )}
-      </div>
+
+          {pagination && (
+            <Pagination
+              currentPage={pagination.currentPage}
+              totalPages={pagination.totalPages}
+              onPageChange={handlePageChange}
+            />
+          )}
+        </div>
+      )}
     </div>
   );
 };
