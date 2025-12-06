@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Loader, Plus, Eye } from 'lucide-react';
+import { Plus, Eye } from 'lucide-react';
 import { useClasses } from '../../hooks/useClasses';
 import ClassesTable from './ClassesTable';
 import ClassModal from './ClassModal';
@@ -13,8 +13,8 @@ const ClassesView = ({ currentUser, isReadOnly = false, schoolYear }) => {
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedGrade, setSelectedGrade] = useState('');
   const [availableGrades, setAvailableGrades] = useState([]);
-  const { loading, error, fetchClasses, fetchAvailableGrades, addClass, deleteClass, updateClass } = useClasses();
-  const [isLoading, setIsLoading] = useState(false);
+  const { error, fetchClasses, fetchAvailableGrades, addClass, deleteClass, updateClass } = useClasses();
+  
   const [showModal, setShowModal] = useState(false);
   const [modalMode, setModalMode] = useState('add');
   const [editingClass, setEditingClass] = useState(null);
@@ -25,9 +25,7 @@ const ClassesView = ({ currentUser, isReadOnly = false, schoolYear }) => {
   const itemsPerPage = 10;
 
   useEffect(() => {
-    // Load grades và classes song song để tối ưu tốc độ
     const loadData = async () => {
-      setIsLoading(true);
       try {
         await Promise.all([
           loadAvailableGrades().catch(err => {
@@ -41,17 +39,13 @@ const ClassesView = ({ currentUser, isReadOnly = false, schoolYear }) => {
         ]);
       } catch (err) {
         console.error("Error loading initial data:", err);
-      } finally {
-        setIsLoading(false);
       }
     };
     loadData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [schoolYear]);
 
   useEffect(() => {
     loadClasses(1);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedGrade]);
 
   const loadAvailableGrades = async () => {
@@ -62,7 +56,6 @@ const ClassesView = ({ currentUser, isReadOnly = false, schoolYear }) => {
   };
 
   const loadClasses = async (page = currentPage) => {
-    setIsLoading(true);
     try {
       const result = await fetchClasses(schoolYear, page, itemsPerPage, selectedGrade);
       if (result.success) {
@@ -75,7 +68,6 @@ const ClassesView = ({ currentUser, isReadOnly = false, schoolYear }) => {
         setPagination(result.pagination);
         setCurrentPage(page);
       } else {
-        // Nếu không có data hoặc lỗi, set empty state ngay
         setClasses([]);
         setPagination(null);
         if (result.message && !result.message.includes('Không có')) {
@@ -83,12 +75,9 @@ const ClassesView = ({ currentUser, isReadOnly = false, schoolYear }) => {
         }
       }
     } catch (err) {
-      // Xử lý lỗi và set empty state
       setClasses([]);
       setPagination(null);
       console.error('Error loading classes:', err);
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -189,9 +178,7 @@ const ClassesView = ({ currentUser, isReadOnly = false, schoolYear }) => {
 
     const result = await deleteClass(classId);
     if (result.success) {
-      const shouldGoToPrevPage = 
-        classes.length === 1 && currentPage > 1;
-      
+      const shouldGoToPrevPage = classes.length === 1 && currentPage > 1;
       const newPage = shouldGoToPrevPage ? currentPage - 1 : currentPage;
     
       await loadAvailableGrades();
@@ -201,20 +188,6 @@ const ClassesView = ({ currentUser, isReadOnly = false, schoolYear }) => {
       alert(result.message || 'Xóa lớp học thất bại');
     }
   };
-
-  // Chỉ hiển thị loading full screen khi đang load lần đầu và chưa có data
-  const isInitialLoad = isLoading && classes.length === 0 && !error;
-
-  if (isInitialLoad) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="flex flex-col items-center gap-4">
-          <Loader className="animate-spin text-blue-600" size={48} />
-          <p className="text-gray-600">Đang tải dữ liệu lớp học...</p>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="space-y-4">
@@ -234,16 +207,14 @@ const ClassesView = ({ currentUser, isReadOnly = false, schoolYear }) => {
             selectedGrade={selectedGrade}
             onGradeChange={handleGradeChange}
             availableGrades={availableGrades}
-            loading={loading}
           />
 
           {isAdmin && !isReadOnly && (
             <button
               onClick={handleOpenModal}
-              disabled={loading}
-              className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
             >
-              {loading ? <Loader className="animate-spin" size={20} /> : <Plus size={20} />}
+              <Plus size={20} />
               Thêm
             </button>
           )}
@@ -264,16 +235,10 @@ const ClassesView = ({ currentUser, isReadOnly = false, schoolYear }) => {
       {error && <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">{error}</div>}
 
       <div className="bg-white rounded-xl shadow-lg overflow-hidden relative">
-        {isLoading && classes.length > 0 && (
-          <div className="absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center z-10">
-            <Loader className="animate-spin text-blue-600" size={32} />
-          </div>
-        )}
         <ClassesTable
           classes={classes}
           isAdmin={isAdmin}
           isReadOnly={isReadOnly}
-          loading={loading}
           onEdit={handleOpenEditModal}
           onDelete={handleDelete}
         />
@@ -283,7 +248,6 @@ const ClassesView = ({ currentUser, isReadOnly = false, schoolYear }) => {
             currentPage={pagination.currentPage}
             totalPages={pagination.totalPages}
             onPageChange={handlePageChange}
-            loading={loading}
           />
         )}
       </div>
@@ -292,7 +256,6 @@ const ClassesView = ({ currentUser, isReadOnly = false, schoolYear }) => {
         <ClassModal
           show={showModal}
           mode={modalMode}
-          loading={loading}
           onClose={handleCloseModal}
           onSubmit={handleSubmit}
           classNameValue={className}

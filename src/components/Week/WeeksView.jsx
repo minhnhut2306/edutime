@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Eye, Loader } from 'lucide-react';
+import { Eye } from 'lucide-react';
 import { useWeeks } from '../../hooks/useWeek';
 import { WeekForm } from './WeekForm';
 import { WeeksTable } from './WeeksTable';
@@ -12,8 +12,7 @@ const WeeksView = ({ currentUser, schoolYear, isReadOnly = false }) => {
   const [pagination, setPagination] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalWeeks, setTotalWeeks] = useState(0);
-  const [isLoading, setIsLoading] = useState(false);
-  const { fetchWeeks, addWeek, updateWeek, deleteWeek, loading, error } = useWeeks();
+  const { fetchWeeks, addWeek, updateWeek, deleteWeek, error } = useWeeks();
   const isAdmin = currentUser.role === 'admin';
   const [editingWeek, setEditingWeek] = useState(null);
   const [newWeek, setNewWeek] = useState({ startDate: '', endDate: '' });
@@ -24,7 +23,6 @@ const WeeksView = ({ currentUser, schoolYear, isReadOnly = false }) => {
   }, [schoolYear]);
 
   const loadWeeks = async (page = currentPage) => {
-    setIsLoading(true);
     try {
       const result = await fetchWeeks(schoolYear, page, itemsPerPage);
       if (result.success) {
@@ -37,8 +35,6 @@ const WeeksView = ({ currentUser, schoolYear, isReadOnly = false }) => {
       }
     } catch (err) {
       console.error("Error loading weeks:", err);
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -239,20 +235,6 @@ const WeeksView = ({ currentUser, schoolYear, isReadOnly = false }) => {
     }
   };
 
-  // Chỉ hiển thị loading full screen khi đang load lần đầu và chưa có data
-  const isInitialLoad = isLoading && weeks.length === 0 && !error;
-
-  if (isInitialLoad) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="flex flex-col items-center gap-4">
-          <Loader className="animate-spin text-blue-600" size={48} />
-          <p className="text-gray-600">Đang tải dữ liệu tuần học...</p>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center">
@@ -293,7 +275,6 @@ const WeeksView = ({ currentUser, schoolYear, isReadOnly = false }) => {
           setWeek={setNewWeek}
           onSubmit={handleAdd}
           onQuickAdd={handleQuickAdd}
-          loading={loading}
           isEdit={false}
           totalWeeks={totalWeeks}
         />
@@ -305,24 +286,17 @@ const WeeksView = ({ currentUser, schoolYear, isReadOnly = false }) => {
           setWeek={setEditingWeek}
           onSubmit={handleSaveEdit}
           onCancel={() => setEditingWeek(null)}
-          loading={loading}
           isEdit={true}
         />
       )}
 
       <div className="bg-white rounded-xl shadow-lg overflow-hidden relative">
-        {(isLoading || loading) && weeks.length > 0 && (
-          <div className="absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center z-10">
-            <Loader className="animate-spin text-blue-600" size={32} />
-          </div>
-        )}
         <WeeksTable
           weeks={weeks}
           onEdit={handleEdit}
           onDelete={handleDelete}
           isAdmin={isAdmin}
           isReadOnly={isReadOnly}
-          loading={loading || isLoading}
         />
 
         {pagination && (
@@ -330,7 +304,6 @@ const WeeksView = ({ currentUser, schoolYear, isReadOnly = false }) => {
             currentPage={pagination.currentPage}
             totalPages={pagination.totalPages}
             onPageChange={handlePageChange}
-            loading={loading || isLoading}
           />
         )}
       </div>

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Loader, Eye } from 'lucide-react';
+import { Plus, Eye } from 'lucide-react';
 import { useSubjects } from '../../hooks/useSubjects';
 import { SubjectModal } from './SubjectModal';
 import { SubjectsTable } from './SubjectsTable';
@@ -10,12 +10,11 @@ const SubjectsView = ({ currentUser, isReadOnly = false, schoolYear }) => {
   const [modalMode, setModalMode] = useState('add'); 
   const [editingSubject, setEditingSubject] = useState(null);
   const [subjectName, setSubjectName] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const { fetchSubjects, addSubject, updateSubject, deleteSubject, loading, error } = useSubjects();
+  
+  const { fetchSubjects, addSubject, updateSubject, deleteSubject, error } = useSubjects();
   const isAdmin = currentUser.role === 'admin';
 
   const loadSubjects = async () => {
-    setIsLoading(true);
     try {
       const result = await fetchSubjects(schoolYear);
       if (result.success) {
@@ -23,8 +22,6 @@ const SubjectsView = ({ currentUser, isReadOnly = false, schoolYear }) => {
       }
     } catch (err) {
       console.error("Error loading subjects:", err);
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -105,20 +102,6 @@ const SubjectsView = ({ currentUser, isReadOnly = false, schoolYear }) => {
     }
   };
 
-  // Chỉ hiển thị loading full screen khi đang load lần đầu và chưa có data
-  const isInitialLoad = (isLoading || loading) && subjects.length === 0 && !error;
-
-  if (isInitialLoad) {
-    return (
-      <div className="flex justify-center items-center h-64">
-        <div className="flex flex-col items-center gap-4">
-          <Loader className="animate-spin text-blue-600" size={48} />
-          <p className="text-gray-600">Đang tải dữ liệu môn học...</p>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center">
@@ -134,10 +117,9 @@ const SubjectsView = ({ currentUser, isReadOnly = false, schoolYear }) => {
         {isAdmin && !isReadOnly && (
           <button
             onClick={handleOpenModal}
-            disabled={loading || isLoading}
-            className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
           >
-            {(loading || isLoading) ? <Loader className="animate-spin" size={20} /> : <Plus size={20} />}
+            <Plus size={20} />
             Thêm
           </button>
         )}
@@ -158,19 +140,13 @@ const SubjectsView = ({ currentUser, isReadOnly = false, schoolYear }) => {
         </div>
       )}
 
-      <div className="bg-white rounded-xl shadow-lg overflow-hidden relative">
-        {(isLoading || loading) && subjects.length > 0 && (
-          <div className="absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center z-10">
-            <Loader className="animate-spin text-blue-600" size={32} />
-          </div>
-        )}
+      <div className="bg-white rounded-xl shadow-lg overflow-hidden">
         <SubjectsTable
           subjects={subjects}
           onEdit={handleOpenEditModal}
           onDelete={handleDelete}
           isAdmin={isAdmin}
           isReadOnly={isReadOnly}
-          loading={loading || isLoading}
         />
       </div>
 
@@ -180,7 +156,6 @@ const SubjectsView = ({ currentUser, isReadOnly = false, schoolYear }) => {
         onSubmit={handleSubmit}
         subjectName={subjectName}
         setSubjectName={setSubjectName}
-        loading={loading}
         mode={modalMode}
       />
     </div>
