@@ -1,3 +1,4 @@
+// src/pages/EduTime.jsx - CẬP NHẬT ĐẦY ĐỦ
 import React, { useState, useEffect } from 'react';
 import Header from '../components/Header';
 import Sidebar from '../components/Sidebar';
@@ -17,6 +18,9 @@ import SchoolYearSetupView from '../components/SchoolYearSetupView';
 import ReportView from '../components/Resport/ReportView';
 import WeeksView from '../components/Week/WeeksView';
 import TeacherDashboardView from '../components/TeacherDashboardView';
+import SessionExpiredModal from '../components/SessionExpiredModal';
+import { setSessionExpiredCallback } from '../api/baseApi';
+
 import { useAuth } from '../hooks/useAuth';
 import { useTeacher } from '../hooks/useTeacher';
 import { useClasses } from '../hooks/useClasses';
@@ -35,6 +39,10 @@ const EduTime = () => {
   const [needsTeacherSelection, setNeedsTeacherSelection] = useState(false);
   const [needsSchoolYearSetup, setNeedsSchoolYearSetup] = useState(false);
   const [authToken, setAuthToken] = useState(null);
+  
+  // 🔥 State cho SessionExpiredModal
+  const [showSessionExpiredModal, setShowSessionExpiredModal] = useState(false);
+  
   const { logout } = useAuth();
   const { finishSchoolYear } = useSchoolYear();
   const { fetchTeachers } = useTeacher();
@@ -61,6 +69,18 @@ const EduTime = () => {
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   const isReadOnly = viewingYear !== activeSchoolYear;
+
+  // 🔥 Setup callback cho SessionExpiredModal khi component mount
+  useEffect(() => {
+    setSessionExpiredCallback(() => {
+      setShowSessionExpiredModal(true);
+    });
+
+    // Cleanup khi unmount
+    return () => {
+      setSessionExpiredCallback(null);
+    };
+  }, []);
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -143,14 +163,12 @@ const EduTime = () => {
       const cachedData = await StorageService.loadData(key);
 
       if (cachedData) {
-
         if (cachedData.teachers) setTeachers(cachedData.teachers);
         if (cachedData.classes) setClasses(cachedData.classes);
         if (cachedData.subjects) setSubjects(cachedData.subjects);
         if (cachedData.weeks) setWeeks(cachedData.weeks);
         if (cachedData.teachingRecords) setTeachingRecords(cachedData.teachingRecords);
       }
-
 
       if (currentUser?.role === 'admin') {
         const cachedUsers = await StorageService.loadData('edutime_users');
@@ -166,7 +184,6 @@ const EduTime = () => {
 
   const loadAllData = async () => {
     try {
-
       let yearToUse = viewingYear;
 
       if (!viewingYear || !activeSchoolYear) {
@@ -186,21 +203,17 @@ const EduTime = () => {
         }
       }
 
-
       const hasCache = await loadCachedData(yearToUse);
-
 
       if (!hasCache) {
         setLoading(true);
         setLoadingProgress({ current: 0, total: 7, message: 'Đang khởi tạo...' });
       } else {
-
         setIsRefreshing(true);
         setLoadingProgress({ current: 0, total: 7, message: 'Đang cập nhật dữ liệu...' });
       }
 
       setLoadingProgress({ current: 1, total: 7, message: 'Đang tải danh sách năm học...' });
-
 
       const [
         yearsResult,
@@ -219,7 +232,6 @@ const EduTime = () => {
       ]);
 
       setLoadingProgress({ current: 2, total: 7, message: 'Đang xử lý danh sách năm học...' });
-
 
       if (yearsResult.status === 'fulfilled' && yearsResult.value?.success) {
         setArchivedYears(yearsResult.value.schoolYears.map(y => y.year));
@@ -251,7 +263,6 @@ const EduTime = () => {
         setUsers(usersData.value);
       }
 
-
       setLoadingProgress({ current: 6, total: 7, message: 'Đang tải bản ghi tiết dạy...' });
 
       try {
@@ -264,9 +275,7 @@ const EduTime = () => {
         setTeachingRecords([]);
       }
 
-
       setLoadingProgress({ current: 7, total: 7, message: 'Hoàn tất!' });
-
 
       [
         yearsResult,
@@ -281,7 +290,6 @@ const EduTime = () => {
           console.error(`Error loading ${apiNames[index]}:`, result.reason);
         }
       });
-
 
       setTimeout(() => {
         setLoading(false);
@@ -416,7 +424,6 @@ const EduTime = () => {
     }
   };
 
-
   if (showForgotPassword) {
     return (
       <ForgotPasswordView
@@ -425,7 +432,6 @@ const EduTime = () => {
     );
   }
 
-
   if (showRegister) {
     return (
       <RegisterView
@@ -433,7 +439,6 @@ const EduTime = () => {
       />
     );
   }
-
 
   if (!isLoggedIn) {
     return (
@@ -444,7 +449,6 @@ const EduTime = () => {
       />
     );
   }
-
 
   if (showChangePassword) {
     return (
@@ -537,148 +541,157 @@ const EduTime = () => {
   }) : null;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 relative">
-      {}
-      {isRefreshing && !loading && (
-        <div className="fixed top-4 right-4 z-50 bg-blue-600 text-white px-4 py-2 rounded-lg shadow-lg flex items-center gap-2 animate-pulse">
-          <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
-          <span className="text-sm font-medium">Đang cập nhật...</span>
-        </div>
-      )}
-      <Header
-        currentUser={currentUser}
-        onLogout={handleLogout}
-        onSave={saveAllData}
-        schoolYear={viewingYear}
-        archivedYears={archivedYears}
-        onChangeYear={handleChangeYear}
-        onShowChangePassword={() => setShowChangePassword(true)}
-        isReadOnly={isReadOnly}
+    <>
+      {/* 🔥 SessionExpiredModal - Hiển thị ở đầu, trên tất cả các component */}
+      <SessionExpiredModal
+        show={showSessionExpiredModal}
+        onClose={() => setShowSessionExpiredModal(false)}
       />
 
-      <div className="max-w-7xl mx-auto px-6 py-8">
-        <div className="grid grid-cols-12 gap-6">
-          <div className="col-span-3">
-            <Sidebar
-              currentView={currentView}
-              setCurrentView={setCurrentView}
-              currentUser={currentUser}
-            />
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 relative">
+        {isRefreshing && !loading && (
+          <div className="fixed top-4 right-4 z-50 bg-blue-600 text-white px-4 py-2 rounded-lg shadow-lg flex items-center gap-2 animate-pulse">
+            <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+            <span className="text-sm font-medium">Đang cập nhật...</span>
           </div>
+        )}
+        
+        <Header
+          currentUser={currentUser}
+          onLogout={handleLogout}
+          onSave={saveAllData}
+          schoolYear={viewingYear}
+          archivedYears={archivedYears}
+          onChangeYear={handleChangeYear}
+          onShowChangePassword={() => setShowChangePassword(true)}
+          isReadOnly={isReadOnly}
+        />
 
-          <div className="col-span-9">
-            <div className="bg-white rounded-xl shadow-lg p-6">
-              {currentView === 'dashboard' && isAdmin && (
-                <DashboardView
-                  teachers={teachers}
-                  classes={classes}
-                  subjects={subjects}
-                  teachingRecords={filteredTeachingRecords}
-                  users={users}
-                  schoolYear={viewingYear}
-                  activeSchoolYear={activeSchoolYear}
-                  setSchoolYear={(year) => setSchoolYear({ year, isActive: true })}
-                  currentUser={currentUser}
-                  onFinishYear={handleFinishYear}
-                  archivedYears={archivedYears}
-                  onChangeYear={handleChangeYear}
-                  isReadOnly={isReadOnly}
-                />
-              )}
+        <div className="max-w-7xl mx-auto px-6 py-8">
+          <div className="grid grid-cols-12 gap-6">
+            <div className="col-span-3">
+              <Sidebar
+                currentView={currentView}
+                setCurrentView={setCurrentView}
+                currentUser={currentUser}
+              />
+            </div>
 
-              {currentView === 'dashboard' && !isAdmin && (
-                <TeacherDashboardView
-                  teacher={linkedTeacher}
-                  teachingRecords={teachingRecords}
-                  classes={classes}
-                  subjects={subjects}
-                />
-              )}
+            <div className="col-span-9">
+              <div className="bg-white rounded-xl shadow-lg p-6">
+                {currentView === 'dashboard' && isAdmin && (
+                  <DashboardView
+                    teachers={teachers}
+                    classes={classes}
+                    subjects={subjects}
+                    teachingRecords={filteredTeachingRecords}
+                    users={users}
+                    schoolYear={viewingYear}
+                    activeSchoolYear={activeSchoolYear}
+                    setSchoolYear={(year) => setSchoolYear({ year, isActive: true })}
+                    currentUser={currentUser}
+                    onFinishYear={handleFinishYear}
+                    archivedYears={archivedYears}
+                    onChangeYear={handleChangeYear}
+                    isReadOnly={isReadOnly}
+                  />
+                )}
 
-              {currentView === 'classes' && isAdmin && (
-                <ClassesView
-                  classes={classes}
-                  setClasses={setClasses}
-                  currentUser={currentUser}
-                  isReadOnly={isReadOnly}
-                  schoolYear={viewingYear}
-                />
-              )}
+                {currentView === 'dashboard' && !isAdmin && (
+                  <TeacherDashboardView
+                    teacher={linkedTeacher}
+                    teachingRecords={teachingRecords}
+                    classes={classes}
+                    subjects={subjects}
+                  />
+                )}
 
-              {currentView === 'subjects' && isAdmin && (
-                <SubjectsView
-                  subjects={subjects}
-                  setSubjects={setSubjects}
-                  currentUser={currentUser}
-                  isReadOnly={isReadOnly}
-                  schoolYear={viewingYear}
-                />
-              )}
+                {currentView === 'classes' && isAdmin && (
+                  <ClassesView
+                    classes={classes}
+                    setClasses={setClasses}
+                    currentUser={currentUser}
+                    isReadOnly={isReadOnly}
+                    schoolYear={viewingYear}
+                  />
+                )}
 
-              {currentView === 'weeks' && isAdmin && (
-                <WeeksView
-                  weeks={weeks}
-                  setWeeks={setWeeks}
-                  currentUser={currentUser}
-                  schoolYear={viewingYear}
-                  isReadOnly={isReadOnly}
-                />
-              )}
-              {currentView === 'teachers' && isAdmin && (
-                <TeachersView
-                  teachers={teachers}
-                  setTeachers={setTeachers}
-                  classes={classes}
-                  subjects={subjects}
-                  currentUser={currentUser}
-                  isReadOnly={isReadOnly}
-                  schoolYear={viewingYear}
-                />
-              )}
+                {currentView === 'subjects' && isAdmin && (
+                  <SubjectsView
+                    subjects={subjects}
+                    setSubjects={setSubjects}
+                    currentUser={currentUser}
+                    isReadOnly={isReadOnly}
+                    schoolYear={viewingYear}
+                  />
+                )}
 
-              {currentView === 'input' && (
-                <TeachingInputView
-                  teachers={teachers}
-                  classes={classes}
-                  subjects={subjects}
-                  weeks={weeks}
-                  teachingRecords={teachingRecords}
-                  setTeachingRecords={setTeachingRecords}
-                  schoolYear={viewingYear}
-                  currentUser={currentUser}
-                  users={users}
-                  isReadOnly={isReadOnly}
-                />
-              )}
+                {currentView === 'weeks' && isAdmin && (
+                  <WeeksView
+                    weeks={weeks}
+                    setWeeks={setWeeks}
+                    currentUser={currentUser}
+                    schoolYear={viewingYear}
+                    isReadOnly={isReadOnly}
+                  />
+                )}
+                
+                {currentView === 'teachers' && isAdmin && (
+                  <TeachersView
+                    teachers={teachers}
+                    setTeachers={setTeachers}
+                    classes={classes}
+                    subjects={subjects}
+                    currentUser={currentUser}
+                    isReadOnly={isReadOnly}
+                    schoolYear={viewingYear}
+                  />
+                )}
 
-              {currentView === 'report' && (
-                <ReportView
-                  teachers={teachers}
-                  classes={classes}
-                  subjects={subjects}
-                  teachingRecords={teachingRecords}
-                  weeks={weeks}
-                  schoolYear={viewingYear}
-                  propSchoolYearId={activeSchoolYearId}
-                  activeSchoolYear={activeSchoolYear}
-                  currentUser={currentUser}
-                  isReadOnly={isReadOnly}
-                />
-              )}
+                {currentView === 'input' && (
+                  <TeachingInputView
+                    teachers={teachers}
+                    classes={classes}
+                    subjects={subjects}
+                    weeks={weeks}
+                    teachingRecords={teachingRecords}
+                    setTeachingRecords={setTeachingRecords}
+                    schoolYear={viewingYear}
+                    currentUser={currentUser}
+                    users={users}
+                    isReadOnly={isReadOnly}
+                  />
+                )}
 
-              {currentView === 'users' && isAdmin && (
-                <UserManagementView
-                  users={users}
-                  setUsers={setUsers}
-                  teachers={teachers}
-                  classes={classes}
-                />
-              )}
+                {currentView === 'report' && (
+                  <ReportView
+                    teachers={teachers}
+                    classes={classes}
+                    subjects={subjects}
+                    teachingRecords={teachingRecords}
+                    weeks={weeks}
+                    schoolYear={viewingYear}
+                    propSchoolYearId={activeSchoolYearId}
+                    activeSchoolYear={activeSchoolYear}
+                    currentUser={currentUser}
+                    isReadOnly={isReadOnly}
+                  />
+                )}
+
+                {currentView === 'users' && isAdmin && (
+                  <UserManagementView
+                    users={users}
+                    setUsers={setUsers}
+                    teachers={teachers}
+                    classes={classes}
+                  />
+                )}
+              </div>
             </div>
           </div>
         </div>
       </div>
-    </div>
+    </>
   );
 };
 

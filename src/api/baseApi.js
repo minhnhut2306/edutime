@@ -1,3 +1,4 @@
+// src/api/baseApi.js - CẬP NHẬT ĐẦY ĐỦ
 import axios from "axios";
 
 // const API_URL = "http://localhost:5000/api/";
@@ -11,6 +12,15 @@ export const api = axios.create({
   timeout: 30000,
 });
 
+// 🔥 Biến global để trigger modal với error message
+let sessionExpiredCallback = null;
+
+// 🔥 Export function để set callback
+export const setSessionExpiredCallback = (callback) => {
+  sessionExpiredCallback = callback;
+};
+
+// Request interceptor
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('token');
@@ -27,20 +37,46 @@ api.interceptors.request.use(
   }
 );
 
+// 🔥 Response interceptor - Xử lý phiên hết hạn
 api.interceptors.response.use(
   (response) => {
     return response;
   },
   (error) => {
     if (error.response) {
-      console.error(`API Error [${error.response.status}]:`, error.response.data?.msg || error.message);
+      const { status, data } = error.response;
       
-      if (error.response.status === 401) {
-        console.warn("Token hết hạn. Vui lòng đăng nhập lại.");
+      console.error(`API Error [${status}]:`, data?.msg || error.message);
+      
+      // 🔥 Kiểm tra nếu là lỗi 401 và message là "Phiên đăng nhập đã hết hạn"
+      if (status === 401) {
+        const errorMessage = data?.msg || '';
+        
+        if (errorMessage.includes('Phiên đăng nhập đã hết hạn')) {
+          console.warn("🔥 Phiên đăng nhập đã hết hạn (đăng nhập thiết bị khác)");
+          
+          // Xóa token và user
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
+          
+          // 🔥 Trigger modal thông qua callback với error message đầy đủ
+          if (sessionExpiredCallback) {
+            sessionExpiredCallback(errorMessage); // 🔥 Pass error message
+          } else {
+            // Fallback nếu chưa setup callback
+            alert(`⚠️ ${errorMessage}`);
+            window.location.reload();
+          }
+          
+          return Promise.reject(new Error('Session expired'));
+        }
+        
+        console.warn("Token hết hạn hoặc không hợp lệ.");
       }
     } else {
       console.error("Network Error:", error.message);
     }
+    
     return Promise.reject(error);
   }
 );
