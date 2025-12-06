@@ -1,4 +1,4 @@
-// src/pages/EduTime.jsx - CẬP NHẬT ĐẦY ĐỦ
+// src/pages/EduTime.jsx - CẬP NHẬT ĐẦY ĐỦ VỚI TOKEN POLLING
 import React, { useState, useEffect } from 'react';
 import Header from '../components/Header';
 import Sidebar from '../components/Sidebar';
@@ -20,6 +20,7 @@ import WeeksView from '../components/Week/WeeksView';
 import TeacherDashboardView from '../components/TeacherDashboardView';
 import SessionExpiredModal from '../components/SessionExpiredModal';
 import { setSessionExpiredCallback } from '../api/baseApi';
+import { api } from '../api/baseApi';
 
 import { useAuth } from '../hooks/useAuth';
 import { useTeacher } from '../hooks/useTeacher';
@@ -42,6 +43,7 @@ const EduTime = () => {
   
   // 🔥 State cho SessionExpiredModal
   const [showSessionExpiredModal, setShowSessionExpiredModal] = useState(false);
+  const [sessionExpiredMessage, setSessionExpiredMessage] = useState('');
   
   const { logout } = useAuth();
   const { finishSchoolYear } = useSchoolYear();
@@ -72,15 +74,61 @@ const EduTime = () => {
 
   // 🔥 Setup callback cho SessionExpiredModal khi component mount
   useEffect(() => {
-    setSessionExpiredCallback(() => {
+    console.log('🔧 Setting up session expired callback...');
+    
+    setSessionExpiredCallback((errorMessage) => {
+      console.log('🔥🔥🔥 CALLBACK RECEIVED!', errorMessage);
+      setSessionExpiredMessage(errorMessage);
       setShowSessionExpiredModal(true);
+      console.log('🔥🔥🔥 Modal state set to TRUE');
+      
+      // ✅ DEBUG: Check state sau khi set
+      setTimeout(() => {
+        console.log('🔍 Check modal state after 100ms:', {
+          showSessionExpiredModal,
+          sessionExpiredMessage
+        });
+      }, 100);
     });
 
     // Cleanup khi unmount
     return () => {
+      console.log('🛑 Cleaning up callback');
       setSessionExpiredCallback(null);
     };
   }, []);
+
+  // ✅ POLLING NHẸ - Chỉ kiểm tra mỗi 60 giây (thay vì 10 giây)
+  useEffect(() => {
+    if (!isLoggedIn || !authToken) return;
+
+    console.log('🔄 Light token polling started (every 60s)');
+
+    const checkTokenValidity = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        if (!token) return;
+
+        await api.request({
+          method: 'POST',
+          url: '/auth/token/verify',
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        
+      } catch (error) {
+        // Interceptor sẽ tự động trigger modal nếu là 401
+        console.log('⚠️ Token invalid');
+      }
+    };
+
+    // Polling mỗi 60 giây (nhẹ hơn nhiều so với 10s)
+    const interval = setInterval(checkTokenValidity, 60000);
+
+    return () => {
+      console.log('🛑 Token polling stopped');
+      clearInterval(interval);
+    };
+  }, [isLoggedIn, authToken]);
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -93,6 +141,7 @@ const EduTime = () => {
         setAuthToken(token);
         setIsLoggedIn(true);
       } catch (err) {
+        console.error("[useEffect] error:", err);
         localStorage.removeItem('token');
         localStorage.removeItem('user');
       }
@@ -124,7 +173,7 @@ const EduTime = () => {
           setNeedsTeacherSelection(true);
         }
       }
-    } catch (err) {  }
+    } catch (err) { console.error("[checkTeacherSelection] error:", err); }
   };
 
   const checkSchoolYearSetup = async () => {
@@ -546,6 +595,7 @@ const EduTime = () => {
       <SessionExpiredModal
         show={showSessionExpiredModal}
         onClose={() => setShowSessionExpiredModal(false)}
+        errorMessage={sessionExpiredMessage}
       />
 
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 relative">

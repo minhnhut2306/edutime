@@ -1,16 +1,18 @@
-// src/components/SessionExpiredModal.jsx - CẬP NHẬT
 import React, { useState, useEffect } from 'react';
 import { AlertCircle, LogOut, Smartphone, Chrome, Globe } from 'lucide-react';
 
-const SessionExpiredModal = ({ show, onClose, errorMessage }) => {
+const SessionExpiredModal = ({ show, errorMessage }) => {
   const [countdown, setCountdown] = useState(5);
   const [browserInfo, setBrowserInfo] = useState(null);
 
+  console.log('🎭 SessionExpiredModal render:', { show, errorMessage }); // ✅ DEBUG
+
   useEffect(() => {
     if (show && errorMessage) {
-      const match = errorMessage.match(/đăng nhập từ (.+)\./);
+      // ✅ Cải thiện regex để bắt được nhiều format hơn
+      const match = errorMessage.match(/đăng nhập từ ([^.]+)/i);
       if (match) {
-        setBrowserInfo(match[1]);
+        setBrowserInfo(match[1].trim());
       }
     }
   }, [show, errorMessage]);
@@ -42,7 +44,13 @@ const SessionExpiredModal = ({ show, onClose, errorMessage }) => {
     window.location.reload();
   };
 
-  if (!show) return null;
+  if (!show) {
+    console.log('❌ Modal not showing because show = false'); // ✅ DEBUG
+    return null;
+  }
+
+  console.log('✅ Modal rendering with:', { browserInfo, countdown }); // ✅ DEBUG
+
   const getBrowserIcon = () => {
     if (!browserInfo) return <Globe className="text-orange-600" size={40} />;
     
@@ -79,9 +87,6 @@ const SessionExpiredModal = ({ show, onClose, errorMessage }) => {
                     'Tài khoản của bạn đã được đăng nhập ở thiết bị/trình duyệt khác'
                   )}
                 </p>
-                <p className="text-xs text-orange-700 mt-2">
-                  Để bảo mật, mỗi tài khoản chỉ có thể đăng nhập trên 1 trình duyệt tại một thời điểm.
-                </p>
               </div>
             </div>
           </div>
@@ -103,16 +108,6 @@ const SessionExpiredModal = ({ show, onClose, errorMessage }) => {
           <LogOut size={20} />
           Đăng nhập lại ngay
         </button>
-
-        <div className="mt-4 p-3 bg-blue-50 rounded-lg">
-          <p className="text-xs text-blue-700 text-center">
-            💡 <strong>Mẹo:</strong> Mỗi trình duyệt (Chrome, Firefox, Cốc Cốc...) được tính là một phiên đăng nhập riêng
-          </p>
-        </div>
-
-        <p className="text-xs text-gray-500 text-center mt-3">
-          Đăng xuất ở trình duyệt cũ trước khi đăng nhập trình duyệt mới để tránh bị gián đoạn
-        </p>
       </div>
     </div>
   );

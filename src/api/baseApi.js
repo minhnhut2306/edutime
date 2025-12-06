@@ -1,4 +1,3 @@
-// src/api/baseApi.js - CẬP NHẬT ĐẦY ĐỦ
 import axios from "axios";
 
 // const API_URL = "http://localhost:5000/api/";
@@ -12,21 +11,47 @@ export const api = axios.create({
   timeout: 30000,
 });
 
-// 🔥 Biến global để trigger modal với error message
+// ✅ Biến global để trigger modal với error message
 let sessionExpiredCallback = null;
+let sessionExpiredTriggered = false; // ✅ Flag tránh trigger nhiều lần
 
-// 🔥 Export function để set callback
+// ✅ Export function để set callback
 export const setSessionExpiredCallback = (callback) => {
   sessionExpiredCallback = callback;
+  sessionExpiredTriggered = false; // ✅ Reset flag khi set callback mới
+  console.log('✅ Session expired callback registered');
 };
 
-// Request interceptor
+// Request interceptor - ✅ KIỂM TRA TOKEN TRƯỚC KHI GỌI API
 api.interceptors.request.use(
-  (config) => {
+  async (config) => {
     const token = localStorage.getItem('token');
     
     if (token && !config.headers.Authorization) {
       config.headers.Authorization = `Bearer ${token}`;
+    }
+    
+    // ✅ BỎ QUA việc verify token cho các endpoint không cần auth
+    const skipVerify = [
+      '/auth/login',
+      '/auth/register',
+      '/auth/forgot-password',
+      '/auth/verify-otp',
+      '/auth/reset-password'
+    ].some(path => config.url?.includes(path));
+    
+    // ✅ KIỂM TRA TOKEN TRƯỚC MỖI REQUEST (trừ các endpoint public)
+    if (token && !skipVerify && !config._skipTokenVerify) {
+      try {
+        // Gọi API verify token (thêm flag để tránh loop vô hạn)
+        await api.post('/auth/token/verify', {}, {
+          headers: { Authorization: `Bearer ${token}` },
+          _skipTokenVerify: true // Flag để tránh verify chính nó
+        });
+      } catch (error) {
+        // Nếu token không hợp lệ, interceptor response sẽ handle
+        console.log('⚠️ Token pre-check failed, continuing with request...');
+      }
     }
     
     return config;
@@ -37,7 +62,7 @@ api.interceptors.request.use(
   }
 );
 
-// 🔥 Response interceptor - Xử lý phiên hết hạn
+// ✅ Response interceptor - Xử lý phiên hết hạn
 api.interceptors.response.use(
   (response) => {
     return response;
@@ -46,32 +71,40 @@ api.interceptors.response.use(
     if (error.response) {
       const { status, data } = error.response;
       
-      console.error(`API Error [${status}]:`, data?.msg || error.message);
+      console.error(`🔥 API Error [${status}]:`, data?.msg || error.message);
       
-      // 🔥 Kiểm tra nếu là lỗi 401 và message là "Phiên đăng nhập đã hết hạn"
-      if (status === 401) {
+      // ✅ Kiểm tra nếu là lỗi 401 HOẶC 500 với message "Phiên đăng nhập đã hết hạn"
+      if (status === 401 || status === 500) {
         const errorMessage = data?.msg || '';
         
-        if (errorMessage.includes('Phiên đăng nhập đã hết hạn')) {
-          console.warn("🔥 Phiên đăng nhập đã hết hạn (đăng nhập thiết bị khác)");
+        console.log('🔍 Error Message:', errorMessage);
+        
+        // ✅ Chỉ trigger 1 lần duy nhất
+        if (errorMessage.includes('Phiên đăng nhập đã hết hạn') && !sessionExpiredTriggered) {
+          sessionExpiredTriggered = true; // ✅ Đánh dấu đã trigger
+          
+          console.warn("🔥 TRIGGER SESSION EXPIRED MODAL");
           
           // Xóa token và user
           localStorage.removeItem('token');
           localStorage.removeItem('user');
           
-          // 🔥 Trigger modal thông qua callback với error message đầy đủ
+          // ✅ Trigger modal thông qua callback với error message đầy đủ
           if (sessionExpiredCallback) {
-            sessionExpiredCallback(errorMessage); // 🔥 Pass error message
+            sessionExpiredCallback(errorMessage);
           } else {
             // Fallback nếu chưa setup callback
-            alert(`⚠️ ${errorMessage}`);
+            console.error('⚠️ sessionExpiredCallback not set!');
+            alert(`${errorMessage}`);
             window.location.reload();
           }
           
           return Promise.reject(new Error('Session expired'));
         }
         
-        console.warn("Token hết hạn hoặc không hợp lệ.");
+        if (status === 401) {
+          console.warn("Token hết hạn hoặc không hợp lệ (không phải multi-login)");
+        }
       }
     } else {
       console.error("Network Error:", error.message);
