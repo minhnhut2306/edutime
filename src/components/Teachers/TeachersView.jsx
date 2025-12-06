@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Loader } from 'lucide-react';
 import { useTeacher } from '../../hooks/useTeacher';
 import { useClasses } from '../../hooks/useClasses';
 import { useSubjects } from '../../hooks/useSubjects';
@@ -71,7 +72,11 @@ const TeachersView = ({ currentUser, isReadOnly = false, schoolYear }) => {
   };
 
   const loadTeachers = async (page = currentPage) => {
-    setIsLoadingData(true);
+    // Nếu có cache thì không hiển thị loading
+    if (!cachedData.teachers) {
+      setIsLoadingData(true);
+    }
+    
     try {
       const result = await fetchTeachers(schoolYear, page, 10);
       if (result.success) {
@@ -311,6 +316,18 @@ const TeachersView = ({ currentUser, isReadOnly = false, schoolYear }) => {
     loadAllData();
   };
 
+  // Hiển thị loader chỉ khi loading lần đầu và chưa có data
+  if (isLoadingData && teachers.length === 0) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="flex flex-col items-center gap-4">
+          <Loader className="animate-spin text-blue-600" size={48} />
+          <p className="text-gray-600 font-medium">Đang tải dữ liệu...</p>
+        </div>
+      </div>
+    );
+  }
+
   if (errorTeachers) {
     return (
       <div className="bg-red-50 border border-red-200 rounded-lg p-4">
@@ -355,39 +372,30 @@ const TeachersView = ({ currentUser, isReadOnly = false, schoolYear }) => {
         subjects={subjects}
       />
 
-      {isLoadingData ? (
-        <div className="bg-white rounded-xl shadow-lg p-16 flex items-center justify-center">
-          <div className="flex flex-col items-center gap-4">
-            <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-            <p className="text-gray-600 font-medium">Đang tải dữ liệu...</p>
-          </div>
-        </div>
-      ) : (
-        <div className="bg-white rounded-xl shadow-lg overflow-hidden">
-          <TeacherTable
-            teachers={teachers}
-            classes={classes}
-            subjects={subjects}
-            visibleInfo={visibleInfo}
-            isAdmin={isAdmin}
-            isReadOnly={isReadOnly}
-            onEdit={handleEdit}
-            onDelete={handleDelete}
-            onToggleVisibility={toggleVisibility}
-            maskEmail={maskEmail}
-            maskPhone={maskPhone}
-          />
+      <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+        <TeacherTable
+          teachers={teachers}
+          classes={classes}
+          subjects={subjects}
+          visibleInfo={visibleInfo}
+          isAdmin={isAdmin}
+          isReadOnly={isReadOnly}
+          onEdit={handleEdit}
+          onDelete={handleDelete}
+          onToggleVisibility={toggleVisibility}
+          maskEmail={maskEmail}
+          maskPhone={maskPhone}
+        />
 
-          {pagination && (
-            <Pagination
-              currentPage={pagination.page}
-              totalPages={pagination.totalPages}
-              totalItems={pagination.total}
-              onPageChange={handlePageChange}
-            />
-          )}
-        </div>
-      )}
+        {pagination && (
+          <Pagination
+            currentPage={pagination.page}
+            totalPages={pagination.totalPages}
+            totalItems={pagination.total}
+            onPageChange={handlePageChange}
+          />
+        )}
+      </div>
     </div>
   );
 };

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Eye } from 'lucide-react';
+import { Eye, Loader } from 'lucide-react';
 import { useWeeks } from '../../hooks/useWeek';
 import { WeekForm } from './WeekForm';
 import { WeeksTable } from './WeeksTable';
@@ -45,7 +45,11 @@ const WeeksView = ({ currentUser, schoolYear, isReadOnly = false }) => {
       return;
     }
 
-    setIsLoadingData(true);
+    // Nếu có cache thì không hiển thị loading
+    if (!cachedData.weeks) {
+      setIsLoadingData(true);
+    }
+    
     try {
       const result = await fetchWeeks(schoolYear, page, itemsPerPage);
       if (result.success) {
@@ -283,6 +287,18 @@ const WeeksView = ({ currentUser, schoolYear, isReadOnly = false }) => {
     }
   };
 
+  // Hiển thị loader chỉ khi loading lần đầu và chưa có data
+  if (isLoadingData && weeks.length === 0) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="flex flex-col items-center gap-4">
+          <Loader className="animate-spin text-blue-600" size={48} />
+          <p className="text-gray-600 font-medium">Đang tải dữ liệu...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center">
@@ -338,32 +354,23 @@ const WeeksView = ({ currentUser, schoolYear, isReadOnly = false }) => {
         />
       )}
 
-      {isLoadingData ? (
-        <div className="bg-white rounded-xl shadow-lg p-16 flex items-center justify-center">
-          <div className="flex flex-col items-center gap-4">
-            <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-            <p className="text-gray-600 font-medium">Đang tải dữ liệu...</p>
-          </div>
-        </div>
-      ) : (
-        <div className="bg-white rounded-xl shadow-lg overflow-hidden">
-          <WeeksTable
-            weeks={weeks}
-            onEdit={handleEdit}
-            onDelete={handleDelete}
-            isAdmin={isAdmin}
-            isReadOnly={isReadOnly}
-          />
+      <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+        <WeeksTable
+          weeks={weeks}
+          onEdit={handleEdit}
+          onDelete={handleDelete}
+          isAdmin={isAdmin}
+          isReadOnly={isReadOnly}
+        />
 
-          {pagination && (
-            <Pagination
-              currentPage={pagination.currentPage}
-              totalPages={pagination.totalPages}
-              onPageChange={handlePageChange}
-            />
-          )}
-        </div>
-      )}
+        {pagination && (
+          <Pagination
+            currentPage={pagination.currentPage}
+            totalPages={pagination.totalPages}
+            onPageChange={handlePageChange}
+          />
+        )}
+      </div>
     </div>
   );
 };

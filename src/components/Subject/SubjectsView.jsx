@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Eye } from 'lucide-react';
+import { Plus, Eye, Loader } from 'lucide-react';
 import { useSubjects } from '../../hooks/useSubjects';
 import { SubjectModal } from './SubjectModal';
 import { SubjectsTable } from './SubjectsTable';
@@ -25,7 +25,11 @@ const SubjectsView = ({ currentUser, isReadOnly = false, schoolYear }) => {
   const isAdmin = currentUser.role === 'admin';
 
   const loadSubjects = async () => {
-    setIsLoadingData(true);
+    // Nếu có cache thì không hiển thị loading khi load lại
+    if (!cachedData.subjects) {
+      setIsLoadingData(true);
+    }
+    
     try {
       const result = await fetchSubjects(schoolYear);
       if (result.success) {
@@ -132,6 +136,18 @@ const SubjectsView = ({ currentUser, isReadOnly = false, schoolYear }) => {
     }
   };
 
+  // Hiển thị loader chỉ khi loading lần đầu và chưa có data
+  if (isLoadingData && subjects.length === 0) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="flex flex-col items-center gap-4">
+          <Loader className="animate-spin text-blue-600" size={48} />
+          <p className="text-gray-600 font-medium">Đang tải dữ liệu...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center">
@@ -171,25 +187,16 @@ const SubjectsView = ({ currentUser, isReadOnly = false, schoolYear }) => {
         </div>
       )}
 
-      {isLoadingData ? (
-        <div className="bg-white rounded-xl shadow-lg p-16 flex items-center justify-center">
-          <div className="flex flex-col items-center gap-4">
-            <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-            <p className="text-gray-600 font-medium">Đang tải dữ liệu...</p>
-          </div>
-        </div>
-      ) : (
-        <div className="bg-white rounded-xl shadow-lg overflow-hidden">
-          <SubjectsTable
-            subjects={subjects}
-            onEdit={handleOpenEditModal}
-            onDelete={handleDelete}
-            isAdmin={isAdmin}
-            isReadOnly={isReadOnly}
-            loading={loading}
-          />
-        </div>
-      )}
+      <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+        <SubjectsTable
+          subjects={subjects}
+          onEdit={handleOpenEditModal}
+          onDelete={handleDelete}
+          isAdmin={isAdmin}
+          isReadOnly={isReadOnly}
+          loading={loading}
+        />
+      </div>
 
       <SubjectModal
         isOpen={showModal}

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Plus, Eye } from 'lucide-react';
+import { Plus, Eye, Loader } from 'lucide-react';
 import { useClasses } from '../../hooks/useClasses';
 import ClassesTable from './ClassesTable';
 import ClassModal from './ClassModal';
@@ -264,6 +264,18 @@ const ClassesView = ({ currentUser, isReadOnly = false, schoolYear }) => {
     }
   };
 
+  // Hiển thị loader chỉ khi loading lần đầu và chưa có data
+  if (isLoadingData && classes.length === 0) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="flex flex-col items-center gap-4">
+          <Loader className="animate-spin text-blue-600" size={48} />
+          <p className="text-gray-600 font-medium">Đang tải dữ liệu...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center">
@@ -311,34 +323,25 @@ const ClassesView = ({ currentUser, isReadOnly = false, schoolYear }) => {
 
       {error && <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">{error}</div>}
 
-      {isLoadingData ? (
-        <div className="bg-white rounded-xl shadow-lg p-16 flex items-center justify-center">
-          <div className="flex flex-col items-center gap-4">
-            <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-            <p className="text-gray-600 font-medium">Đang tải dữ liệu...</p>
-          </div>
-        </div>
-      ) : (
-        <div className="bg-white rounded-xl shadow-lg overflow-hidden">
-          <ClassesTable
-            classes={classes}
-            isAdmin={isAdmin}
-            isReadOnly={isReadOnly}
-            loading={loading}
-            onEdit={handleOpenEditModal}
-            onDelete={handleDelete}
-          />
+      <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+        <ClassesTable
+          classes={classes}
+          isAdmin={isAdmin}
+          isReadOnly={isReadOnly}
+          loading={loading}
+          onEdit={handleOpenEditModal}
+          onDelete={handleDelete}
+        />
 
-          {pagination && (
-            <Pagination
-              currentPage={pagination.currentPage}
-              totalPages={pagination.totalPages}
-              onPageChange={handlePageChange}
-              loading={isLoadingData}
-            />
-          )}
-        </div>
-      )}
+        {pagination && (
+          <Pagination
+            currentPage={pagination.currentPage}
+            totalPages={pagination.totalPages}
+            onPageChange={handlePageChange}
+            loading={isLoadingData}
+          />
+        )}
+      </div>
 
       {showModal && !isReadOnly && (
         <ClassModal

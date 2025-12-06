@@ -2,8 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { Shield, Trash2, Loader, RefreshCw } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 
+// Cache data ở ngoài component để giữ khi unmount
+let cachedUsers = null;
+
 const UserManagementView = () => {
-  const [users, setUsers] = useState([]);
+  // Khởi tạo từ cache nếu có
+  const [users, setUsers] = useState(cachedUsers || []);
+  const [isLoadingData, setIsLoadingData] = useState(false);
   const { fetchAllUsers, updateUserRole, deleteUser, loading, error } = useAuth();
 
   useEffect(() => {
@@ -11,11 +16,21 @@ const UserManagementView = () => {
   }, []);
 
   const loadUsers = async () => {
-    const result = await fetchAllUsers();
-    if (result.success) {
-      setUsers(result.users);
-    } else {
-      alert(result.message || 'Không thể tải danh sách người dùng');
+    // Nếu có cache thì không hiển thị loading khi load lại
+    if (!cachedUsers) {
+      setIsLoadingData(true);
+    }
+    
+    try {
+      const result = await fetchAllUsers();
+      if (result.success) {
+        setUsers(result.users);
+        cachedUsers = result.users; // Lưu vào cache
+      } else {
+        alert(result.message || 'Không thể tải danh sách người dùng');
+      }
+    } finally {
+      setIsLoadingData(false);
     }
   };
 
@@ -29,6 +44,8 @@ const UserManagementView = () => {
 
     const result = await updateUserRole(userId, newRole);
     if (result.success) {
+      // Xóa cache để load lại data mới
+      cachedUsers = null;
       await loadUsers();
       alert('Cập nhật quyền thành công!');
     } else {
@@ -41,11 +58,19 @@ const UserManagementView = () => {
 
     const result = await deleteUser(userId);
     if (result.success) {
+      // Xóa cache để load lại data mới
+      cachedUsers = null;
       await loadUsers();
       alert('Xóa người dùng thành công!');
     } else {
       alert(result.message || 'Xóa người dùng thất bại');
     }
+  };
+
+  const handleRefresh = async () => {
+    // Xóa cache và load lại
+    cachedUsers = null;
+    await loadUsers();
   };
 
   let myUser = null;
@@ -60,17 +85,21 @@ const UserManagementView = () => {
 
   const otherUsers = users.filter(user => user._id !== myUser?._id);
 
-  if (loading && users.length === 0) {
+  // Hiển thị loader chỉ khi loading lần đầu và chưa có data
+  if (isLoadingData && users.length === 0) {
     return (
       <div className="flex items-center justify-center h-64">
-        <Loader className="animate-spin text-blue-600" size={48} />
+        <div className="flex flex-col items-center gap-4">
+          <Loader className="animate-spin text-blue-600" size={48} />
+          <p className="text-gray-600 font-medium">Đang tải dữ liệu...</p>
+        </div>
       </div>
     );
   }
 
   return (
     <div className="space-y-6">
-      {}
+      {/* Tài khoản của tôi */}
       {myUser && (
         <div className="bg-gradient-to-r from-blue-50 to-blue-100 rounded-xl shadow-md p-6 border border-blue-200">
           <h2 className="text-lg font-bold text-blue-900 mb-4">Tài khoản của tôi</h2>
@@ -90,16 +119,16 @@ const UserManagementView = () => {
         </div>
       )}
 
-      {}
+      {/* Danh sách người dùng */}
       <div className="space-y-4">
         <div className="flex justify-between items-center">
           <h2 className="text-2xl font-bold">Quản lý Người dùng</h2>
           <button
-            onClick={loadUsers}
-            disabled={loading}
-            className="flex items-center gap-2 bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 disabled:opacity-50"
+            onClick={handleRefresh}
+            disabled={loading || isLoadingData}
+            className="flex items-center gap-2 bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 disabled:opacity-50 transition-colors"
           >
-            <RefreshCw size={20} className={loading ? 'animate-spin' : ''} />
+            <RefreshCw size={20} className={(loading || isLoadingData) ? 'animate-spin' : ''} />
             Tải lại
           </button>
         </div>
@@ -145,7 +174,7 @@ const UserManagementView = () => {
                       <div className="flex gap-3">
                         <button
                           onClick={() => handleChangeRole(user._id, user.role)}
-                          disabled={loading}
+                          disabled={loading || isLoadingData}
                           className="flex items-center gap-1 text-blue-600 hover:text-blue-800 disabled:opacity-50 disabled:cursor-not-allowed"
                           title={user.role === 'admin' ? 'Hạ quyền về User' : 'Cấp quyền Admin'}
                         >
@@ -156,7 +185,7 @@ const UserManagementView = () => {
                         </button>
                         <button
                           onClick={() => handleDelete(user._id, user.email)}
-                          disabled={loading}
+                          disabled={loading || isLoadingData}
                           className="flex items-center gap-1 text-red-600 hover:text-red-800 disabled:opacity-50"
                           title="Xóa người dùng"
                         >

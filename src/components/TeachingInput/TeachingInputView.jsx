@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Eye, Lock, Plus, Filter } from "react-feather";
+import { Eye, Lock, Plus, Filter, Loader } from "react-feather";
 import { useTeachingRecord } from "../../hooks/useTeachingRecord";
 import { useClasses } from "../../hooks/useClasses";
 import { useSubjects } from "../../hooks/useSubjects";
@@ -12,6 +12,17 @@ import RecordsList from "./RecordsList";
 
 import { normalize, normalizeRecord } from "./../../utils/teachingUtils";
 
+// Cache data ở ngoài component
+let cachedData = {
+  teachers: null,
+  classes: null,
+  subjects: null,
+  weeks: null,
+  teachingRecords: null,
+  pagination: null,
+  schoolYear: null
+};
+
 const TeachingInputView = ({ initialTeachingRecords = [], schoolYear, isReadOnly = false }) => {
   const { fetchTeachers } = useTeacher();
   const { fetchClasses } = useClasses();
@@ -19,17 +30,32 @@ const TeachingInputView = ({ initialTeachingRecords = [], schoolYear, isReadOnly
   const { fetchWeeks } = useWeeks();
   const { fetchTeachingRecords, addTeachingRecord, updateTeachingRecord, deleteTeachingRecord } = useTeachingRecord();
 
-  const [teachers, setTeachers] = useState([]);
-  const [classes, setClasses] = useState([]);
-  const [subjects, setSubjects] = useState([]);
-  const [weeks, setWeeks] = useState([]);
-  const [teachingRecords, setTeachingRecords] = useState([]);
-  const [pagination, setPagination] = useState({
-    page: 1,
-    limit: 10,
-    total: 0,
-    totalPages: 0
-  });
+  // Khởi tạo từ cache nếu có
+  const [teachers, setTeachers] = useState(
+    cachedData.schoolYear === schoolYear && cachedData.teachers ? cachedData.teachers : []
+  );
+  const [classes, setClasses] = useState(
+    cachedData.schoolYear === schoolYear && cachedData.classes ? cachedData.classes : []
+  );
+  const [subjects, setSubjects] = useState(
+    cachedData.schoolYear === schoolYear && cachedData.subjects ? cachedData.subjects : []
+  );
+  const [weeks, setWeeks] = useState(
+    cachedData.schoolYear === schoolYear && cachedData.weeks ? cachedData.weeks : []
+  );
+  const [teachingRecords, setTeachingRecords] = useState(
+    cachedData.schoolYear === schoolYear && cachedData.teachingRecords ? cachedData.teachingRecords : []
+  );
+  const [pagination, setPagination] = useState(
+    cachedData.schoolYear === schoolYear && cachedData.pagination ? cachedData.pagination : {
+      page: 1,
+      limit: 10,
+      total: 0,
+      totalPages: 0
+    }
+  );
+  
+  const [isLoadingData, setIsLoadingData] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [selectedWeekId, setSelectedWeekId] = useState("");
@@ -60,6 +86,12 @@ const TeachingInputView = ({ initialTeachingRecords = [], schoolYear, isReadOnly
 
   useEffect(() => {
     (async () => {
+      // Nếu có cache thì không load
+      if (cachedData.schoolYear === schoolYear && cachedData.teachers && cachedData.classes && cachedData.subjects && cachedData.weeks) {
+        return;
+      }
+
+      setIsLoadingData(true);
       try {
         const tRes = await fetchTeachers();
         const rawTeachers = tRes.success ? (tRes.teachers || (tRes.data && tRes.data.teachers) || []) : [];
@@ -71,6 +103,7 @@ const TeachingInputView = ({ initialTeachingRecords = [], schoolYear, isReadOnly
           return { ...t, subjectIds: sids };
         });
         setTeachers(normalizedTeachers);
+        cachedData.teachers = normalizedTeachers;
 
         if (!isAdmin) {
           const matched = normalizedTeachers.find((tt) => {
@@ -96,7 +129,9 @@ const TeachingInputView = ({ initialTeachingRecords = [], schoolYear, isReadOnly
       try {
         const cRes = await fetchClasses();
         const rawClasses = cRes.success ? (cRes.classes || (cRes.data && cRes.data.classes) || []) : [];
-        setClasses(normalize(rawClasses));
+        const normalizedClasses = normalize(rawClasses);
+        setClasses(normalizedClasses);
+        cachedData.classes = normalizedClasses;
       } catch {
         setClasses([]);
       }
@@ -104,7 +139,9 @@ const TeachingInputView = ({ initialTeachingRecords = [], schoolYear, isReadOnly
       try {
         const sRes = await fetchSubjects();
         const rawSubjects = sRes.success ? (sRes.subjects || (sRes.data && sRes.data.subjects) || []) : [];
-        setSubjects(normalize(rawSubjects));
+        const normalizedSubjects = normalize(rawSubjects);
+        setSubjects(normalizedSubjects);
+        cachedData.subjects = normalizedSubjects;
       } catch {
         setSubjects([]);
       }
@@ -112,14 +149,24 @@ const TeachingInputView = ({ initialTeachingRecords = [], schoolYear, isReadOnly
       try {
         const wRes = await fetchWeeks();
         const rawWeeks = wRes.success ? (wRes.weeks || (wRes.data && wRes.data.weeks) || []) : [];
-        setWeeks(normalize(rawWeeks));
+        const normalizedWeeks = normalize(rawWeeks);
+        setWeeks(normalizedWeeks);
+        cachedData.weeks = normalizedWeeks;
       } catch {
         setWeeks([]);
       }
+
+      cachedData.schoolYear = schoolYear;
+      setIsLoadingData(false);
     })();
-  }, []);
+  }, [schoolYear]);
 
   const loadTeachingRecords = async (page = 1) => {
+    // Nếu có cache thì không hiển thị loading
+    if (!cachedData.teachingRecords) {
+      setIsLoadingData(true);
+    }
+    
     try {
       const teacherIdToFetch = isAdmin ? (selectedTeacherId || undefined) : selectedTeacherId || undefined;
       const filters = {};
@@ -173,7 +220,6 @@ const TeachingInputView = ({ initialTeachingRecords = [], schoolYear, isReadOnly
       const filtered = records.filter(r => r.schoolYear ? r.schoolYear === schoolYear : true);
       let norm = filtered.map(normalizeRecord).filter(Boolean);
 
-
       if (sortBy === "week") {
         norm.sort((a, b) => {
           const weekA = a.weekData?.weekNumber || weeks.find((w) => w.id === a.weekId)?.weekNumber || 0;
@@ -184,6 +230,10 @@ const TeachingInputView = ({ initialTeachingRecords = [], schoolYear, isReadOnly
 
       setTeachingRecords(norm);
       setPagination(paginationData);
+      
+      // Lưu cache
+      cachedData.teachingRecords = norm;
+      cachedData.pagination = paginationData;
     } catch (err) {
       console.error("Error loading teaching records:", err);
       setTeachingRecords([]);
@@ -193,6 +243,8 @@ const TeachingInputView = ({ initialTeachingRecords = [], schoolYear, isReadOnly
         total: 0,
         totalPages: 0
       });
+    } finally {
+      setIsLoadingData(false);
     }
   };
 
@@ -281,6 +333,9 @@ const TeachingInputView = ({ initialTeachingRecords = [], schoolYear, isReadOnly
 
     const res = await updateTeachingRecord(editingRecordId, payload);
     if (res.success) {
+      // Xóa cache để load lại
+      cachedData.teachingRecords = null;
+      cachedData.pagination = null;
       await loadTeachingRecords(pagination.page);
       resetForm(!isAdmin);
       alert("Đã cập nhật bản ghi!");
@@ -332,6 +387,9 @@ const TeachingInputView = ({ initialTeachingRecords = [], schoolYear, isReadOnly
 
     const res = await addTeachingRecord(payload);
     if (res.success) {
+      // Xóa cache để load lại
+      cachedData.teachingRecords = null;
+      cachedData.pagination = null;
       await loadTeachingRecords(1);
       alert("Đã thêm bản ghi!");
     } else {
@@ -349,6 +407,9 @@ const TeachingInputView = ({ initialTeachingRecords = [], schoolYear, isReadOnly
     if (!confirm("Xác nhận xóa bản ghi này?")) return;
     const res = await deleteTeachingRecord(recordId);
     if (res.success) {
+      // Xóa cache để load lại
+      cachedData.teachingRecords = null;
+      cachedData.pagination = null;
       await loadTeachingRecords(pagination.page);
       alert("Đã xóa bản ghi!");
     } else {
@@ -390,7 +451,7 @@ const TeachingInputView = ({ initialTeachingRecords = [], schoolYear, isReadOnly
 
   return (
     <div className="space-y-4">
-      {}
+      {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-2xl font-bold flex items-center gap-3">
           Nhập tiết dạy
@@ -441,7 +502,7 @@ const TeachingInputView = ({ initialTeachingRecords = [], schoolYear, isReadOnly
         )}
       </div>
 
-      {}
+      {/* Banners */}
       {isReadOnly && (
         <div className="bg-orange-50 border-l-4 border-orange-400 p-4 rounded-lg">
           <div className="flex items-center gap-2">
@@ -473,7 +534,7 @@ const TeachingInputView = ({ initialTeachingRecords = [], schoolYear, isReadOnly
         </div>
       )}
 
-      {}
+      {/* Form */}
       {!isReadOnly && showForm && (
         <div className="animate-slideIn">
           <TeachingForm
@@ -532,22 +593,32 @@ const TeachingInputView = ({ initialTeachingRecords = [], schoolYear, isReadOnly
         </div>
       )}
 
-      <RecordsList
-        records={teachingRecords}
-        pagination={pagination}
-        groupBy={groupBy}
-        groupRecordsFn={groupRecords}
-        weeks={weeks}
-        teachers={teachers}
-        classes={classes}
-        subjects={subjects}
-        isAdmin={isAdmin}
-        isReadOnly={isReadOnly}
-        selectedTeacherId={selectedTeacherId}
-        onEdit={startEdit}
-        onDelete={handleDelete}
-        onPageChange={handlePageChange}
-      />
+      {/* Loading cho bảng */}
+      {isLoadingData && teachingRecords.length === 0 ? (
+        <div className="bg-white rounded-xl shadow-lg p-16 flex items-center justify-center">
+          <div className="flex flex-col items-center gap-4">
+            <Loader className="animate-spin text-blue-600" size={48} />
+            <p className="text-gray-600 font-medium">Đang tải dữ liệu...</p>
+          </div>
+        </div>
+      ) : (
+        <RecordsList
+          records={teachingRecords}
+          pagination={pagination}
+          groupBy={groupBy}
+          groupRecordsFn={groupRecords}
+          weeks={weeks}
+          teachers={teachers}
+          classes={classes}
+          subjects={subjects}
+          isAdmin={isAdmin}
+          isReadOnly={isReadOnly}
+          selectedTeacherId={selectedTeacherId}
+          onEdit={startEdit}
+          onDelete={handleDelete}
+          onPageChange={handlePageChange}
+        />
+      )}
     </div>
   );
 };
