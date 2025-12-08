@@ -5,11 +5,10 @@ const SessionExpiredModal = ({ show, errorMessage }) => {
   const [countdown, setCountdown] = useState(5);
   const [browserInfo, setBrowserInfo] = useState(null);
 
-  console.log('🎭 SessionExpiredModal render:', { show, errorMessage }); // ✅ DEBUG
+  console.log('🎭 SessionExpiredModal render:', { show, errorMessage }); 
 
   useEffect(() => {
     if (show && errorMessage) {
-      // ✅ Cải thiện regex để bắt được nhiều format hơn
       const match = errorMessage.match(/đăng nhập từ ([^.]+)/i);
       if (match) {
         setBrowserInfo(match[1].trim());

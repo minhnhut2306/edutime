@@ -49,6 +49,7 @@ api.interceptors.request.use(
           _skipTokenVerify: true // Flag để tránh verify chính nó
         });
       } catch (error) {
+        console.log('⚠️ Token pre-check failed:', error.message);
         // Nếu token không hợp lệ, interceptor response sẽ handle
         console.log('⚠️ Token pre-check failed, continuing with request...');
       }
