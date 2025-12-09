@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { Plus, Eye, Loader } from 'lucide-react';
 import { useClasses } from '../../hooks/useClasses';
 import ClassesTable from './ClassesTable';
@@ -7,28 +7,22 @@ import Pagination from './Pagination';
 import GradeFilter from './GradeFilter';
 import generateClassCode from '../../utils/classesUtils';
 
-// Cache data ở ngoài component để giữ khi unmount
-let cachedData = {
-  classes: null,
-  pagination: null,
-  availableGrades: null,
-  schoolYear: null
-};
+// ✅ Cache tối ưu - lưu theo schoolYear + grade
+const cache = new Map();
+
+const getCacheKey = (schoolYear, grade) => `${schoolYear || 'current'}_${grade || 'all'}`;
 
 const ClassesView = ({ currentUser, isReadOnly = false, schoolYear }) => {
-  // Khởi tạo từ cache nếu có
-  const [classes, setClasses] = useState(
-    cachedData.schoolYear === schoolYear && cachedData.classes ? cachedData.classes : []
-  );
-  const [pagination, setPagination] = useState(
-    cachedData.schoolYear === schoolYear && cachedData.pagination ? cachedData.pagination : null
-  );
+  const cacheKey = getCacheKey(schoolYear, '');
+  const cachedData = cache.get(cacheKey);
+
+  const [classes, setClasses] = useState(cachedData?.classes || []);
+  const [pagination, setPagination] = useState(cachedData?.pagination || null);
+  const [availableGrades, setAvailableGrades] = useState(cachedData?.grades || []);
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedGrade, setSelectedGrade] = useState('');
-  const [availableGrades, setAvailableGrades] = useState(
-    cachedData.schoolYear === schoolYear && cachedData.availableGrades ? cachedData.availableGrades : []
-  );
   const [isLoadingData, setIsLoadingData] = useState(false);
+  
   const { loading, error, fetchClasses, fetchAvailableGrades, addClass, deleteClass, updateClass } = useClasses();
 
   const [showModal, setShowModal] = useState(false);
@@ -40,60 +34,70 @@ const ClassesView = ({ currentUser, isReadOnly = false, schoolYear }) => {
   const isAdmin = currentUser?.role === 'admin';
   const itemsPerPage = 10;
 
-  useEffect(() => {
-    const loadData = async () => {
-      // Nếu có cache của năm học này thì không load
-      if (cachedData.schoolYear === schoolYear && cachedData.classes) {
-        return;
+  // ✅ Load song song grades và classes
+  const loadInitialData = useCallback(async () => {
+    const key = getCacheKey(schoolYear, selectedGrade);
+    
+    // Nếu có cache thì dùng luôn
+    if (cache.has(key)) {
+      const cached = cache.get(key);
+      setClasses(cached.classes);
+      setPagination(cached.pagination);
+      setAvailableGrades(cached.grades);
+      return;
+    }
+    
+    setIsLoadingData(true);
+    try {
+      // ✅ LOAD SONG SONG thay vì tuần tự
+      const [gradesResult, classesResult] = await Promise.all([
+        fetchAvailableGrades(schoolYear),
+        fetchClasses(schoolYear, 1, itemsPerPage, selectedGrade)
+      ]);
+
+      let grades = [];
+      let classesData = [];
+      let paginationData = null;
+
+      if (gradesResult.success) {
+        grades = gradesResult.grades;
+        setAvailableGrades(grades);
       }
-      
-      setIsLoadingData(true);
-      try {
-        const [gradesResult, classesResult] = await Promise.allSettled([
-          fetchAvailableGrades(schoolYear),
-          fetchClasses(schoolYear, 1, itemsPerPage, selectedGrade)
-        ]);
 
-        if (gradesResult.status === 'fulfilled' && gradesResult.value?.success) {
-          setAvailableGrades(gradesResult.value.grades);
-          cachedData.availableGrades = gradesResult.value.grades;
-        }
-
-        if (classesResult.status === 'fulfilled' && classesResult.value?.success) {
-          const normalized = classesResult.value.classes.map((cls, idx) => ({
-            ...cls,
-            id: cls._id || cls.id,
-            classCode: generateClassCode(idx)
-          }));
-          setClasses(normalized);
-          setPagination(classesResult.value.pagination);
-          
-          // Lưu vào cache
-          cachedData.classes = normalized;
-          cachedData.pagination = classesResult.value.pagination;
-          cachedData.schoolYear = schoolYear;
-        } else {
-          setClasses([]);
-          setPagination(null);
-        }
-      } catch (err) {
-        console.error("Error loading initial data:", err);
+      if (classesResult.success) {
+        const normalized = classesResult.classes.map((cls, idx) => ({
+          ...cls,
+          id: cls._id || cls.id,
+          classCode: generateClassCode(idx)
+        }));
+        classesData = normalized;
+        paginationData = classesResult.pagination;
+        setClasses(normalized);
+        setPagination(paginationData);
+      } else {
         setClasses([]);
         setPagination(null);
-      } finally {
-        setIsLoadingData(false);
       }
-    };
-    loadData();
-  }, [schoolYear]);
+
+      // Lưu vào cache
+      cache.set(key, {
+        classes: classesData,
+        pagination: paginationData,
+        grades
+      });
+
+    } catch (err) {
+      console.error("Error loading initial data:", err);
+      setClasses([]);
+      setPagination(null);
+    } finally {
+      setIsLoadingData(false);
+    }
+  }, [schoolYear, selectedGrade]);
 
   useEffect(() => {
-    // Khi đổi grade thì load lại và xóa cache
-    if (selectedGrade !== '') {
-      cachedData = { classes: null, pagination: null, availableGrades: null, schoolYear: null };
-      loadClasses(1);
-    }
-  }, [selectedGrade]);
+    loadInitialData();
+  }, [loadInitialData]);
 
   const loadClasses = async (page = currentPage) => {
     setIsLoadingData(true);
@@ -110,9 +114,12 @@ const ClassesView = ({ currentUser, isReadOnly = false, schoolYear }) => {
         setCurrentPage(page);
         
         // Cập nhật cache
-        cachedData.classes = normalized;
-        cachedData.pagination = result.pagination;
-        cachedData.schoolYear = schoolYear;
+        const key = getCacheKey(schoolYear, selectedGrade);
+        cache.set(key, {
+          classes: normalized,
+          pagination: result.pagination,
+          grades: availableGrades
+        });
       } else {
         setClasses([]);
         setPagination(null);
@@ -172,8 +179,13 @@ const ClassesView = ({ currentUser, isReadOnly = false, schoolYear }) => {
     setStudentCount('');
   };
 
+  // ✅ Invalidate cache sau khi thêm/sửa/xóa
+  const invalidateCache = () => {
+    cache.clear(); // Clear toàn bộ cache
+  };
+
   const handleSubmit = async (e) => {
-    e && e.preventDefault && e.preventDefault();
+    e?.preventDefault?.();
 
     if (!className.trim()) {
       alert('Vui lòng nhập tên lớp');
@@ -187,17 +199,8 @@ const ClassesView = ({ currentUser, isReadOnly = false, schoolYear }) => {
       });
 
       if (result.success) {
-        // Xóa cache để load lại data mới
-        cachedData = { classes: null, pagination: null, availableGrades: null, schoolYear: null };
-        await Promise.all([
-          fetchAvailableGrades(schoolYear).then(r => {
-            if (r.success) {
-              setAvailableGrades(r.grades);
-              cachedData.availableGrades = r.grades;
-            }
-          }),
-          loadClasses(currentPage)
-        ]);
+        invalidateCache();
+        await loadInitialData();
         handleCloseModal();
         alert('Cập nhật lớp học thành công!');
       } else {
@@ -210,17 +213,8 @@ const ClassesView = ({ currentUser, isReadOnly = false, schoolYear }) => {
       });
 
       if (result.success) {
-        // Xóa cache để load lại data mới
-        cachedData = { classes: null, pagination: null, availableGrades: null, schoolYear: null };
-        await Promise.all([
-          fetchAvailableGrades(schoolYear).then(r => {
-            if (r.success) {
-              setAvailableGrades(r.grades);
-              cachedData.availableGrades = r.grades;
-            }
-          }),
-          loadClasses(currentPage)
-        ]);
+        invalidateCache();
+        await loadInitialData();
         handleCloseModal();
         alert('Thêm lớp học thành công!');
       } else {
@@ -244,27 +238,19 @@ const ClassesView = ({ currentUser, isReadOnly = false, schoolYear }) => {
 
     const result = await deleteClass(classId);
     if (result.success) {
+      invalidateCache();
+      
       const shouldGoToPrevPage = classes.length === 1 && currentPage > 1;
       const newPage = shouldGoToPrevPage ? currentPage - 1 : currentPage;
-
-      // Xóa cache để load lại data mới
-      cachedData = { classes: null, pagination: null, availableGrades: null, schoolYear: null };
-      await Promise.all([
-        fetchAvailableGrades(schoolYear).then(r => {
-          if (r.success) {
-            setAvailableGrades(r.grades);
-            cachedData.availableGrades = r.grades;
-          }
-        }),
-        loadClasses(newPage)
-      ]);
+      
+      await loadClasses(newPage);
       alert('Xóa lớp học thành công!');
     } else {
       alert(result.message || 'Xóa lớp học thất bại');
     }
   };
 
-  // Hiển thị loader chỉ khi loading lần đầu và chưa có data
+  // ✅ Hiển thị cached data ngay lập tức, loading indicator nhỏ gọn hơn
   if (isLoadingData && classes.length === 0) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -323,7 +309,14 @@ const ClassesView = ({ currentUser, isReadOnly = false, schoolYear }) => {
 
       {error && <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">{error}</div>}
 
-      <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+      <div className="bg-white rounded-xl shadow-lg overflow-hidden relative">
+        {/* ✅ Loading indicator nhỏ khi đang load nhưng đã có data */}
+        {isLoadingData && classes.length > 0 && (
+          <div className="absolute top-2 right-2 z-10">
+            <Loader className="animate-spin text-blue-600" size={20} />
+          </div>
+        )}
+        
         <ClassesTable
           classes={classes}
           isAdmin={isAdmin}

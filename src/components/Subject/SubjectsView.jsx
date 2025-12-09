@@ -1,20 +1,18 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Plus, Eye, Loader } from 'lucide-react';
 import { useSubjects } from '../../hooks/useSubjects';
 import { SubjectModal } from './SubjectModal';
 import { SubjectsTable } from './SubjectsTable';
 
-// Cache data ở ngoài component để giữ khi unmount
-let cachedData = {
-  subjects: null,
-  schoolYear: null
-};
+const cache = new Map();
+
+const getCacheKey = (schoolYear) => `subjects_${schoolYear || 'current'}`;
 
 const SubjectsView = ({ currentUser, isReadOnly = false, schoolYear }) => {
-  // Khởi tạo từ cache nếu có
-  const [subjects, setSubjects] = useState(
-    cachedData.schoolYear === schoolYear && cachedData.subjects ? cachedData.subjects : []
-  );
+  const cacheKey = getCacheKey(schoolYear);
+  const cachedData = cache.get(cacheKey);
+
+  const [subjects, setSubjects] = useState(cachedData?.subjects || []);
   const [isLoadingData, setIsLoadingData] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [modalMode, setModalMode] = useState('add');
@@ -24,19 +22,22 @@ const SubjectsView = ({ currentUser, isReadOnly = false, schoolYear }) => {
   const { loading, fetchSubjects, addSubject, updateSubject, deleteSubject, error } = useSubjects();
   const isAdmin = currentUser.role === 'admin';
 
-  const loadSubjects = async () => {
-    // Nếu có cache thì không hiển thị loading khi load lại
-    if (!cachedData.subjects) {
-      setIsLoadingData(true);
+  const loadSubjects = useCallback(async () => {
+    const key = getCacheKey(schoolYear);
+    
+    if (cache.has(key)) {
+      const cached = cache.get(key);
+      setSubjects(cached.subjects);
+      return;
     }
     
+    setIsLoadingData(true);
     try {
       const result = await fetchSubjects(schoolYear);
       if (result.success) {
         setSubjects(result.subjects);
         // Lưu vào cache
-        cachedData.subjects = result.subjects;
-        cachedData.schoolYear = schoolYear;
+        cache.set(key, { subjects: result.subjects });
       } else {
         setSubjects([]);
       }
@@ -46,16 +47,11 @@ const SubjectsView = ({ currentUser, isReadOnly = false, schoolYear }) => {
     } finally {
       setIsLoadingData(false);
     }
-  };
+  }, [schoolYear]);
 
   useEffect(() => {
-    // Nếu có cache của năm học này thì không load
-    if (cachedData.schoolYear === schoolYear && cachedData.subjects) {
-      return;
-    }
-    
     loadSubjects();
-  }, [schoolYear]);
+  }, [loadSubjects]);
 
   const handleOpenModal = () => {
     if (isReadOnly) {
@@ -86,6 +82,10 @@ const SubjectsView = ({ currentUser, isReadOnly = false, schoolYear }) => {
     setSubjectName('');
   };
 
+  const invalidateCache = () => {
+    cache.clear();
+  };
+
   const handleSubmit = async () => {
     if (!subjectName.trim()) {
       alert('Vui lòng nhập tên môn học');
@@ -95,8 +95,7 @@ const SubjectsView = ({ currentUser, isReadOnly = false, schoolYear }) => {
     if (modalMode === 'edit') {
       const result = await updateSubject(editingSubject._id, { name: subjectName.trim() });
       if (result.success) {
-        // Xóa cache để load lại data mới
-        cachedData = { subjects: null, schoolYear: null };
+        invalidateCache();
         await loadSubjects();
         handleCloseModal();
         alert('Cập nhật môn học thành công!');
@@ -106,8 +105,7 @@ const SubjectsView = ({ currentUser, isReadOnly = false, schoolYear }) => {
     } else {
       const result = await addSubject({ name: subjectName.trim() });
       if (result.success) {
-        // Xóa cache để load lại data mới
-        cachedData = { subjects: null, schoolYear: null };
+        invalidateCache();
         await loadSubjects();
         handleCloseModal();
         alert('Thêm môn học thành công!');
@@ -127,8 +125,7 @@ const SubjectsView = ({ currentUser, isReadOnly = false, schoolYear }) => {
 
     const result = await deleteSubject(subjectId);
     if (result.success) {
-      // Xóa cache để load lại data mới
-      cachedData = { subjects: null, schoolYear: null };
+      invalidateCache();
       await loadSubjects();
       alert('Xóa môn học thành công!');
     } else {
@@ -136,7 +133,7 @@ const SubjectsView = ({ currentUser, isReadOnly = false, schoolYear }) => {
     }
   };
 
-  // Hiển thị loader chỉ khi loading lần đầu và chưa có data
+  // ✅ Hiển thị cached data ngay lập tức
   if (isLoadingData && subjects.length === 0) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -187,7 +184,14 @@ const SubjectsView = ({ currentUser, isReadOnly = false, schoolYear }) => {
         </div>
       )}
 
-      <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+      <div className="bg-white rounded-xl shadow-lg overflow-hidden relative">
+        {/* ✅ Loading indicator nhỏ khi đang load nhưng đã có data */}
+        {isLoadingData && subjects.length > 0 && (
+          <div className="absolute top-2 right-2 z-10">
+            <Loader className="animate-spin text-blue-600" size={20} />
+          </div>
+        )}
+        
         <SubjectsTable
           subjects={subjects}
           onEdit={handleOpenEditModal}

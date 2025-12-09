@@ -16,33 +16,16 @@ let sessionExpiredTriggered = false;
 export const setSessionExpiredCallback = (callback) => {
   sessionExpiredCallback = callback;
   sessionExpiredTriggered = false;
+  console.log('✅ Session expired callback registered');
 };
 
+// ✅ BỎ TOKEN VERIFY - Giảm 1 request không cần thiết
 api.interceptors.request.use(
   async (config) => {
     const token = localStorage.getItem('token');
     
     if (token && !config.headers.Authorization) {
       config.headers.Authorization = `Bearer ${token}`;
-    }
-    
-    const skipVerify = [
-      '/auth/login',
-      '/auth/register',
-      '/auth/forgot-password',
-      '/auth/verify-otp',
-      '/auth/reset-password'
-    ].some(path => config.url?.includes(path));
-    
-    if (token && !skipVerify && !config._skipTokenVerify) {
-      try {
-        await api.post('/auth/token/verify', {}, {
-          headers: { Authorization: `Bearer ${token}` },
-          _skipTokenVerify: true
-        });
-      } catch (error) {
-        console.log('Token pre-check failed:', error.message);
-      }
     }
     
     return config;
@@ -53,6 +36,7 @@ api.interceptors.request.use(
   }
 );
 
+// Response interceptor giữ nguyên
 api.interceptors.response.use(
   (response) => {
     return response;
@@ -61,15 +45,15 @@ api.interceptors.response.use(
     if (error.response) {
       const { status, data } = error.response;
       
-      console.error(`API Error [${status}]:`, data?.msg || error.message);
+      console.error(`🔥 API Error [${status}]:`, data?.msg || error.message);
       
       if (status === 401 || status === 500) {
         const errorMessage = data?.msg || '';
         
-        console.log('Error Message:', errorMessage);
-        
         if (errorMessage.includes('Phiên đăng nhập đã hết hạn') && !sessionExpiredTriggered) {
           sessionExpiredTriggered = true;
+          
+          console.warn("🔥 TRIGGER SESSION EXPIRED MODAL");
           
           localStorage.removeItem('token');
           localStorage.removeItem('user');
@@ -77,7 +61,7 @@ api.interceptors.response.use(
           if (sessionExpiredCallback) {
             sessionExpiredCallback(errorMessage);
           } else {
-            console.error('sessionExpiredCallback not set!');
+            console.error('⚠️ sessionExpiredCallback not set!');
             alert(`${errorMessage}`);
             window.location.reload();
           }
@@ -86,7 +70,7 @@ api.interceptors.response.use(
         }
         
         if (status === 401) {
-          console.warn("Token hết hạn hoặc không hợp lệ (không phải multi-login)");
+          console.warn("Token hết hạn hoặc không hợp lệ");
         }
       }
     } else {

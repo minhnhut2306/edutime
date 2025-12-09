@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Loader } from 'lucide-react';
 import { useTeacher } from '../../hooks/useTeacher';
 import { useClasses } from '../../hooks/useClasses';
@@ -8,32 +8,18 @@ import { AddTeacherModal, EditTeacherForm } from './TeacherForm';
 import TeacherTable from './TeachersTable';
 import Pagination from './Pagination';
 
-// Cache data ở ngoài component
-let cachedData = {
-  teachers: null,
-  classes: null,
-  subjects: null,
-  pagination: null,
-  schoolYear: null
-};
+// ✅ Cache tối ưu với Map
+const cache = new Map();
+
+const getCacheKey = (schoolYear, page) => `teachers_${schoolYear || 'current'}_page${page}`;
 
 const TeachersView = ({ currentUser, isReadOnly = false, schoolYear }) => {
   const isAdmin = currentUser?.role === 'admin';
   
-  // Khởi tạo từ cache nếu có
-  const [teachers, setTeachers] = useState(
-    cachedData.schoolYear === schoolYear && cachedData.teachers ? cachedData.teachers : []
-  );
-  const [classes, setClasses] = useState(
-    cachedData.schoolYear === schoolYear && cachedData.classes ? cachedData.classes : []
-  );
-  const [subjects, setSubjects] = useState(
-    cachedData.schoolYear === schoolYear && cachedData.subjects ? cachedData.subjects : []
-  );
-  const [pagination, setPagination] = useState(
-    cachedData.schoolYear === schoolYear && cachedData.pagination ? cachedData.pagination : null
-  );
-  
+  const [teachers, setTeachers] = useState([]);
+  const [classes, setClasses] = useState([]);
+  const [subjects, setSubjects] = useState([]);
+  const [pagination, setPagination] = useState(null);
   const [isLoadingData, setIsLoadingData] = useState(false);
   const [editingTeacher, setEditingTeacher] = useState(null);
   const [showAddModal, setShowAddModal] = useState(false);
@@ -51,37 +37,38 @@ const TeachersView = ({ currentUser, isReadOnly = false, schoolYear }) => {
   const { fetchClasses } = useClasses();
   const { fetchSubjects } = useSubjects();
 
-  const loadAllData = async () => {
-    // Nếu có cache thì không load
-    if (cachedData.schoolYear === schoolYear && cachedData.teachers && cachedData.classes && cachedData.subjects) {
+  // ✅ Load tất cả data song song
+  const loadAllData = useCallback(async (page = currentPage) => {
+    const cacheKey = getCacheKey(schoolYear, page);
+    
+    // Kiểm tra cache
+    if (cache.has(cacheKey)) {
+      const cached = cache.get(cacheKey);
+      setTeachers(cached.teachers);
+      setPagination(cached.pagination);
+      setClasses(cached.classes);
+      setSubjects(cached.subjects);
       return;
     }
-
+    
     setIsLoadingData(true);
     try {
-      await Promise.all([
-        loadTeachers(currentPage),
-        loadClasses(),
-        loadSubjects()
+      // ✅ LOAD SONG SONG - 3 API cùng lúc thay vì tuần tự
+      const [teachersResult, classesResult, subjectsResult] = await Promise.all([
+        fetchTeachers(schoolYear, page, 10),
+        fetchClasses(schoolYear),
+        fetchSubjects(schoolYear)
       ]);
-    } catch (err) {
-      console.error("Error loading all data:", err);
-    } finally {
-      setIsLoadingData(false);
-    }
-  };
 
-  const loadTeachers = async (page = currentPage) => {
-    // Nếu có cache thì không hiển thị loading
-    if (!cachedData.teachers) {
-      setIsLoadingData(true);
-    }
-    
-    try {
-      const result = await fetchTeachers(schoolYear, page, 10);
-      if (result.success) {
-        const teachersArr = Array.isArray(result.teachers) ? result.teachers : [];
-        const transformedTeachers = teachersArr.map((teacher, idx) => {
+      let teachersData = [];
+      let paginationData = null;
+      let classesData = [];
+      let subjectsData = [];
+
+      // Process teachers
+      if (teachersResult.success) {
+        const teachersArr = Array.isArray(teachersResult.teachers) ? teachersResult.teachers : [];
+        teachersData = teachersArr.map((teacher, idx) => {
           let subjectIdsList = [];
           if (Array.isArray(teacher.subjectIds)) {
             subjectIdsList = teacher.subjectIds.map(s =>
@@ -101,51 +88,50 @@ const TeachersView = ({ currentUser, isReadOnly = false, schoolYear }) => {
             userId: teacher.userId?._id || teacher.userId || ''
           };
         });
-        setTeachers(transformedTeachers);
-        setPagination(result.pagination);
-        
-        // Lưu cache
-        cachedData.teachers = transformedTeachers;
-        cachedData.pagination = result.pagination;
-        cachedData.schoolYear = schoolYear;
+        paginationData = teachersResult.pagination;
+        setTeachers(teachersData);
+        setPagination(paginationData);
       } else {
         setTeachers([]);
         setPagination(null);
       }
+
+      // Process classes
+      if (classesResult.success) {
+        classesData = classesResult.classes || [];
+        setClasses(classesData);
+      }
+
+      // Process subjects
+      if (subjectsResult.success) {
+        subjectsData = subjectsResult.subjects || [];
+        setSubjects(subjectsData);
+      }
+
+      // Lưu vào cache
+      cache.set(cacheKey, {
+        teachers: teachersData,
+        pagination: paginationData,
+        classes: classesData,
+        subjects: subjectsData
+      });
+
     } catch (err) {
-      console.error('Error loading teachers:', err);
+      console.error('Error loading all data:', err);
       setTeachers([]);
       setPagination(null);
     } finally {
       setIsLoadingData(false);
     }
-  };
-
-  const loadClasses = async () => {
-    const result = await fetchClasses();
-    if (result.success) {
-      const classList = result.classes || [];
-      setClasses(classList);
-      cachedData.classes = classList;
-    }
-  };
-
-  const loadSubjects = async () => {
-    const result = await fetchSubjects();
-    if (result.success) {
-      const subjectsList = result.subjects || [];
-      setSubjects(subjectsList);
-      cachedData.subjects = subjectsList;
-    }
-  };
+  }, [schoolYear, currentPage]);
 
   useEffect(() => {
     setCurrentPage(1);
   }, [schoolYear]);
 
   useEffect(() => {
-    loadAllData();
-  }, [schoolYear, currentPage]);
+    loadAllData(currentPage);
+  }, [loadAllData]);
 
   const handlePageChange = (page) => {
     setCurrentPage(page);
@@ -184,6 +170,11 @@ const TeachersView = ({ currentUser, isReadOnly = false, schoolYear }) => {
     setNewTeacher({ name: '', phone: '', subjectIds: [], mainClassId: '' });
   };
 
+  // ✅ Invalidate cache sau khi thêm/sửa/xóa
+  const invalidateCache = () => {
+    cache.clear();
+  };
+
   const handleSubmitAdd = async (e) => {
     e.preventDefault();
 
@@ -210,10 +201,9 @@ const TeachersView = ({ currentUser, isReadOnly = false, schoolYear }) => {
     if (result.success) {
       alert('Thêm giáo viên thành công!');
       handleCloseAddModal();
-      // Xóa cache để load lại
-      cachedData = { teachers: null, classes: null, subjects: null, pagination: null, schoolYear: null };
+      invalidateCache();
       setCurrentPage(1);
-      loadTeachers(1);
+      await loadAllData(1);
     } else {
       alert('Lỗi: ' + (result.message || 'Không thể thêm giáo viên'));
     }
@@ -250,9 +240,8 @@ const TeachersView = ({ currentUser, isReadOnly = false, schoolYear }) => {
     if (result.success) {
       alert('Đã cập nhật thông tin giáo viên!');
       setEditingTeacher(null);
-      // Xóa cache để load lại
-      cachedData = { teachers: null, classes: null, subjects: null, pagination: null, schoolYear: null };
-      loadTeachers(currentPage);
+      invalidateCache();
+      await loadAllData(currentPage);
     } else {
       alert('Lỗi: ' + result.message);
     }
@@ -267,13 +256,12 @@ const TeachersView = ({ currentUser, isReadOnly = false, schoolYear }) => {
       const result = await deleteTeacher(id);
       if (result.success) {
         alert('Xóa giáo viên thành công!');
-        // Xóa cache để load lại
-        cachedData = { teachers: null, classes: null, subjects: null, pagination: null, schoolYear: null };
+        invalidateCache();
         
         if (teachers.length === 1 && currentPage > 1) {
           setCurrentPage(currentPage - 1);
         } else {
-          loadTeachers(currentPage);
+          await loadAllData(currentPage);
         }
       } else {
         alert('Lỗi: ' + result.message);
@@ -299,10 +287,9 @@ const TeachersView = ({ currentUser, isReadOnly = false, schoolYear }) => {
         failedCount: failedCount || 0,
         failed: failed || []
       });
-      // Xóa cache để load lại
-      cachedData = { teachers: null, classes: null, subjects: null, pagination: null, schoolYear: null };
+      invalidateCache();
       setCurrentPage(1);
-      loadTeachers(1);
+      await loadAllData(1);
     } else {
       alert('Lỗi: ' + response.message);
     }
@@ -311,12 +298,11 @@ const TeachersView = ({ currentUser, isReadOnly = false, schoolYear }) => {
   };
 
   const handleRefresh = () => {
-    // Xóa cache và load lại
-    cachedData = { teachers: null, classes: null, subjects: null, pagination: null, schoolYear: null };
-    loadAllData();
+    invalidateCache();
+    loadAllData(currentPage);
   };
 
-  // Hiển thị loader chỉ khi loading lần đầu và chưa có data
+  // ✅ Hiển thị cached data ngay lập tức
   if (isLoadingData && teachers.length === 0) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -372,7 +358,14 @@ const TeachersView = ({ currentUser, isReadOnly = false, schoolYear }) => {
         subjects={subjects}
       />
 
-      <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+      <div className="bg-white rounded-xl shadow-lg overflow-hidden relative">
+        {/* ✅ Loading indicator nhỏ khi đang load nhưng đã có data */}
+        {isLoadingData && teachers.length > 0 && (
+          <div className="absolute top-2 right-2 z-10">
+            <Loader className="animate-spin text-blue-600" size={20} />
+          </div>
+        )}
+        
         <TeacherTable
           teachers={teachers}
           classes={classes}

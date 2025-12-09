@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Eye, Loader } from 'lucide-react';
 import { useWeeks } from '../../hooks/useWeek';
 import { WeekForm } from './WeekForm';
@@ -7,49 +7,42 @@ import Pagination from '../Classes/Pagination';
 
 const MAX_WEEKS = 35;
 
-// Cache data ở ngoài component
-let cachedData = {
-  weeks: null,
-  pagination: null,
-  totalWeeks: null,
-  schoolYear: null
-};
+// ✅ Cache tối ưu với Map
+const cache = new Map();
+
+const getCacheKey = (schoolYear, page) => `weeks_${schoolYear || 'current'}_page${page}`;
 
 const WeeksView = ({ currentUser, schoolYear, isReadOnly = false }) => {
-  // Khởi tạo từ cache nếu có
-  const [weeks, setWeeks] = useState(
-    cachedData.schoolYear === schoolYear && cachedData.weeks ? cachedData.weeks : []
-  );
-  const [pagination, setPagination] = useState(
-    cachedData.schoolYear === schoolYear && cachedData.pagination ? cachedData.pagination : null
-  );
-  const [totalWeeks, setTotalWeeks] = useState(
-    cachedData.schoolYear === schoolYear && cachedData.totalWeeks ? cachedData.totalWeeks : 0
-  );
-  
+  const cacheKey = getCacheKey(schoolYear, 1);
+  const cachedData = cache.get(cacheKey);
+
+  const [weeks, setWeeks] = useState(cachedData?.weeks || []);
+  const [pagination, setPagination] = useState(cachedData?.pagination || null);
+  const [totalWeeks, setTotalWeeks] = useState(cachedData?.totalWeeks || 0);
   const [isLoadingData, setIsLoadingData] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
-  const { fetchWeeks, addWeek, updateWeek, deleteWeek, error } = useWeeks();
-  const isAdmin = currentUser.role === 'admin';
   const [editingWeek, setEditingWeek] = useState(null);
   const [newWeek, setNewWeek] = useState({ startDate: '', endDate: '' });
+  
+  const { fetchWeeks, addWeek, updateWeek, deleteWeek, error } = useWeeks();
+  const isAdmin = currentUser.role === 'admin';
   const itemsPerPage = 10;
 
-  useEffect(() => {
-    loadWeeks(1);
-  }, [schoolYear]);
-
-  const loadWeeks = async (page = currentPage) => {
-    // Nếu có cache thì không load
-    if (cachedData.schoolYear === schoolYear && cachedData.weeks && page === 1) {
+  // ✅ Load weeks với cache
+  const loadWeeks = useCallback(async (page = currentPage) => {
+    const key = getCacheKey(schoolYear, page);
+    
+    // Nếu có cache thì dùng luôn
+    if (cache.has(key)) {
+      const cached = cache.get(key);
+      setWeeks(cached.weeks);
+      setPagination(cached.pagination);
+      setTotalWeeks(cached.totalWeeks);
+      setCurrentPage(page);
       return;
     }
-
-    // Nếu có cache thì không hiển thị loading
-    if (!cachedData.weeks) {
-      setIsLoadingData(true);
-    }
     
+    setIsLoadingData(true);
     try {
       const result = await fetchWeeks(schoolYear, page, itemsPerPage);
       if (result.success) {
@@ -59,12 +52,11 @@ const WeeksView = ({ currentUser, schoolYear, isReadOnly = false }) => {
         setCurrentPage(page);
         
         // Lưu cache
-        if (page === 1) {
-          cachedData.weeks = result.weeks;
-          cachedData.pagination = result.pagination;
-          cachedData.totalWeeks = result.pagination.totalItems;
-          cachedData.schoolYear = schoolYear;
-        }
+        cache.set(key, {
+          weeks: result.weeks,
+          pagination: result.pagination,
+          totalWeeks: result.pagination.totalItems
+        });
       } else {
         setWeeks([]);
         setPagination(null);
@@ -78,12 +70,21 @@ const WeeksView = ({ currentUser, schoolYear, isReadOnly = false }) => {
     } finally {
       setIsLoadingData(false);
     }
-  };
+  }, [schoolYear, currentPage]);
+
+  useEffect(() => {
+    loadWeeks(1);
+  }, [schoolYear]);
 
   const handlePageChange = (newPage) => {
     if (newPage >= 1 && newPage <= (pagination?.totalPages || 1)) {
       loadWeeks(newPage);
     }
+  };
+
+  // ✅ Invalidate cache sau khi thêm/sửa/xóa
+  const invalidateCache = () => {
+    cache.clear();
   };
 
   const getNextMondayWeek = (lastEndDate) => {
@@ -153,8 +154,7 @@ const WeeksView = ({ currentUser, schoolYear, isReadOnly = false }) => {
     });
 
     if (result.success) {
-      // Xóa cache để load lại
-      cachedData = { weeks: null, pagination: null, totalWeeks: null, schoolYear: null };
+      invalidateCache();
       await loadWeeks(currentPage);
       alert(`Đã thêm Tuần ${totalWeeks + 1} (${nextWeekDates.startDate} - ${nextWeekDates.endDate})!`);
     } else {
@@ -211,8 +211,7 @@ const WeeksView = ({ currentUser, schoolYear, isReadOnly = false }) => {
     });
 
     if (result.success) {
-      // Xóa cache để load lại
-      cachedData = { weeks: null, pagination: null, totalWeeks: null, schoolYear: null };
+      invalidateCache();
       await loadWeeks(currentPage);
       setNewWeek({ startDate: '', endDate: '' });
       alert(`Đã thêm tuần học thành công!`);
@@ -231,8 +230,7 @@ const WeeksView = ({ currentUser, schoolYear, isReadOnly = false }) => {
 
     const result = await deleteWeek(weekId);
     if (result.success) {
-      // Xóa cache để load lại
-      cachedData = { weeks: null, pagination: null, totalWeeks: null, schoolYear: null };
+      invalidateCache();
       
       const shouldGoToPrevPage = weeks.length === 1 && currentPage > 1;
       const newPage = shouldGoToPrevPage ? currentPage - 1 : currentPage;
@@ -277,8 +275,7 @@ const WeeksView = ({ currentUser, schoolYear, isReadOnly = false }) => {
     });
 
     if (result.success) {
-      // Xóa cache để load lại
-      cachedData = { weeks: null, pagination: null, totalWeeks: null, schoolYear: null };
+      invalidateCache();
       await loadWeeks(currentPage);
       setEditingWeek(null);
       alert('Đã cập nhật tuần học!');
@@ -287,7 +284,7 @@ const WeeksView = ({ currentUser, schoolYear, isReadOnly = false }) => {
     }
   };
 
-  // Hiển thị loader chỉ khi loading lần đầu và chưa có data
+  // ✅ Hiển thị cached data ngay lập tức
   if (isLoadingData && weeks.length === 0) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -354,7 +351,14 @@ const WeeksView = ({ currentUser, schoolYear, isReadOnly = false }) => {
         />
       )}
 
-      <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+      <div className="bg-white rounded-xl shadow-lg overflow-hidden relative">
+        {/* ✅ Loading indicator nhỏ khi đang load nhưng đã có data */}
+        {isLoadingData && weeks.length > 0 && (
+          <div className="absolute top-2 right-2 z-10">
+            <Loader className="animate-spin text-blue-600" size={20} />
+          </div>
+        )}
+        
         <WeeksTable
           weeks={weeks}
           onEdit={handleEdit}

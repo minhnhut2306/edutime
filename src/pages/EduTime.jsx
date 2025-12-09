@@ -1,4 +1,3 @@
-// src/pages/EduTime.jsx - CẬP NHẬT ĐẦY ĐỦ VỚI TOKEN POLLING
 import React, { useState, useEffect } from 'react';
 import Header from '../components/Header';
 import Sidebar from '../components/Sidebar';
@@ -41,7 +40,6 @@ const EduTime = () => {
   const [needsSchoolYearSetup, setNeedsSchoolYearSetup] = useState(false);
   const [authToken, setAuthToken] = useState(null);
   
-  // 🔥 State cho SessionExpiredModal
   const [showSessionExpiredModal, setShowSessionExpiredModal] = useState(false);
   const [sessionExpiredMessage, setSessionExpiredMessage] = useState('');
   
@@ -68,41 +66,24 @@ const EduTime = () => {
   const [teachingRecords, setTeachingRecords] = useState([]);
   const [loading, setLoading] = useState(false);
   const [loadingProgress, setLoadingProgress] = useState({ current: 0, total: 0, message: '' });
+  const [initialLoading, setInitialLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   const isReadOnly = viewingYear !== activeSchoolYear;
 
-  // 🔥 Setup callback cho SessionExpiredModal khi component mount
   useEffect(() => {
-    console.log('🔧 Setting up session expired callback...');
-    
     setSessionExpiredCallback((errorMessage) => {
-      console.log('🔥🔥🔥 CALLBACK RECEIVED!', errorMessage);
       setSessionExpiredMessage(errorMessage);
       setShowSessionExpiredModal(true);
-      console.log('🔥🔥🔥 Modal state set to TRUE');
-      
-      // ✅ DEBUG: Check state sau khi set
-      setTimeout(() => {
-        console.log('🔍 Check modal state after 100ms:', {
-          showSessionExpiredModal,
-          sessionExpiredMessage
-        });
-      }, 100);
     });
 
-    // Cleanup khi unmount
     return () => {
-      console.log('🛑 Cleaning up callback');
       setSessionExpiredCallback(null);
     };
   }, []);
 
-  // ✅ POLLING NHẸ - Chỉ kiểm tra mỗi 60 giây (thay vì 10 giây)
   useEffect(() => {
     if (!isLoggedIn || !authToken) return;
-
-    console.log('🔄 Light token polling started (every 60s)');
 
     const checkTokenValidity = async () => {
       try {
@@ -116,18 +97,12 @@ const EduTime = () => {
         });
         
       } catch (error) {
-        // Interceptor sẽ tự động trigger modal nếu là 401
-        console.log('⚠️ Token invalid');
+        // Interceptor handle
       }
     };
 
-    // Polling mỗi 60 giây (nhẹ hơn nhiều so với 10s)
     const interval = setInterval(checkTokenValidity, 60000);
-
-    return () => {
-      console.log('🛑 Token polling stopped');
-      clearInterval(interval);
-    };
+    return () => clearInterval(interval);
   }, [isLoggedIn, authToken]);
 
   useEffect(() => {
@@ -141,11 +116,11 @@ const EduTime = () => {
         setAuthToken(token);
         setIsLoggedIn(true);
       } catch (err) {
-        console.error("[useEffect] error:", err);
         localStorage.removeItem('token');
         localStorage.removeItem('user');
       }
     }
+    setInitialLoading(false);
   }, []);
 
   useEffect(() => {
@@ -173,7 +148,9 @@ const EduTime = () => {
           setNeedsTeacherSelection(true);
         }
       }
-    } catch (err) { console.error("[checkTeacherSelection] error:", err); }
+    } catch (err) {
+      console.error("[checkTeacherSelection] error:", err);
+    }
   };
 
   const checkSchoolYearSetup = async () => {
@@ -235,8 +212,16 @@ const EduTime = () => {
     try {
       let yearToUse = viewingYear;
 
-      if (!viewingYear || !activeSchoolYear) {
+      const hasCache = await loadCachedData(yearToUse);
+
+      if (!hasCache) {
         setLoading(true);
+        setLoadingProgress({ current: 0, total: 7, message: 'Đang khởi tạo...' });
+      } else {
+        setIsRefreshing(true);
+      }
+
+      if (!viewingYear || !activeSchoolYear) {
         setLoadingProgress({ current: 1, total: 7, message: 'Đang lấy thông tin năm học...' });
         const activeYearResult = await getActiveSchoolYear();
         if (activeYearResult.success && activeYearResult.schoolYear) {
@@ -252,17 +237,7 @@ const EduTime = () => {
         }
       }
 
-      const hasCache = await loadCachedData(yearToUse);
-
-      if (!hasCache) {
-        setLoading(true);
-        setLoadingProgress({ current: 0, total: 7, message: 'Đang khởi tạo...' });
-      } else {
-        setIsRefreshing(true);
-        setLoadingProgress({ current: 0, total: 7, message: 'Đang cập nhật dữ liệu...' });
-      }
-
-      setLoadingProgress({ current: 1, total: 7, message: 'Đang tải danh sách năm học...' });
+      setLoadingProgress({ current: 2, total: 7, message: 'Đang tải dữ liệu...' });
 
       const [
         yearsResult,
@@ -270,6 +245,7 @@ const EduTime = () => {
         classesResult,
         subjectsResult,
         weeksResult,
+        recordsResult,
         usersData
       ] = await Promise.allSettled([
         fetchSchoolYears(),
@@ -277,22 +253,23 @@ const EduTime = () => {
         fetchClasses(yearToUse),
         fetchSubjects(yearToUse),
         fetchWeeks(yearToUse),
+        fetchTeachingRecords(undefined, yearToUse),
         currentUser?.role === 'admin' ? StorageService.loadData('edutime_users') : Promise.resolve(null)
       ]);
 
-      setLoadingProgress({ current: 2, total: 7, message: 'Đang xử lý danh sách năm học...' });
+      setLoadingProgress({ current: 3, total: 7, message: 'Đang xử lý năm học...' });
 
       if (yearsResult.status === 'fulfilled' && yearsResult.value?.success) {
         setArchivedYears(yearsResult.value.schoolYears.map(y => y.year));
       }
 
-      setLoadingProgress({ current: 3, total: 7, message: 'Đang tải giáo viên...' });
+      setLoadingProgress({ current: 4, total: 7, message: 'Đang xử lý giáo viên...' });
 
       if (teachersResult.status === 'fulfilled' && teachersResult.value?.success) {
         setTeachers(teachersResult.value.teachers);
       }
 
-      setLoadingProgress({ current: 4, total: 7, message: 'Đang tải lớp học và môn học...' });
+      setLoadingProgress({ current: 5, total: 7, message: 'Đang xử lý lớp học và môn học...' });
 
       if (classesResult.status === 'fulfilled' && classesResult.value?.success) {
         setClasses(classesResult.value.classes);
@@ -302,42 +279,29 @@ const EduTime = () => {
         setSubjects(subjectsResult.value.subjects);
       }
 
-      setLoadingProgress({ current: 5, total: 7, message: 'Đang tải tuần học...' });
-
       if (weeksResult.status === 'fulfilled' && weeksResult.value?.success) {
         setWeeks(weeksResult.value.weeks);
+      }
+
+      setLoadingProgress({ current: 6, total: 7, message: 'Đang xử lý bản ghi tiết dạy...' });
+
+      if (recordsResult.status === 'fulfilled' && recordsResult.value?.success) {
+        setTeachingRecords(recordsResult.value.teachingRecords || []);
       }
 
       if (usersData.status === 'fulfilled' && usersData.value && currentUser?.role === 'admin') {
         setUsers(usersData.value);
       }
 
-      setLoadingProgress({ current: 6, total: 7, message: 'Đang tải bản ghi tiết dạy...' });
-
-      try {
-        const recordsResult = await fetchTeachingRecords(undefined, yearToUse);
-        if (recordsResult?.success) {
-          setTeachingRecords(recordsResult.teachingRecords || []);
-        }
-      } catch (err) {
-        console.error('Error loading teaching records:', err);
-        setTeachingRecords([]);
-      }
-
       setLoadingProgress({ current: 7, total: 7, message: 'Hoàn tất!' });
 
-      [
-        yearsResult,
-        teachersResult,
-        classesResult,
-        subjectsResult,
-        weeksResult,
-        usersData
-      ].forEach((result, index) => {
-        if (result.status === 'rejected') {
-          const apiNames = ['fetchSchoolYears', 'fetchTeachers', 'fetchClasses', 'fetchSubjects', 'fetchWeeks', 'loadUsers'];
-          console.error(`Error loading ${apiNames[index]}:`, result.reason);
-        }
+      const key = `edutime_year_${yearToUse}`;
+      await StorageService.saveData(key, {
+        teachers: teachersResult.value?.teachers || [],
+        classes: classesResult.value?.classes || [],
+        subjects: subjectsResult.value?.subjects || [],
+        weeks: weeksResult.value?.weeks || [],
+        teachingRecords: recordsResult.value?.teachingRecords || []
       });
 
       setTimeout(() => {
@@ -348,10 +312,9 @@ const EduTime = () => {
 
     } catch (error) {
       console.error('loadAllData error:', error);
-      alert('Có lỗi khi tải dữ liệu!');
       setLoading(false);
-      setLoadingProgress({ current: 0, total: 0, message: '' });
       setIsRefreshing(false);
+      setLoadingProgress({ current: 0, total: 0, message: '' });
     }
   };
 
@@ -473,6 +436,14 @@ const EduTime = () => {
     }
   };
 
+  if (initialLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
+
   if (showForgotPassword) {
     return (
       <ForgotPasswordView
@@ -591,7 +562,6 @@ const EduTime = () => {
 
   return (
     <>
-      {/* 🔥 SessionExpiredModal - Hiển thị ở đầu, trên tất cả các component */}
       <SessionExpiredModal
         show={showSessionExpiredModal}
         onClose={() => setShowSessionExpiredModal(false)}
@@ -600,7 +570,7 @@ const EduTime = () => {
 
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 relative">
         {isRefreshing && !loading && (
-          <div className="fixed top-4 right-4 z-50 bg-blue-600 text-white px-4 py-2 rounded-lg shadow-lg flex items-center gap-2 animate-pulse">
+          <div className="fixed top-4 right-4 z-50 bg-blue-600 text-white px-4 py-2 rounded-lg shadow-lg flex items-center gap-2">
             <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
             <span className="text-sm font-medium">Đang cập nhật...</span>
           </div>

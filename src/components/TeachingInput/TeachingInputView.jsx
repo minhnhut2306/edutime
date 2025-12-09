@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { Eye, Lock, Plus, Filter, Loader } from "react-feather";
 import { useTeachingRecord } from "../../hooks/useTeachingRecord";
 import { useClasses } from "../../hooks/useClasses";
@@ -12,50 +12,35 @@ import RecordsList from "./RecordsList";
 
 import { normalize, normalizeRecord } from "./../../utils/teachingUtils";
 
-// Cache data ở ngoài component
-let cachedData = {
-  teachers: null,
-  classes: null,
-  subjects: null,
-  weeks: null,
-  teachingRecords: null,
-  pagination: null,
-  schoolYear: null
+// ✅ Cache tối ưu với Map
+const cache = new Map();
+
+const getCacheKey = (schoolYear, page, filters) => {
+  const filterStr = JSON.stringify(filters);
+  return `teaching_${schoolYear || 'current'}_page${page}_${filterStr}`;
 };
 
-const TeachingInputView = ({ initialTeachingRecords = [], schoolYear, isReadOnly = false }) => {
+const TeachingInputView = ({ schoolYear, isReadOnly = false }) => {
   const { fetchTeachers } = useTeacher();
   const { fetchClasses } = useClasses();
   const { fetchSubjects } = useSubjects();
   const { fetchWeeks } = useWeeks();
   const { fetchTeachingRecords, addTeachingRecord, updateTeachingRecord, deleteTeachingRecord } = useTeachingRecord();
 
-  // Khởi tạo từ cache nếu có
-  const [teachers, setTeachers] = useState(
-    cachedData.schoolYear === schoolYear && cachedData.teachers ? cachedData.teachers : []
-  );
-  const [classes, setClasses] = useState(
-    cachedData.schoolYear === schoolYear && cachedData.classes ? cachedData.classes : []
-  );
-  const [subjects, setSubjects] = useState(
-    cachedData.schoolYear === schoolYear && cachedData.subjects ? cachedData.subjects : []
-  );
-  const [weeks, setWeeks] = useState(
-    cachedData.schoolYear === schoolYear && cachedData.weeks ? cachedData.weeks : []
-  );
-  const [teachingRecords, setTeachingRecords] = useState(
-    cachedData.schoolYear === schoolYear && cachedData.teachingRecords ? cachedData.teachingRecords : []
-  );
-  const [pagination, setPagination] = useState(
-    cachedData.schoolYear === schoolYear && cachedData.pagination ? cachedData.pagination : {
-      page: 1,
-      limit: 10,
-      total: 0,
-      totalPages: 0
-    }
-  );
+  const [teachers, setTeachers] = useState([]);
+  const [classes, setClasses] = useState([]);
+  const [subjects, setSubjects] = useState([]);
+  const [weeks, setWeeks] = useState([]);
+  const [teachingRecords, setTeachingRecords] = useState([]);
+  const [pagination, setPagination] = useState({
+    page: 1,
+    limit: 10,
+    total: 0,
+    totalPages: 0
+  });
   
   const [isLoadingData, setIsLoadingData] = useState(false);
+  const [isLoadingRecords, setIsLoadingRecords] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [selectedWeekId, setSelectedWeekId] = useState("");
@@ -84,16 +69,38 @@ const TeachingInputView = ({ initialTeachingRecords = [], schoolYear, isReadOnly
   const currentUser = parsedUser || { role: "user" };
   const isAdmin = currentUser.role === "admin";
 
+  // ✅ Load initial data (teachers, classes, subjects, weeks)
   useEffect(() => {
-    (async () => {
-      // Nếu có cache thì không load
-      if (cachedData.schoolYear === schoolYear && cachedData.teachers && cachedData.classes && cachedData.subjects && cachedData.weeks) {
+    const loadInitialData = async () => {
+      const baseCacheKey = `initial_data_${schoolYear}`;
+      
+      // Check cache
+      if (cache.has(baseCacheKey)) {
+        const cached = cache.get(baseCacheKey);
+        setTeachers(cached.teachers);
+        setClasses(cached.classes);
+        setSubjects(cached.subjects);
+        setWeeks(cached.weeks);
+        
+        // ✅ Set teacher ID from cache
+        if (!isAdmin && cached.selectedTeacherId) {
+          setSelectedTeacherId(cached.selectedTeacherId);
+          setFormTeacherId(cached.selectedTeacherId);
+        }
         return;
       }
 
       setIsLoadingData(true);
       try {
-        const tRes = await fetchTeachers();
+        // Load all data in parallel
+        const [tRes, cRes, sRes, wRes] = await Promise.all([
+          fetchTeachers(),
+          fetchClasses(),
+          fetchSubjects(),
+          fetchWeeks()
+        ]);
+
+        // Process teachers
         const rawTeachers = tRes.success ? (tRes.teachers || (tRes.data && tRes.data.teachers) || []) : [];
         const normTeachers = normalize(rawTeachers);
         const normalizedTeachers = normTeachers.map((t) => {
@@ -103,8 +110,9 @@ const TeachingInputView = ({ initialTeachingRecords = [], schoolYear, isReadOnly
           return { ...t, subjectIds: sids };
         });
         setTeachers(normalizedTeachers);
-        cachedData.teachers = normalizedTeachers;
 
+        // ✅ Find linked teacher for non-admin
+        let linkedTeacherId = "";
         if (!isAdmin) {
           const matched = normalizedTeachers.find((tt) => {
             if (!tt.userId) return false;
@@ -118,69 +126,86 @@ const TeachingInputView = ({ initialTeachingRecords = [], schoolYear, isReadOnly
             );
           });
           if (matched) {
+            linkedTeacherId = matched.id;
             setSelectedTeacherId(matched.id);
             setFormTeacherId(matched.id);
           }
         }
-      } catch (err) {
-        setTeachers([]);
-      }
 
-      try {
-        const cRes = await fetchClasses();
+        // Process classes
         const rawClasses = cRes.success ? (cRes.classes || (cRes.data && cRes.data.classes) || []) : [];
         const normalizedClasses = normalize(rawClasses);
         setClasses(normalizedClasses);
-        cachedData.classes = normalizedClasses;
-      } catch {
-        setClasses([]);
-      }
 
-      try {
-        const sRes = await fetchSubjects();
+        // Process subjects
         const rawSubjects = sRes.success ? (sRes.subjects || (sRes.data && sRes.data.subjects) || []) : [];
         const normalizedSubjects = normalize(rawSubjects);
         setSubjects(normalizedSubjects);
-        cachedData.subjects = normalizedSubjects;
-      } catch {
-        setSubjects([]);
-      }
 
-      try {
-        const wRes = await fetchWeeks();
+        // Process weeks
         const rawWeeks = wRes.success ? (wRes.weeks || (wRes.data && wRes.data.weeks) || []) : [];
         const normalizedWeeks = normalize(rawWeeks);
         setWeeks(normalizedWeeks);
-        cachedData.weeks = normalizedWeeks;
-      } catch {
-        setWeeks([]);
-      }
 
-      cachedData.schoolYear = schoolYear;
-      setIsLoadingData(false);
-    })();
+        // ✅ Cache all data including selectedTeacherId
+        cache.set(baseCacheKey, {
+          teachers: normalizedTeachers,
+          classes: normalizedClasses,
+          subjects: normalizedSubjects,
+          weeks: normalizedWeeks,
+          selectedTeacherId: linkedTeacherId
+        });
+
+      } catch (err) {
+        console.error("Error loading initial data:", err);
+        setTeachers([]);
+        setClasses([]);
+        setSubjects([]);
+        setWeeks([]);
+      } finally {
+        setIsLoadingData(false);
+      }
+    };
+
+    loadInitialData();
   }, [schoolYear]);
 
-  const loadTeachingRecords = async (page = 1) => {
-    // Nếu có cache thì không hiển thị loading
-    if (!cachedData.teachingRecords) {
-      setIsLoadingData(true);
-    }
+  // ✅ Load teaching records with cache
+  const loadTeachingRecords = useCallback(async (page = 1) => {
+    const filters = {
+      quickFilterMode,
+      weekId: quickFilterMode === "week" ? selectedWeekId : "",
+      classId: quickFilterMode === "class" ? selectedClassId : "",
+      subjectId: quickFilterMode === "subject" ? selectedSubjectId : "",
+      recordType: quickFilterMode === "recordType" ? recordType : ""
+    };
+
+    const cacheKey = getCacheKey(schoolYear, page, filters);
     
+    // Check cache
+    if (cache.has(cacheKey)) {
+      const cached = cache.get(cacheKey);
+      setTeachingRecords(cached.records);
+      setPagination(cached.pagination);
+      return;
+    }
+
+    setIsLoadingRecords(true);
     try {
       const teacherIdToFetch = isAdmin ? (selectedTeacherId || undefined) : selectedTeacherId || undefined;
-      const filters = {};
+      const apiFilters = {};
+      
       if (quickFilterMode === "week" && selectedWeekId) {
-        filters.weekId = selectedWeekId;
+        apiFilters.weekId = selectedWeekId;
       }
       if (quickFilterMode === "class" && selectedClassId) {
-        filters.classId = selectedClassId;
+        apiFilters.classId = selectedClassId;
       }
       if (quickFilterMode === "subject" && selectedSubjectId) {
-        filters.subjectId = selectedSubjectId;
+        apiFilters.subjectId = selectedSubjectId;
       }
       if (quickFilterMode === "recordType" && recordType) {
-        filters.recordType = recordType;
+        apiFilters.recordType = recordType;
       }
 
       const paginationParams = {
@@ -191,7 +216,7 @@ const TeachingInputView = ({ initialTeachingRecords = [], schoolYear, isReadOnly
       const res = await fetchTeachingRecords(
         teacherIdToFetch,
         schoolYear,
-        filters,
+        apiFilters,
         paginationParams
       );
 
@@ -231,9 +256,12 @@ const TeachingInputView = ({ initialTeachingRecords = [], schoolYear, isReadOnly
       setTeachingRecords(norm);
       setPagination(paginationData);
       
-      // Lưu cache
-      cachedData.teachingRecords = norm;
-      cachedData.pagination = paginationData;
+      // Cache records
+      cache.set(cacheKey, {
+        records: norm,
+        pagination: paginationData
+      });
+
     } catch (err) {
       console.error("Error loading teaching records:", err);
       setTeachingRecords([]);
@@ -244,18 +272,30 @@ const TeachingInputView = ({ initialTeachingRecords = [], schoolYear, isReadOnly
         totalPages: 0
       });
     } finally {
-      setIsLoadingData(false);
+      setIsLoadingRecords(false);
     }
-  };
+  }, [selectedTeacherId, quickFilterMode, selectedWeekId, selectedClassId, selectedSubjectId, recordType, isAdmin, schoolYear, weeks, sortBy]);
 
   useEffect(() => {
     loadTeachingRecords(pagination.page);
-  }, [selectedTeacherId, quickFilterMode, selectedWeekId, selectedClassId, selectedSubjectId, recordType, isAdmin, schoolYear]);
+  }, [loadTeachingRecords]);
 
   const handlePageChange = (newPage) => {
     if (newPage < 1 || newPage > pagination.totalPages) return;
     setPagination(prev => ({ ...prev, page: newPage }));
     loadTeachingRecords(newPage);
+  };
+
+  // ✅ Invalidate only teaching records cache, keep initial data cache
+  const invalidateRecordsCache = () => {
+    // Only clear teaching records cache, not initial data
+    const keysToDelete = [];
+    cache.forEach((value, key) => {
+      if (key.startsWith('teaching_')) {
+        keysToDelete.push(key);
+      }
+    });
+    keysToDelete.forEach(key => cache.delete(key));
   };
 
   useEffect(() => {
@@ -333,9 +373,7 @@ const TeachingInputView = ({ initialTeachingRecords = [], schoolYear, isReadOnly
 
     const res = await updateTeachingRecord(editingRecordId, payload);
     if (res.success) {
-      // Xóa cache để load lại
-      cachedData.teachingRecords = null;
-      cachedData.pagination = null;
+      invalidateRecordsCache();
       await loadTeachingRecords(pagination.page);
       resetForm(!isAdmin);
       alert("Đã cập nhật bản ghi!");
@@ -387,10 +425,9 @@ const TeachingInputView = ({ initialTeachingRecords = [], schoolYear, isReadOnly
 
     const res = await addTeachingRecord(payload);
     if (res.success) {
-      // Xóa cache để load lại
-      cachedData.teachingRecords = null;
-      cachedData.pagination = null;
+      invalidateRecordsCache();
       await loadTeachingRecords(1);
+      resetForm(!isAdmin); // ✅ Keep teacher ID for non-admin
       alert("Đã thêm bản ghi!");
     } else {
       alert(res.message || "Thêm bản ghi thất bại");
@@ -407,9 +444,7 @@ const TeachingInputView = ({ initialTeachingRecords = [], schoolYear, isReadOnly
     if (!confirm("Xác nhận xóa bản ghi này?")) return;
     const res = await deleteTeachingRecord(recordId);
     if (res.success) {
-      // Xóa cache để load lại
-      cachedData.teachingRecords = null;
-      cachedData.pagination = null;
+      invalidateRecordsCache();
       await loadTeachingRecords(pagination.page);
       alert("Đã xóa bản ghi!");
     } else {
@@ -449,6 +484,18 @@ const TeachingInputView = ({ initialTeachingRecords = [], schoolYear, isReadOnly
     return Array.from(groups.entries()).map(([id, v]) => ({ id, label: v.label, items: v.items }));
   };
 
+  // ✅ Show loading when initial data is loading
+  if (isLoadingData) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="flex flex-col items-center gap-4">
+          <Loader className="animate-spin text-blue-600" size={48} />
+          <p className="text-gray-600 font-medium">Đang tải dữ liệu...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4">
       {/* Header */}
@@ -481,7 +528,6 @@ const TeachingInputView = ({ initialTeachingRecords = [], schoolYear, isReadOnly
               onClick={() => {
                 if (showFilters) {
                   setQuickFilterMode("all");
-                  setSelectedTeacherId(isAdmin ? "" : selectedTeacherId);
                   setSelectedWeekId("");
                   setSelectedClassId("");
                   setSelectedSubjectId("");
@@ -528,6 +574,7 @@ const TeachingInputView = ({ initialTeachingRecords = [], schoolYear, isReadOnly
         </div>
       )}
 
+      {/* ✅ FIX: Only show warning if NOT admin AND no selectedTeacherId */}
       {!isAdmin && !selectedTeacherId && (
         <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-lg">
           <p className="text-yellow-800">Tài khoản của bạn chưa được liên kết với giáo viên. Vui lòng liên hệ Admin!</p>
@@ -579,8 +626,8 @@ const TeachingInputView = ({ initialTeachingRecords = [], schoolYear, isReadOnly
             weeks={weeks}
             availableClasses={availableClasses}
             subjects={subjects}
-            selectedTeacherId={selectedTeacherId}
-            setSelectedTeacherId={setSelectedTeacherId}
+            selectedTeacherId={isAdmin ? selectedTeacherId : ""}
+            setSelectedTeacherId={isAdmin ? setSelectedTeacherId : undefined}
             selectedWeekId={selectedWeekId}
             setSelectedWeekId={setSelectedWeekId}
             selectedClassId={selectedClassId}
@@ -593,32 +640,40 @@ const TeachingInputView = ({ initialTeachingRecords = [], schoolYear, isReadOnly
         </div>
       )}
 
-      {/* Loading cho bảng */}
-      {isLoadingData && teachingRecords.length === 0 ? (
-        <div className="bg-white rounded-xl shadow-lg p-16 flex items-center justify-center">
-          <div className="flex flex-col items-center gap-4">
-            <Loader className="animate-spin text-blue-600" size={48} />
-            <p className="text-gray-600 font-medium">Đang tải dữ liệu...</p>
+      {/* ✅ Loading indicator nhỏ khi load records */}
+      <div className="relative">
+        {isLoadingRecords && teachingRecords.length > 0 && (
+          <div className="absolute top-2 right-2 z-10">
+            <Loader className="animate-spin text-blue-600" size={20} />
           </div>
-        </div>
-      ) : (
-        <RecordsList
-          records={teachingRecords}
-          pagination={pagination}
-          groupBy={groupBy}
-          groupRecordsFn={groupRecords}
-          weeks={weeks}
-          teachers={teachers}
-          classes={classes}
-          subjects={subjects}
-          isAdmin={isAdmin}
-          isReadOnly={isReadOnly}
-          selectedTeacherId={selectedTeacherId}
-          onEdit={startEdit}
-          onDelete={handleDelete}
-          onPageChange={handlePageChange}
-        />
-      )}
+        )}
+        
+        {isLoadingRecords && teachingRecords.length === 0 ? (
+          <div className="bg-white rounded-xl shadow-lg p-16 flex items-center justify-center">
+            <div className="flex flex-col items-center gap-4">
+              <Loader className="animate-spin text-blue-600" size={48} />
+              <p className="text-gray-600 font-medium">Đang tải dữ liệu...</p>
+            </div>
+          </div>
+        ) : (
+          <RecordsList
+            records={teachingRecords}
+            pagination={pagination}
+            groupBy={groupBy}
+            groupRecordsFn={groupRecords}
+            weeks={weeks}
+            teachers={teachers}
+            classes={classes}
+            subjects={subjects}
+            isAdmin={isAdmin}
+            isReadOnly={isReadOnly}
+            selectedTeacherId={selectedTeacherId}
+            onEdit={startEdit}
+            onDelete={handleDelete}
+            onPageChange={handlePageChange}
+          />
+        )}
+      </div>
     </div>
   );
 };

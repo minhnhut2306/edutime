@@ -267,19 +267,6 @@ const ReportView = ({ teachers = [], teachingRecords: initialRecords = [], weeks
         </div>
       )}
 
-      {!isAdmin && linkedTeacher && (
-        <div className="bg-blue-50 border-l-4 border-blue-400 p-4 rounded-lg">
-          <div className="flex items-center gap-2">
-            <Download size={20} className="text-blue-600" />
-            <div>
-              <p className="font-medium text-blue-900">Xuất báo cáo cá nhân</p>
-              <p className="text-sm text-blue-700 mt-1">
-                Bạn chỉ có thể xuất báo cáo của riêng mình. Chọn loại báo cáo và thông số bên dưới, sau đó nhấn "Xuất Excel".
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
 
       {isAdmin ? (
         <AdminExportSettings
