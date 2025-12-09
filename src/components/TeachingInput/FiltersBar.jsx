@@ -19,6 +19,7 @@ const FiltersBar = ({
   setSelectedSubjectId,
   recordType = "teaching",
   setRecordType,
+  isAdmin = false, // ✅ Thêm prop isAdmin
 }) => {
   return (
     <div className="bg-white rounded-xl shadow-lg p-4 flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
@@ -26,7 +27,8 @@ const FiltersBar = ({
         <label className="text-sm font-medium text-gray-700">Lọc theo</label>
         <select value={groupBy} onChange={(e) => setGroupBy(e.target.value)} className="px-3 py-2 border rounded-lg">
           <option value="none">Không nhóm (Danh sách)</option>
-          <option value="teacher">Theo giáo viên</option>
+          {/* ✅ Chỉ hiển thị "Theo giáo viên" cho admin */}
+          {isAdmin && <option value="teacher">Theo giáo viên</option>}
           <option value="week">Theo tuần</option>
           <option value="class">Theo lớp</option>
           <option value="recordType">Theo loại tiết</option>
@@ -47,7 +49,8 @@ const FiltersBar = ({
           className="px-3 py-2 border rounded-lg"
         >
           <option value="all">Hiển thị tất cả</option>
-          <option value="teacher">Lọc theo GV</option>
+          {/* ✅ Chỉ hiển thị "Lọc theo GV" cho admin */}
+          {isAdmin && <option value="teacher">Lọc theo GV</option>}
           <option value="week">Lọc theo Tuần</option>
           <option value="class">Lọc theo Lớp</option>
           <option value="recordType">Lọc theo Loại tiết</option>
@@ -56,7 +59,8 @@ const FiltersBar = ({
       </div>
 
       <div className="flex items-center gap-3 w-full md:w-auto">
-        {quickFilterMode === "teacher" && (
+        {/* ✅ Chỉ hiển thị dropdown giáo viên cho admin */}
+        {isAdmin && quickFilterMode === "teacher" && (
           <select
             value={selectedTeacherId}
             onChange={(e) => setSelectedTeacherId && setSelectedTeacherId(e.target.value)}

@@ -12,7 +12,6 @@ import RecordsList from "./RecordsList";
 
 import { normalize, normalizeRecord } from "./../../utils/teachingUtils";
 
-// ✅ Cache tối ưu với Map
 const cache = new Map();
 
 const getCacheKey = (schoolYear, page, filters) => {
@@ -69,12 +68,10 @@ const TeachingInputView = ({ schoolYear, isReadOnly = false }) => {
   const currentUser = parsedUser || { role: "user" };
   const isAdmin = currentUser.role === "admin";
 
-  // ✅ Load initial data (teachers, classes, subjects, weeks)
   useEffect(() => {
     const loadInitialData = async () => {
       const baseCacheKey = `initial_data_${schoolYear}`;
       
-      // Check cache
       if (cache.has(baseCacheKey)) {
         const cached = cache.get(baseCacheKey);
         setTeachers(cached.teachers);
@@ -82,7 +79,6 @@ const TeachingInputView = ({ schoolYear, isReadOnly = false }) => {
         setSubjects(cached.subjects);
         setWeeks(cached.weeks);
         
-        // ✅ Set teacher ID from cache
         if (!isAdmin && cached.selectedTeacherId) {
           setSelectedTeacherId(cached.selectedTeacherId);
           setFormTeacherId(cached.selectedTeacherId);
@@ -92,7 +88,6 @@ const TeachingInputView = ({ schoolYear, isReadOnly = false }) => {
 
       setIsLoadingData(true);
       try {
-        // Load all data in parallel
         const [tRes, cRes, sRes, wRes] = await Promise.all([
           fetchTeachers(),
           fetchClasses(),
@@ -100,7 +95,6 @@ const TeachingInputView = ({ schoolYear, isReadOnly = false }) => {
           fetchWeeks()
         ]);
 
-        // Process teachers
         const rawTeachers = tRes.success ? (tRes.teachers || (tRes.data && tRes.data.teachers) || []) : [];
         const normTeachers = normalize(rawTeachers);
         const normalizedTeachers = normTeachers.map((t) => {
@@ -111,7 +105,6 @@ const TeachingInputView = ({ schoolYear, isReadOnly = false }) => {
         });
         setTeachers(normalizedTeachers);
 
-        // ✅ Find linked teacher for non-admin
         let linkedTeacherId = "";
         if (!isAdmin) {
           const matched = normalizedTeachers.find((tt) => {
@@ -132,22 +125,18 @@ const TeachingInputView = ({ schoolYear, isReadOnly = false }) => {
           }
         }
 
-        // Process classes
         const rawClasses = cRes.success ? (cRes.classes || (cRes.data && cRes.data.classes) || []) : [];
         const normalizedClasses = normalize(rawClasses);
         setClasses(normalizedClasses);
 
-        // Process subjects
         const rawSubjects = sRes.success ? (sRes.subjects || (sRes.data && sRes.data.subjects) || []) : [];
         const normalizedSubjects = normalize(rawSubjects);
         setSubjects(normalizedSubjects);
 
-        // Process weeks
         const rawWeeks = wRes.success ? (wRes.weeks || (wRes.data && wRes.data.weeks) || []) : [];
         const normalizedWeeks = normalize(rawWeeks);
         setWeeks(normalizedWeeks);
 
-        // ✅ Cache all data including selectedTeacherId
         cache.set(baseCacheKey, {
           teachers: normalizedTeachers,
           classes: normalizedClasses,
@@ -170,19 +159,20 @@ const TeachingInputView = ({ schoolYear, isReadOnly = false }) => {
     loadInitialData();
   }, [schoolYear]);
 
-  // ✅ Load teaching records with cache
+  // ✅ FIX: Load teaching records với logic đúng cho admin filter
   const loadTeachingRecords = useCallback(async (page = 1) => {
     const filters = {
       quickFilterMode,
       weekId: quickFilterMode === "week" ? selectedWeekId : "",
       classId: quickFilterMode === "class" ? selectedClassId : "",
       subjectId: quickFilterMode === "subject" ? selectedSubjectId : "",
-      recordType: quickFilterMode === "recordType" ? recordType : ""
+      recordType: quickFilterMode === "recordType" ? recordType : "",
+      // ✅ Thêm teacherId vào filter cho admin
+      teacherId: isAdmin && quickFilterMode === "teacher" ? selectedTeacherId : ""
     };
 
     const cacheKey = getCacheKey(schoolYear, page, filters);
     
-    // Check cache
     if (cache.has(cacheKey)) {
       const cached = cache.get(cacheKey);
       setTeachingRecords(cached.records);
@@ -192,7 +182,20 @@ const TeachingInputView = ({ schoolYear, isReadOnly = false }) => {
 
     setIsLoadingRecords(true);
     try {
-      const teacherIdToFetch = isAdmin ? (selectedTeacherId || undefined) : selectedTeacherId || undefined;
+      // ✅ FIX: Logic đúng cho admin và teacher
+      let teacherIdToFetch;
+      if (isAdmin) {
+        // Admin: nếu đang lọc theo GV thì truyền selectedTeacherId, không thì undefined (lấy tất cả)
+        if (quickFilterMode === "teacher" && selectedTeacherId) {
+          teacherIdToFetch = selectedTeacherId;
+        } else {
+          teacherIdToFetch = undefined;
+        }
+      } else {
+        // Teacher: luôn truyền selectedTeacherId của chính họ
+        teacherIdToFetch = selectedTeacherId || undefined;
+      }
+
       const apiFilters = {};
       
       if (quickFilterMode === "week" && selectedWeekId) {
@@ -256,7 +259,6 @@ const TeachingInputView = ({ schoolYear, isReadOnly = false }) => {
       setTeachingRecords(norm);
       setPagination(paginationData);
       
-      // Cache records
       cache.set(cacheKey, {
         records: norm,
         pagination: paginationData
@@ -286,9 +288,7 @@ const TeachingInputView = ({ schoolYear, isReadOnly = false }) => {
     loadTeachingRecords(newPage);
   };
 
-  // ✅ Invalidate only teaching records cache, keep initial data cache
   const invalidateRecordsCache = () => {
-    // Only clear teaching records cache, not initial data
     const keysToDelete = [];
     cache.forEach((value, key) => {
       if (key.startsWith('teaching_')) {
@@ -427,7 +427,7 @@ const TeachingInputView = ({ schoolYear, isReadOnly = false }) => {
     if (res.success) {
       invalidateRecordsCache();
       await loadTeachingRecords(1);
-      resetForm(!isAdmin); // ✅ Keep teacher ID for non-admin
+      resetForm(!isAdmin);
       alert("Đã thêm bản ghi!");
     } else {
       alert(res.message || "Thêm bản ghi thất bại");
@@ -484,7 +484,6 @@ const TeachingInputView = ({ schoolYear, isReadOnly = false }) => {
     return Array.from(groups.entries()).map(([id, v]) => ({ id, label: v.label, items: v.items }));
   };
 
-  // ✅ Show loading when initial data is loading
   if (isLoadingData) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -498,7 +497,6 @@ const TeachingInputView = ({ schoolYear, isReadOnly = false }) => {
 
   return (
     <div className="space-y-4">
-      {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-2xl font-bold flex items-center gap-3">
           Nhập tiết dạy
@@ -548,7 +546,6 @@ const TeachingInputView = ({ schoolYear, isReadOnly = false }) => {
         )}
       </div>
 
-      {/* Banners */}
       {isReadOnly && (
         <div className="bg-orange-50 border-l-4 border-orange-400 p-4 rounded-lg">
           <div className="flex items-center gap-2">
@@ -574,14 +571,12 @@ const TeachingInputView = ({ schoolYear, isReadOnly = false }) => {
         </div>
       )}
 
-      {/* ✅ FIX: Only show warning if NOT admin AND no selectedTeacherId */}
       {!isAdmin && !selectedTeacherId && (
         <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-lg">
           <p className="text-yellow-800">Tài khoản của bạn chưa được liên kết với giáo viên. Vui lòng liên hệ Admin!</p>
         </div>
       )}
 
-      {/* Form */}
       {!isReadOnly && showForm && (
         <div className="animate-slideIn">
           <TeachingForm
@@ -636,11 +631,12 @@ const TeachingInputView = ({ schoolYear, isReadOnly = false }) => {
             setSelectedSubjectId={setSelectedSubjectId}
             recordType={recordType}
             setRecordType={setRecordType}
+            // ✅ Thêm prop để ẩn option lọc GV cho teacher
+            isAdmin={isAdmin}
           />
         </div>
       )}
 
-      {/* ✅ Loading indicator nhỏ khi load records */}
       <div className="relative">
         {isLoadingRecords && teachingRecords.length > 0 && (
           <div className="absolute top-2 right-2 z-10">
