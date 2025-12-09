@@ -1,6 +1,5 @@
 import axios from "axios";
 
-// const API_URL = "http://localhost:5000/api/";
 const API_URL = "https://edutime-server.vercel.app/api/";
 
 export const api = axios.create({
@@ -11,18 +10,14 @@ export const api = axios.create({
   timeout: 30000,
 });
 
-// ✅ Biến global để trigger modal với error message
 let sessionExpiredCallback = null;
-let sessionExpiredTriggered = false; // ✅ Flag tránh trigger nhiều lần
+let sessionExpiredTriggered = false;
 
-// ✅ Export function để set callback
 export const setSessionExpiredCallback = (callback) => {
   sessionExpiredCallback = callback;
-  sessionExpiredTriggered = false; // ✅ Reset flag khi set callback mới
-  console.log('✅ Session expired callback registered');
+  sessionExpiredTriggered = false;
 };
 
-// Request interceptor - ✅ KIỂM TRA TOKEN TRƯỚC KHI GỌI API
 api.interceptors.request.use(
   async (config) => {
     const token = localStorage.getItem('token');
@@ -31,7 +26,6 @@ api.interceptors.request.use(
       config.headers.Authorization = `Bearer ${token}`;
     }
     
-    // ✅ BỎ QUA việc verify token cho các endpoint không cần auth
     const skipVerify = [
       '/auth/login',
       '/auth/register',
@@ -40,18 +34,14 @@ api.interceptors.request.use(
       '/auth/reset-password'
     ].some(path => config.url?.includes(path));
     
-    // ✅ KIỂM TRA TOKEN TRƯỚC MỖI REQUEST (trừ các endpoint public)
     if (token && !skipVerify && !config._skipTokenVerify) {
       try {
-        // Gọi API verify token (thêm flag để tránh loop vô hạn)
         await api.post('/auth/token/verify', {}, {
           headers: { Authorization: `Bearer ${token}` },
-          _skipTokenVerify: true // Flag để tránh verify chính nó
+          _skipTokenVerify: true
         });
       } catch (error) {
-        console.log('⚠️ Token pre-check failed:', error.message);
-        // Nếu token không hợp lệ, interceptor response sẽ handle
-        console.log('⚠️ Token pre-check failed, continuing with request...');
+        console.log('Token pre-check failed:', error.message);
       }
     }
     
@@ -63,7 +53,6 @@ api.interceptors.request.use(
   }
 );
 
-// ✅ Response interceptor - Xử lý phiên hết hạn
 api.interceptors.response.use(
   (response) => {
     return response;
@@ -72,30 +61,23 @@ api.interceptors.response.use(
     if (error.response) {
       const { status, data } = error.response;
       
-      console.error(`🔥 API Error [${status}]:`, data?.msg || error.message);
+      console.error(`API Error [${status}]:`, data?.msg || error.message);
       
-      // ✅ Kiểm tra nếu là lỗi 401 HOẶC 500 với message "Phiên đăng nhập đã hết hạn"
       if (status === 401 || status === 500) {
         const errorMessage = data?.msg || '';
         
-        console.log('🔍 Error Message:', errorMessage);
+        console.log('Error Message:', errorMessage);
         
-        // ✅ Chỉ trigger 1 lần duy nhất
         if (errorMessage.includes('Phiên đăng nhập đã hết hạn') && !sessionExpiredTriggered) {
-          sessionExpiredTriggered = true; // ✅ Đánh dấu đã trigger
+          sessionExpiredTriggered = true;
           
-          console.warn("🔥 TRIGGER SESSION EXPIRED MODAL");
-          
-          // Xóa token và user
           localStorage.removeItem('token');
           localStorage.removeItem('user');
           
-          // ✅ Trigger modal thông qua callback với error message đầy đủ
           if (sessionExpiredCallback) {
             sessionExpiredCallback(errorMessage);
           } else {
-            // Fallback nếu chưa setup callback
-            console.error('⚠️ sessionExpiredCallback not set!');
+            console.error('sessionExpiredCallback not set!');
             alert(`${errorMessage}`);
             window.location.reload();
           }
